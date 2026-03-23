@@ -21,6 +21,7 @@ from app.schemas.scan import (
     ScanTrendResponse,
 )
 from app.services.scoring_service import calculate_quick_scan_result
+from app.routers.license import router as license_router
 
 
 @asynccontextmanager
@@ -39,6 +40,7 @@ app = FastAPI(
 app.include_router(admin_router)
 app.include_router(analytics_router)
 app.include_router(scans_router)
+app.include_router(license_router)
 
 
 class TenantRegisterRequest(BaseModel):

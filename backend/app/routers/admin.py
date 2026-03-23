@@ -3,8 +3,8 @@ import secrets
 from html import escape
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy import func, select
 
@@ -13,6 +13,9 @@ from app.models import Scan, Tenant
 
 router = APIRouter(tags=["admin"])
 security = HTTPBasic()
+
+ALLOWED_PLANS = {"free", "standard", "premium"}
+ALLOWED_LICENSE_STATUSES = {"trial", "active", "expired", "blocked"}
 
 
 def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
@@ -56,6 +59,11 @@ def _badge(text: str, kind: str) -> str:
         f'<span style="display:inline-block;padding:4px 10px;border-radius:999px;'
         f'background:{color};color:white;font-size:12px;font-weight:600;">{escape(text or kind)}</span>'
     )
+
+
+def _select_option(value: str, current: str) -> str:
+    selected = ' selected="selected"' if value == current else ""
+    return f'<option value="{escape(value)}"{selected}>{escape(value.title())}</option>'
 
 
 @router.get("/admin/tenants", response_class=HTMLResponse)
@@ -172,6 +180,9 @@ def admin_tenant_detail(tenant_id: str, _: str = Depends(require_admin)) -> HTML
             .limit(1)
         )
 
+    current_plan = tenant.current_plan or "free"
+    current_license_status = tenant.license_status or "trial"
+
     html = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -185,15 +196,15 @@ def admin_tenant_detail(tenant_id: str, _: str = Depends(require_admin)) -> HTML
             <p style="margin:0 0 16px 0;"><a href="/admin/tenants" style="color:#2563eb;text-decoration:none;">← Back to tenants</a></p>
             <h1 style="margin:0 0 24px 0;">Tenant Detail</h1>
 
-            <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:24px;">
+            <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:24px;margin-bottom:24px;">
                 <div style="display:grid;grid-template-columns:220px 1fr;gap:12px;font-size:14px;">
                     <div style="color:#475569;">Tenant ID</div><div>{escape(tenant.tenant_id)}</div>
                     <div style="color:#475569;">Environment</div><div>{escape(tenant.environment_name or "—")}</div>
                     <div style="color:#475569;">App Version</div><div>{escape(tenant.app_version or "—")}</div>
                     <div style="color:#475569;">Created At</div><div>{_fmt_dt(tenant.created_at_utc)}</div>
                     <div style="color:#475569;">Last Seen</div><div>{_fmt_dt(tenant.last_seen_at_utc)}</div>
-                    <div style="color:#475569;">Plan</div><div>{_badge(tenant.current_plan or "free", "plan")}</div>
-                    <div style="color:#475569;">License Status</div><div>{_badge(tenant.license_status or "trial", "status")}</div>
+                    <div style="color:#475569;">Plan</div><div>{_badge(current_plan, "plan")}</div>
+                    <div style="color:#475569;">License Status</div><div>{_badge(current_license_status, "status")}</div>
                     <div style="color:#475569;">Scan Count</div><div>{scan_count}</div>
                     <div style="color:#475569;">Last Scan ID</div><div>{escape(last_scan.scan_id) if last_scan else "—"}</div>
                     <div style="color:#475569;">Last Scan Type</div><div>{escape(last_scan.scan_type) if last_scan else "—"}</div>
@@ -202,8 +213,69 @@ def admin_tenant_detail(tenant_id: str, _: str = Depends(require_admin)) -> HTML
                     <div style="color:#475569;">Last Issues</div><div>{str(last_scan.issues_count) if last_scan else "—"}</div>
                 </div>
             </div>
+
+            <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:24px;">
+                <h2 style="margin:0 0 16px 0;font-size:20px;">License Management</h2>
+                <form method="post" action="/admin/tenants/{escape(tenant_id)}/license">
+                    <div style="display:grid;grid-template-columns:180px 1fr;gap:12px;align-items:center;font-size:14px;max-width:700px;">
+                        <label for="plan" style="color:#475569;">Plan</label>
+                        <select id="plan" name="plan" style="padding:10px;border:1px solid #cbd5e1;border-radius:10px;">
+                            {_select_option("free", current_plan)}
+                            {_select_option("standard", current_plan)}
+                            {_select_option("premium", current_plan)}
+                        </select>
+
+                        <label for="license_status" style="color:#475569;">License Status</label>
+                        <select id="license_status" name="license_status" style="padding:10px;border:1px solid #cbd5e1;border-radius:10px;">
+                            {_select_option("trial", current_license_status)}
+                            {_select_option("active", current_license_status)}
+                            {_select_option("expired", current_license_status)}
+                            {_select_option("blocked", current_license_status)}
+                        </select>
+                    </div>
+
+                    <div style="margin-top:20px;">
+                        <button type="submit" style="background:#2563eb;color:white;border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:600;">
+                            Save License
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </body>
     </html>
     """
     return HTMLResponse(content=html)
+
+
+@router.post("/admin/tenants/{tenant_id}/license")
+def update_tenant_license(
+    tenant_id: str,
+    plan: str = Form(...),
+    license_status: str = Form(...),
+    _: str = Depends(require_admin),
+):
+    normalized_plan = (plan or "").strip().lower()
+    normalized_license_status = (license_status or "").strip().lower()
+
+    if normalized_plan not in ALLOWED_PLANS:
+        raise HTTPException(status_code=400, detail="Invalid plan.")
+
+    if normalized_license_status not in ALLOWED_LICENSE_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid license status.")
+
+    with SessionLocal() as db:
+        tenant = db.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id)
+        )
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="Tenant not found.")
+
+        tenant.current_plan = normalized_plan
+        tenant.license_status = normalized_license_status
+        db.commit()
+
+    return RedirectResponse(
+        url=f"/admin/tenants/{tenant_id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
