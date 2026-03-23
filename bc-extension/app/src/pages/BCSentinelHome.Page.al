@@ -71,20 +71,31 @@ page 53110 "BCSentinel Home"
                     var
                         Setup: Record "DH Setup";
                         ApiClient: Codeunit "DH API Client";
-                        Result: Text;
+                        ResponseText: Text;
+                        ScanId: Code[50];
+                        DataScore: Integer;
+                        IssuesCount: Integer;
+                        UsedPremiumLicense: Boolean;
                     begin
                         EnsureSetup(Setup);
 
-                        ApiClient.EnsureReadyForScan(Setup);
+                        ResponseText := ApiClient.ExecuteScan(Setup, ScanId, DataScore, IssuesCount, UsedPremiumLicense);
+                        CurrPage.Update(false);
 
-                        if Setup."Premium Enabled" then begin
-                            // DeepScan später sauber anbinden
-                            Result := ApiClient.RunQuickScan(Setup);
-                            Message('BCSentinel Premium detected. DeepScan integration is the next step.\%1', Result);
-                        end else begin
-                            Result := ApiClient.RunQuickScan(Setup);
-                            Message('Quick Scan completed.\%1', Result);
-                        end;
+                        if UsedPremiumLicense then
+                            Message(
+                                'BCSentinel Premium license detected. Scan completed.\' +
+                                'Scan ID: %1\Score: %2\Issues: %3',
+                                ScanId,
+                                DataScore,
+                                IssuesCount)
+                        else
+                            Message(
+                                'BCSentinel Quick Scan completed.\' +
+                                'Scan ID: %1\Score: %2\Issues: %3',
+                                ScanId,
+                                DataScore,
+                                IssuesCount);
                     end;
                 }
 
@@ -156,6 +167,7 @@ page 53110 "BCSentinel Home"
                     begin
                         EnsureSetup(Setup);
                         ApiClient.RefreshLicenseStatus(Setup);
+                        CurrPage.Update(false);
                         Message('BCSentinel license status refreshed.');
                     end;
                 }

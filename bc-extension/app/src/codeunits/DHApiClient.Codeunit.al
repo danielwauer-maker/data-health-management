@@ -27,7 +27,7 @@ codeunit 53100 "DH API Client"
         if StatusText = '' then
             StatusText := 'ok';
 
-        Message('Backend reachable. Status: %1', StatusText);
+        Message('BCSentinel backend reachable. Status: %1', StatusText);
     end;
 
     procedure EnsureTenantRegistered(var Setup: Record "DH Setup")
@@ -163,12 +163,30 @@ codeunit 53100 "DH API Client"
             (Setup."License Status" in [Setup."License Status"::Trial, Setup."License Status"::Active]));
     end;
 
+    procedure ExecuteScan(var Setup: Record "DH Setup"; var ScanId: Code[50]; var DataScore: Integer; var IssuesCount: Integer; var UsedPremiumLicense: Boolean): Text
+    var
+        ResponseText: Text;
+        GeneratedAtUtc: DateTime;
+    begin
+        EnsureReadyForScan(Setup);
+
+        UsedPremiumLicense := Setup."Premium Enabled";
+
+        // Aktuell wird auch im Premium-Fall noch der QuickScan-Endpunkt verwendet,
+        // bis der echte DeepScan-Endpunkt angebunden ist.
+        ResponseText := RunQuickScan(Setup);
+
+        ParseScanResponse(ResponseText, ScanId, DataScore, IssuesCount, GeneratedAtUtc);
+        UpdateSetupFromScanResult(Setup, DataScore, GeneratedAtUtc);
+
+        exit(ResponseText);
+    end;
+
     procedure RunQuickScan(var Setup: Record "DH Setup"): Text
     var
         Client: HttpClient;
         Content: HttpContent;
         Headers: HttpHeaders;
-        DefaultHeaders: HttpHeaders;
         Response: HttpResponseMessage;
         RequestText: Text;
         ResponseText: Text;
@@ -269,7 +287,6 @@ codeunit 53100 "DH API Client"
         Client: HttpClient;
         Content: HttpContent;
         Headers: HttpHeaders;
-        DefaultHeaders: HttpHeaders;
         Response: HttpResponseMessage;
         ResponseText: Text;
     begin
@@ -315,6 +332,52 @@ codeunit 53100 "DH API Client"
 
         if not Response.IsSuccessStatusCode() then
             Error('Backend scan delete failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
+    end;
+
+    procedure ParseScanResponse(ResponseText: Text; var ScanId: Code[50]; var DataScore: Integer; var IssuesCount: Integer; var GeneratedAtUtc: DateTime)
+    var
+        JsonResponse: JsonObject;
+        Token: JsonToken;
+        GeneratedAtText: Text;
+    begin
+        Clear(ScanId);
+        Clear(DataScore);
+        Clear(IssuesCount);
+        Clear(GeneratedAtUtc);
+
+        if not JsonResponse.ReadFrom(ResponseText) then
+            Error('The backend returned an invalid JSON response: %1', ResponseText);
+
+        if JsonResponse.Get('scan_id', Token) then
+            if not IsJsonNull(Token) then
+                ScanId := CopyStr(Token.AsValue().AsText(), 1, MaxStrLen(ScanId));
+
+        if JsonResponse.Get('data_score', Token) then
+            if not IsJsonNull(Token) then
+                DataScore := Token.AsValue().AsInteger();
+
+        if JsonResponse.Get('issues_count', Token) then
+            if not IsJsonNull(Token) then
+                IssuesCount := Token.AsValue().AsInteger();
+
+        if JsonResponse.Get('generated_at_utc', Token) then
+            if not IsJsonNull(Token) then
+                GeneratedAtText := Token.AsValue().AsText();
+
+        if GeneratedAtText <> '' then
+            Evaluate(GeneratedAtUtc, GeneratedAtText);
+    end;
+
+    procedure UpdateSetupFromScanResult(var Setup: Record "DH Setup"; DataScore: Integer; GeneratedAtUtc: DateTime)
+    begin
+        Setup."Last Score" := DataScore;
+
+        if GeneratedAtUtc <> 0DT then
+            Setup."Last Scan Date" := GeneratedAtUtc
+        else
+            Setup."Last Scan Date" := CurrentDateTime();
+
+        Setup.Modify(true);
     end;
 
     local procedure EnsureSetupLoaded(var Setup: Record "DH Setup")
