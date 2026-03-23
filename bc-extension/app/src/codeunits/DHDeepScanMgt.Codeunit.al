@@ -3,6 +3,7 @@ codeunit 53124 "DH Deep Scan Mgt."
     procedure QueueDeepScan(var Setup: Record "DH Setup"): Integer
     var
         DeepScanRun: Record "DH Deep Scan Run";
+        RunIdMgt: Codeunit "DH Run ID Mgt.";
         TaskId: Guid;
         EntryNo: Integer;
     begin
@@ -12,7 +13,7 @@ codeunit 53124 "DH Deep Scan Mgt."
 
         DeepScanRun.Init();
         DeepScanRun."Entry No." := EntryNo;
-        DeepScanRun."Run ID" := BuildRunId(EntryNo);
+        DeepScanRun."Run ID" := RunIdMgt.GetNextRunId(Setup);
         DeepScanRun.Status := DeepScanRun.Status::Queued;
         DeepScanRun."Requested At" := CurrentDateTime();
         DeepScanRun."Requested By" := CopyStr(UserId(), 1, MaxStrLen(DeepScanRun."Requested By"));
@@ -59,11 +60,4 @@ codeunit 53124 "DH Deep Scan Mgt."
         exit(1);
     end;
 
-    local procedure BuildRunId(EntryNo: Integer): Code[50]
-    var
-        TimeText: Text;
-    begin
-        TimeText := DelChr(Format(CurrentDateTime()), '=', ' ./:-');
-        exit(CopyStr('DEEP' + TimeText + Format(EntryNo), 1, 50));
-    end;
 }

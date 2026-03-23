@@ -850,15 +850,25 @@ codeunit 53128 "DH Deep Scan Runner"
     begin
         ScanHeader.Reset();
         ScanHeader.SetRange("Scan Type", ScanHeader."Scan Type"::Deep);
-        ScanHeader.SetRange("Backend Scan Id", DeepScanRun."Run ID");
+        ScanHeader.SetRange("Run ID", DeepScanRun."Run ID");
 
         if not ScanHeader.FindFirst() then begin
-            ScanHeader.Init();
-            ScanHeader."Entry No." := GetNextHeaderEntryNo();
-            ScanHeader."Scan Type" := ScanHeader."Scan Type"::Deep;
-            ScanHeader."Backend Scan Id" := DeepScanRun."Run ID";
-            ScanHeader.Insert();
+            ScanHeader.Reset();
+            ScanHeader.SetRange("Scan Type", ScanHeader."Scan Type"::Deep);
+            ScanHeader.SetRange("Backend Scan Id", DeepScanRun."Run ID");
+
+            if not ScanHeader.FindFirst() then begin
+                ScanHeader.Init();
+                ScanHeader."Entry No." := GetNextHeaderEntryNo();
+                ScanHeader."Scan Type" := ScanHeader."Scan Type"::Deep;
+                ScanHeader."Run ID" := DeepScanRun."Run ID";
+                ScanHeader."Backend Scan Id" := DeepScanRun."Run ID";
+                ScanHeader.Insert();
+            end;
         end;
+
+        if ScanHeader."Run ID" = '' then
+            ScanHeader."Run ID" := DeepScanRun."Run ID";
 
         if DeepScanRun."Finished At" <> 0DT then
             ScanHeader."Scan DateTime" := DeepScanRun."Finished At"
@@ -890,6 +900,7 @@ codeunit 53128 "DH Deep Scan Runner"
 
         Payload.Add('tenant_id', Setup."Tenant ID");
         Payload.Add('scan_id', Format(DeepScanRun."Run ID"));
+        Payload.Add('bc_run_id', DeepScanRun."Run ID");
         Payload.Add('scan_type', 'deep');
         Payload.Add('generated_at_utc', Format(ScanDateTime, 0, 9));
         Payload.Add('data_score', DeepScanRun."Deep Score");

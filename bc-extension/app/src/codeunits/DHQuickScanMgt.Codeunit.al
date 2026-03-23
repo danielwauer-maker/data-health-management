@@ -51,6 +51,7 @@ codeunit 53123 "DH QuickScan Mgt."
         JsonObj: JsonObject;
         JsonToken: JsonToken;
         Header: Record "DH Scan Header";
+        RunIdMgt: Codeunit "DH Run ID Mgt.";
         EntryNo: Integer;
     begin
         if not JsonObj.ReadFrom(ResponseText) then
@@ -60,6 +61,7 @@ codeunit 53123 "DH QuickScan Mgt."
 
         Header.Init();
         Header."Entry No." := EntryNo;
+        Header."Run ID" := RunIdMgt.GetNextRunId(Setup);
         Header."Scan Type" := Header."Scan Type"::Quick;
         Header."Scan DateTime" := CurrentDateTime();
 
@@ -101,6 +103,7 @@ codeunit 53123 "DH QuickScan Mgt."
     begin
         Payload.Add('tenant_id', Setup."Tenant ID");
         Payload.Add('scan_id', Format(Header."Backend Scan Id"));
+        Payload.Add('bc_run_id', Header.GetDisplayRunId());
         Payload.Add('scan_type', 'quick');
         Payload.Add('generated_at_utc', Format(Header."Scan DateTime", 0, 9));
         Payload.Add('data_score', Header."Data Score");

@@ -73,7 +73,7 @@ codeunit 53134 "DH Dashboard Mgt."
         DeepScanRun: Record "DH Deep Scan Run";
     begin
         DeepScanRun.Reset();
-        DeepScanRun.SetRange("Run ID", ScanHeader."Backend Scan Id");
+        DeepScanRun.SetRange("Run ID", ScanHeader.GetDisplayRunId());
         DeepScanRun.SetRange(Status, DeepScanRun.Status::Completed);
 
         if not DeepScanRun.FindFirst() then

@@ -87,6 +87,18 @@ table 53100 "DH Setup"
             Caption = 'Data Processing Consent';
             DataClassification = CustomerContent;
         }
+
+        field(14; "Last Run ID Date"; Date)
+        {
+            Caption = 'Last Run ID Date';
+            DataClassification = SystemMetadata;
+        }
+
+        field(15; "Last Run ID Counter"; Integer)
+        {
+            Caption = 'Last Run ID Counter';
+            DataClassification = SystemMetadata;
+        }
     }
 
     keys

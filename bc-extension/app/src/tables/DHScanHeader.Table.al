@@ -46,6 +46,11 @@ table 53120 "DH Scan Header"
         {
             Caption = 'Premium Available';
         }
+
+        field(11; "Run ID"; Code[50])
+        {
+            Caption = 'Run ID';
+        }
     }
 
     keys
@@ -56,6 +61,10 @@ table 53120 "DH Scan Header"
         }
 
         key(Key2; "Scan DateTime")
+        {
+        }
+
+        key(Key3; "Run ID")
         {
         }
     }
@@ -72,5 +81,12 @@ table 53120 "DH Scan Header"
         DashboardIssue.SetRange("Dashboard Scan Entry No.", "Entry No.");
         if not DashboardIssue.IsEmpty() then
             DashboardIssue.DeleteAll(true);
+    end;
+    procedure GetDisplayRunId(): Code[50]
+    begin
+        if "Run ID" <> '' then
+            exit("Run ID");
+
+        exit("Backend Scan Id");
     end;
 }

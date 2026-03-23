@@ -44,9 +44,10 @@ page 53124 "DH Dashboard List"
                 {
                     ApplicationArea = All;
                 }
-                field("Backend Scan Id"; Rec."Backend Scan Id")
+                field(DisplayRunId; Rec.GetDisplayRunId())
                 {
                     ApplicationArea = All;
+                    Caption = 'Run ID';
                 }
             }
         }

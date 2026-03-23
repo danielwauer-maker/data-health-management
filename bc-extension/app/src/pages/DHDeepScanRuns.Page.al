@@ -16,7 +16,7 @@ page 53130 "DH Deep Scan Runs"
         {
             repeater(Runs)
             {
-                field("Backend Scan Id"; Rec."Backend Scan Id")
+                field(DisplayRunId; Rec.GetDisplayRunId())
                 {
                     ApplicationArea = All;
                     Caption = 'Run ID';
@@ -125,7 +125,7 @@ page 53130 "DH Deep Scan Runs"
                     if not Confirm(
                         'Do you want to delete scan %1?',
                         false,
-                        Rec."Backend Scan Id")
+                        Rec.GetDisplayRunId())
                     then
                         exit;
 
@@ -185,10 +185,10 @@ page 53130 "DH Deep Scan Runs"
         if Rec."Scan Type" <> Rec."Scan Type"::Deep then
             exit;
 
-        if Rec."Backend Scan Id" = '' then
+        if Rec.GetDisplayRunId() = '' then
             exit;
 
-        DeepScanRun.SetRange("Run ID", Rec."Backend Scan Id");
+        DeepScanRun.SetRange("Run ID", Rec.GetDisplayRunId());
         if DeepScanRun.FindFirst() then
             DeepScanRun.Delete(true);
     end;

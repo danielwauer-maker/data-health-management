@@ -56,7 +56,7 @@ page 53127 "DH Key Metrics Part"
                                 end;
                             Rec."Scan Type"::Deep:
                                 begin
-                                    DeepScanRun.SetRange("Run ID", Rec."Backend Scan Id");
+                                    DeepScanRun.SetRange("Run ID", Rec.GetDisplayRunId());
                                     DeepScanRun.SetRange(Status, DeepScanRun.Status::Completed);
 
                                     if not DeepScanRun.FindFirst() then
