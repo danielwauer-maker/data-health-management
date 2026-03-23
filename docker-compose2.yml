@@ -1,0 +1,31 @@
+services:
+  backend:
+    build: ./backend
+    container_name: dhm-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://dhm:${POSTGRES_PASSWORD}@postgres:5432/dhm
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8000"
+
+  postgres:
+    image: postgres:15
+    container_name: dhm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dhm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: dhm
+    volumes:
+      - dhm_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dhm -d dhm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  dhm_postgres_data:

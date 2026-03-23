@@ -1,0 +1,26 @@
+{
+  "id": "8c7f0f9c-0c1a-4a4e-9c6f-111111111111",
+  "name": "Data Health Management",
+  "publisher": "DaWaDev",
+  "version": "1.0.3.0",
+  "brief": "Analyse der Datenqualität in Business Central",
+  "description": "Ermittelt einen DataScore und erkennt Datenqualitätsprobleme.",
+  "target": "OnPrem",
+  "runtime": "8.0",
+  "platform": "19.0.34506.34941",
+  "application": "19.3.34541.35002",
+  "idRanges": [
+    {
+      "from": 53100,
+      "to": 53149
+    }
+  ],
+  "resourceExposurePolicy": {
+    "allowDebugging": false,
+    "allowDownloadingSource": false,
+    "includeSourceInSymbolFile": false
+  },
+  "features": [
+    "NoImplicitWith"
+  ]
+}

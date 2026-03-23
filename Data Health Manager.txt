@@ -1,0 +1,11 @@
+Data Health Manager
+
+1. Visual Studio Code starten
+2. Docker starten
+
+   docker compose up --build
+
+3. Docker Container Run
+4. ngrok DEV-Domain starten
+
+   ngrok http 8000

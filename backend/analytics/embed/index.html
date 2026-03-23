@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>DHM Analytics</title>
+  <style>
+    body {
+      font-family: Segoe UI, Arial, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #f5f6f8;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    }
+    .label {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #111827;
+    }
+  </style>
+</head>
+<body>
+  <h1>Data Health Management Analytics</h1>
+  <div class="grid">
+    <div class="card">
+      <div class="label">Health Score</div>
+      <div class="value">87</div>
+    </div>
+    <div class="card">
+      <div class="label">Offene Issues</div>
+      <div class="value">42</div>
+    </div>
+    <div class="card">
+      <div class="label">Letzter Scan</div>
+      <div class="value">Heute</div>
+    </div>
+  </div>
+</body>
+</html>
