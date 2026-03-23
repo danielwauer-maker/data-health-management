@@ -1,7 +1,6 @@
 import os
 import secrets
 from html import escape
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -44,6 +43,15 @@ def _fmt_dt(value) -> str:
         return str(value)
 
 
+def _fmt_tenant_no(value) -> str:
+    if value is None:
+        return "—"
+    try:
+        return f"{int(value):05d}"
+    except Exception:
+        return str(value)
+
+
 def _badge(text: str, kind: str) -> str:
     colors = {
         "free": "#475569",
@@ -70,7 +78,7 @@ def _select_option(value: str, current: str) -> str:
 def admin_tenants(_: str = Depends(require_admin)) -> HTMLResponse:
     with SessionLocal() as db:
         tenants = db.scalars(
-            select(Tenant).order_by(Tenant.created_at_utc.desc())
+            select(Tenant).order_by(Tenant.tenant_no.asc(), Tenant.created_at_utc.asc(), Tenant.id.asc())
         ).all()
 
         tenant_ids = [tenant.tenant_id for tenant in tenants]
@@ -103,6 +111,7 @@ def admin_tenants(_: str = Depends(require_admin)) -> HTMLResponse:
         rows.append(
             f"""
             <tr>
+                <td style="padding:12px;border-bottom:1px solid #e5e7eb;font-weight:700;">{_fmt_tenant_no(tenant.tenant_no)}</td>
                 <td style="padding:12px;border-bottom:1px solid #e5e7eb;">
                     <a href="/admin/tenants/{escape(tenant_id)}" style="color:#2563eb;text-decoration:none;font-weight:600;">
                         {escape(tenant_id)}
@@ -116,6 +125,21 @@ def admin_tenants(_: str = Depends(require_admin)) -> HTMLResponse:
                 <td style="padding:12px;border-bottom:1px solid #e5e7eb;">{_badge(tenant.license_status or "trial", "status")}</td>
                 <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:right;">{scan_counts_by_tenant.get(tenant_id, 0)}</td>
                 <td style="padding:12px;border-bottom:1px solid #e5e7eb;">{_fmt_dt(last_scans_by_tenant.get(tenant_id))}</td>
+                <td style="padding:12px;border-bottom:1px solid #e5e7eb;white-space:nowrap;">
+                    <a href="/admin/tenants/{escape(tenant_id)}"
+                       style="display:inline-block;background:#2563eb;color:white;text-decoration:none;padding:8px 12px;border-radius:10px;font-weight:600;margin-right:8px;">
+                        Open
+                    </a>
+                    <form method="post"
+                          action="/admin/tenants/{escape(tenant_id)}/delete"
+                          style="display:inline;"
+                          onsubmit="return confirm('Tenant {escape(tenant_id)} wirklich löschen? Alle zugehörigen Scans und Issues werden ebenfalls entfernt.');">
+                        <button type="submit"
+                                style="background:#dc2626;color:white;border:none;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600;">
+                            Delete
+                        </button>
+                    </form>
+                </td>
             </tr>
             """
         )
@@ -129,7 +153,7 @@ def admin_tenants(_: str = Depends(require_admin)) -> HTMLResponse:
         <meta name="viewport" content="width=device-width, initial-scale=1">
     </head>
     <body style="margin:0;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a;">
-        <div style="max-width:1400px;margin:0 auto;padding:32px;">
+        <div style="max-width:1500px;margin:0 auto;padding:32px;">
             <h1 style="margin:0 0 8px 0;">BCSentinel Admin</h1>
             <p style="margin:0 0 24px 0;color:#475569;">Tenant overview</p>
 
@@ -137,6 +161,7 @@ def admin_tenants(_: str = Depends(require_admin)) -> HTMLResponse:
                 <table style="width:100%;border-collapse:collapse;font-size:14px;">
                     <thead>
                         <tr style="background:#f1f5f9;text-align:left;">
+                            <th style="padding:12px;">Nr.</th>
                             <th style="padding:12px;">Tenant ID</th>
                             <th style="padding:12px;">Environment</th>
                             <th style="padding:12px;">App Version</th>
@@ -146,10 +171,11 @@ def admin_tenants(_: str = Depends(require_admin)) -> HTMLResponse:
                             <th style="padding:12px;">License Status</th>
                             <th style="padding:12px;text-align:right;">Scan Count</th>
                             <th style="padding:12px;">Last Scan</th>
+                            <th style="padding:12px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {''.join(rows) if rows else '<tr><td colspan="9" style="padding:24px;color:#64748b;">No tenants found.</td></tr>'}
+                        {''.join(rows) if rows else '<tr><td colspan="11" style="padding:24px;color:#64748b;">No tenants found.</td></tr>'}
                     </tbody>
                 </table>
             </div>
@@ -173,48 +199,58 @@ def admin_tenant_detail(tenant_id: str, _: str = Depends(require_admin)) -> HTML
             select(func.count(Scan.id)).where(Scan.tenant_id == tenant_id)
         ) or 0
 
-        last_scan: Optional[Scan] = db.scalar(
-            select(Scan)
-            .where(Scan.tenant_id == tenant_id)
-            .order_by(Scan.generated_at_utc.desc())
-            .limit(1)
+        last_scan_at = db.scalar(
+            select(func.max(Scan.generated_at_utc)).where(Scan.tenant_id == tenant_id)
         )
 
-    current_plan = tenant.current_plan or "free"
-    current_license_status = tenant.license_status or "trial"
+        current_plan = (tenant.current_plan or "free").lower()
+        current_license_status = (tenant.license_status or "trial").lower()
 
     html = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>BCSentinel Admin – {escape(tenant_id)}</title>
+        <title>BCSentinel Admin – Tenant Detail</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
     </head>
     <body style="margin:0;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a;">
         <div style="max-width:1100px;margin:0 auto;padding:32px;">
-            <p style="margin:0 0 16px 0;"><a href="/admin/tenants" style="color:#2563eb;text-decoration:none;">← Back to tenants</a></p>
-            <h1 style="margin:0 0 24px 0;">Tenant Detail</h1>
+            <div style="margin-bottom:24px;">
+                <a href="/admin/tenants" style="color:#2563eb;text-decoration:none;font-weight:600;">← Back to tenants</a>
+            </div>
 
-            <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:24px;margin-bottom:24px;">
-                <div style="display:grid;grid-template-columns:220px 1fr;gap:12px;font-size:14px;">
-                    <div style="color:#475569;">Tenant ID</div><div>{escape(tenant.tenant_id)}</div>
-                    <div style="color:#475569;">Environment</div><div>{escape(tenant.environment_name or "—")}</div>
-                    <div style="color:#475569;">App Version</div><div>{escape(tenant.app_version or "—")}</div>
-                    <div style="color:#475569;">Created At</div><div>{_fmt_dt(tenant.created_at_utc)}</div>
-                    <div style="color:#475569;">Last Seen</div><div>{_fmt_dt(tenant.last_seen_at_utc)}</div>
-                    <div style="color:#475569;">Plan</div><div>{_badge(current_plan, "plan")}</div>
-                    <div style="color:#475569;">License Status</div><div>{_badge(current_license_status, "status")}</div>
-                    <div style="color:#475569;">Scan Count</div><div>{scan_count}</div>
-                    <div style="color:#475569;">Last Scan ID</div><div>{escape(last_scan.scan_id) if last_scan else "—"}</div>
-                    <div style="color:#475569;">Last Scan Type</div><div>{escape(last_scan.scan_type) if last_scan else "—"}</div>
-                    <div style="color:#475569;">Last Scan At</div><div>{_fmt_dt(last_scan.generated_at_utc) if last_scan else "—"}</div>
-                    <div style="color:#475569;">Last Score</div><div>{str(last_scan.data_score) if last_scan else "—"}</div>
-                    <div style="color:#475569;">Last Issues</div><div>{str(last_scan.issues_count) if last_scan else "—"}</div>
+            <h1 style="margin:0 0 8px 0;">BCSentinel Tenant</h1>
+            <p style="margin:0 0 24px 0;color:#475569;">{escape(tenant_id)}</p>
+
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:24px;">
+                <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:20px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:8px;">Tenant No.</div>
+                    <div style="font-size:28px;font-weight:700;">{_fmt_tenant_no(tenant.tenant_no)}</div>
+                </div>
+                <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:20px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:8px;">Tenant ID</div>
+                    <div style="font-size:20px;font-weight:700;">{escape(tenant.tenant_id)}</div>
+                </div>
+                <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:20px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:8px;">Created At</div>
+                    <div style="font-size:18px;font-weight:700;">{_fmt_dt(tenant.created_at_utc)}</div>
+                </div>
+                <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:20px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:8px;">Last Seen</div>
+                    <div style="font-size:18px;font-weight:700;">{_fmt_dt(tenant.last_seen_at_utc)}</div>
+                </div>
+                <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:20px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:8px;">Scan Count</div>
+                    <div style="font-size:28px;font-weight:700;">{scan_count}</div>
+                </div>
+                <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:20px;">
+                    <div style="font-size:13px;color:#64748b;margin-bottom:8px;">Last Scan</div>
+                    <div style="font-size:18px;font-weight:700;">{_fmt_dt(last_scan_at)}</div>
                 </div>
             </div>
 
-            <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:24px;">
+            <div style="background:white;border:1px solid #e5e7eb;border-radius:16px;padding:24px;margin-bottom:24px;">
                 <h2 style="margin:0 0 16px 0;font-size:20px;">License Management</h2>
                 <form method="post" action="/admin/tenants/{escape(tenant_id)}/license">
                     <div style="display:grid;grid-template-columns:180px 1fr;gap:12px;align-items:center;font-size:14px;max-width:700px;">
@@ -239,6 +275,21 @@ def admin_tenant_detail(tenant_id: str, _: str = Depends(require_admin)) -> HTML
                             Save License
                         </button>
                     </div>
+                </form>
+            </div>
+
+            <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:16px;padding:24px;">
+                <h2 style="margin:0 0 12px 0;font-size:20px;color:#9f1239;">Danger Zone</h2>
+                <p style="margin:0 0 16px 0;color:#881337;">
+                    Deleting this tenant removes the tenant, all scans, and all scan issues permanently.
+                </p>
+                <form method="post"
+                      action="/admin/tenants/{escape(tenant_id)}/delete"
+                      onsubmit="return confirm('Tenant {escape(tenant_id)} wirklich dauerhaft löschen? Alle Scans und Findings gehen verloren.');">
+                    <button type="submit"
+                            style="background:#dc2626;color:white;border:none;padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:600;">
+                        Delete Tenant
+                    </button>
                 </form>
             </div>
         </div>
@@ -277,5 +328,26 @@ def update_tenant_license(
 
     return RedirectResponse(
         url=f"/admin/tenants/{tenant_id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/admin/tenants/{tenant_id}/delete")
+def delete_tenant(
+    tenant_id: str,
+    _: str = Depends(require_admin),
+):
+    with SessionLocal() as db:
+        tenant = db.scalar(
+            select(Tenant).where(Tenant.tenant_id == tenant_id)
+        )
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="Tenant not found.")
+
+        db.delete(tenant)
+        db.commit()
+
+    return RedirectResponse(
+        url="/admin/tenants",
         status_code=status.HTTP_303_SEE_OTHER,
     )

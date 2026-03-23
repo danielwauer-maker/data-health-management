@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 
 from app.db import Base, SessionLocal, engine, wait_for_database
 from app.models import Scan, ScanIssueRecord, Tenant
@@ -24,10 +24,62 @@ from app.services.scoring_service import calculate_quick_scan_result
 from app.routers.license import router as license_router
 
 
+def ensure_runtime_schema() -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                ALTER TABLE tenants
+                ADD COLUMN IF NOT EXISTS tenant_no INTEGER
+                """
+            )
+        )
+
+        connection.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS ix_tenants_tenant_no
+                ON tenants (tenant_no)
+                WHERE tenant_no IS NOT NULL
+                """
+            )
+        )
+
+        connection.execute(
+            text(
+                """
+                WITH base AS (
+                    SELECT COALESCE(MAX(tenant_no), 0) AS max_no
+                    FROM tenants
+                ),
+                missing AS (
+                    SELECT
+                        id,
+                        ROW_NUMBER() OVER (ORDER BY created_at_utc, id) AS rn
+                    FROM tenants
+                    WHERE tenant_no IS NULL
+                )
+                UPDATE tenants t
+                SET tenant_no = base.max_no + missing.rn
+                FROM base, missing
+                WHERE t.id = missing.id
+                """
+            )
+        )
+
+
+def get_next_tenant_no(db) -> int:
+    current_max = db.scalar(select(func.max(Tenant.tenant_no)))
+    if current_max is None:
+        return 1
+    return int(current_max) + 1
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     wait_for_database()
     Base.metadata.create_all(bind=engine)
+    ensure_runtime_schema()
     yield
 
 
@@ -66,6 +118,7 @@ def register_tenant(payload: TenantRegisterRequest) -> TenantRegisterResponse:
 
     with SessionLocal() as db:
         tenant = Tenant(
+            tenant_no=get_next_tenant_no(db),
             tenant_id=tenant_id,
             api_token=api_token,
             environment_name=payload.environment_name,

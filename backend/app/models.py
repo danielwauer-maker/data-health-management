@@ -10,6 +10,7 @@ class Tenant(Base):
     __tablename__ = "tenants"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    tenant_no: Mapped[int | None] = mapped_column(Integer, unique=True, index=True, nullable=True)
     tenant_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     api_token: Mapped[str] = mapped_column(String(80), unique=True, index=True)
     environment_name: Mapped[str] = mapped_column(String(100))
