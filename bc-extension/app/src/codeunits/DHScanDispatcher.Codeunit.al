@@ -4,17 +4,12 @@ codeunit 53135 "DH Scan Dispatcher"
     var
         QuickScanMgt: Codeunit "DH QuickScan Mgt.";
         DeepScanMgt: Codeunit "DH Deep Scan Mgt.";
-        DeepScanRun: Record "DH Deep Scan Run";
-        EntryNo: Integer;
     begin
         EnsureSetupReady(Setup);
 
         if Setup."Premium Enabled" then begin
-            EntryNo := DeepScanMgt.QueueDeepScan(Setup);
-
-            if DeepScanRun.Get(EntryNo) then
-                Page.Run(Page::"DH Deep Scan Runs", DeepScanRun);
-
+            DeepScanMgt.QueueDeepScan(Setup);
+            Page.Run(Page::"DH Deep Scan Runs");
             exit;
         end;
 

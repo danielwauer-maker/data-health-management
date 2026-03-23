@@ -4,7 +4,7 @@ page 53120 "DH Dashboard"
     SourceTable = "DH Scan Header";
     ApplicationArea = All;
     UsageCategory = None;
-    Caption = 'Data Health Dashboard';
+    Caption = 'BCSentinel Dashboard';
 
     layout
     {

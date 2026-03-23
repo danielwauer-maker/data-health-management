@@ -1,7 +1,7 @@
 page 53110 "BCSentinel Home"
 {
     PageType = Card;
-    Caption = 'BCSentinel Home';
+    Caption = 'BCSentinel';
     ApplicationArea = All;
     UsageCategory = Administration;
     SourceTable = "DH Setup";
@@ -71,31 +71,32 @@ page 53110 "BCSentinel Home"
                     var
                         Setup: Record "DH Setup";
                         ApiClient: Codeunit "DH API Client";
-                        ResponseText: Text;
-                        ScanId: Code[50];
-                        DataScore: Integer;
-                        IssuesCount: Integer;
-                        UsedPremiumLicense: Boolean;
+                        QuickScanMgt: Codeunit "DH QuickScan Mgt.";
+                        DeepScanMgt: Codeunit "DH Deep Scan Mgt.";
+                        Header: Record "DH Scan Header";
+                        DeepScanRun: Record "DH Deep Scan Run";
+                        EntryNo: Integer;
                     begin
                         EnsureSetup(Setup);
+                        ApiClient.EnsureReadyForScan(Setup);
 
-                        ResponseText := ApiClient.ExecuteScan(Setup, ScanId, DataScore, IssuesCount, UsedPremiumLicense);
-                        CurrPage.Update(false);
+                        if Setup."Premium Enabled" then begin
+                            EntryNo := DeepScanMgt.QueueDeepScan(Setup);
+                            CurrPage.Update(false);
 
-                        if UsedPremiumLicense then
-                            Message(
-                                'BCSentinel Premium license detected. Scan completed.\' +
-                                'Scan ID: %1\Score: %2\Issues: %3',
-                                ScanId,
-                                DataScore,
-                                IssuesCount)
-                        else
-                            Message(
-                                'BCSentinel Quick Scan completed.\' +
-                                'Scan ID: %1\Score: %2\Issues: %3',
-                                ScanId,
-                                DataScore,
-                                IssuesCount);
+                            if DeepScanRun.Get(EntryNo) then
+                                Message(
+                                    'BCSentinel Premium scan queued.\' +
+                                    'Run ID: %1\Status: %2',
+                                    DeepScanRun."Run ID",
+                                    Format(DeepScanRun.Status));
+                        end else begin
+                            EntryNo := QuickScanMgt.RunQuickScan(Setup);
+                            CurrPage.Update(false);
+
+                            if Header.Get(EntryNo) then
+                                Page.Run(Page::"DH Dashboard", Header);
+                        end;
                     end;
                 }
 

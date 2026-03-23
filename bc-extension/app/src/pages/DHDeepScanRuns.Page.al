@@ -1,13 +1,13 @@
 page 53130 "DH Deep Scan Runs"
 {
     PageType = List;
-    SourceTable = "DH Deep Scan Run";
+    SourceTable = "DH Scan Header";
     ApplicationArea = All;
     UsageCategory = Administration;
     Caption = 'BCSentinel Scan History';
     Editable = false;
     InsertAllowed = false;
-    DeleteAllowed = true;
+    DeleteAllowed = false;
     ModifyAllowed = false;
 
     layout
@@ -16,35 +16,33 @@ page 53130 "DH Deep Scan Runs"
         {
             repeater(Runs)
             {
-                field("Run ID"; Rec."Run ID")
+                field("Backend Scan Id"; Rec."Backend Scan Id")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Run ID';
+                    StyleExpr = RunIdStyle;
+
+                    trigger OnDrillDown()
+                    begin
+                        OpenDashboard();
+                    end;
+                }
+
+                field("Scan Type"; Rec."Scan Type")
                 {
                     ApplicationArea = All;
                 }
 
-                field(Status; Rec.Status)
+                field("Scan DateTime"; Rec."Scan DateTime")
                 {
                     ApplicationArea = All;
-                    StyleExpr = StatusStyle;
+                    Caption = 'Scan Date';
                 }
 
-                field("Requested At"; Rec."Requested At")
+                field("Data Score"; Rec."Data Score")
                 {
                     ApplicationArea = All;
-                }
-
-                field("Started At"; Rec."Started At")
-                {
-                    ApplicationArea = All;
-                }
-
-                field("Finished At"; Rec."Finished At")
-                {
-                    ApplicationArea = All;
-                }
-
-                field("Deep Score"; Rec."Deep Score")
-                {
-                    ApplicationArea = All;
+                    Caption = 'Score';
                     StyleExpr = ScoreStyle;
                 }
 
@@ -67,6 +65,12 @@ page 53130 "DH Deep Scan Runs"
                 {
                     ApplicationArea = All;
                 }
+
+                field("Premium Available"; Rec."Premium Available")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Premium';
+                }
             }
         }
     }
@@ -75,40 +79,64 @@ page 53130 "DH Deep Scan Runs"
     {
         area(Processing)
         {
-            action(OpenFindings)
+            action(OpenDashboardAction)
             {
-                Caption = 'Open Findings';
+                Caption = 'Open Dashboard';
+                ApplicationArea = All;
+                Image = Navigate;
+
+                trigger OnAction()
+                begin
+                    OpenDashboard();
+                end;
+            }
+
+            action(OpenAllIssues)
+            {
+                Caption = 'Open Issues';
                 ApplicationArea = All;
                 Image = List;
 
                 trigger OnAction()
                 var
-                    Finding: Record "DH Deep Scan Finding";
+                    DashboardIssue: Record "DH Dashboard Issue";
+                    DashboardMgt: Codeunit "DH Dashboard Mgt.";
                 begin
-                    Finding.SetRange("Deep Scan Entry No.", Rec."Entry No.");
-                    Page.Run(Page::"DH Deep Scan Findings", Finding);
+                    DashboardMgt.RefreshDashboardIssueCache(Rec);
+                    DashboardIssue.SetRange("Dashboard Scan Entry No.", Rec."Entry No.");
+                    Page.Run(Page::"DH Dashboard Issues", DashboardIssue);
                 end;
             }
 
-            action(DeleteSelectedRun)
+            action(DeleteSelectedScan)
             {
-                Caption = 'Delete Selected Run';
+                Caption = 'Delete Selected Scan';
                 ApplicationArea = All;
                 Image = Delete;
 
                 trigger OnAction()
+                var
+                    Setup: Record "DH Setup";
+                    ApiClient: Codeunit "DH API Client";
                 begin
                     if Rec."Entry No." = 0 then
-                        Error('Please select a deep scan run first.');
+                        Error('Please select a scan first.');
 
-                    if Confirm(
-                        'Do you want to delete deep scan run %1?',
+                    if not Confirm(
+                        'Do you want to delete scan %1?',
                         false,
-                        Rec."Run ID")
-                    then begin
-                        Rec.Delete(true);
-                        CurrPage.Update(false);
-                    end;
+                        Rec."Backend Scan Id")
+                    then
+                        exit;
+
+                    if Setup.Get('SETUP') then
+                        if (Setup."Tenant ID" <> '') and (Setup."API Token" <> '') and (Rec."Backend Scan Id" <> '') then
+                            ApiClient.DeleteScanFromBackend(Setup, Rec."Backend Scan Id");
+
+                    DeleteLinkedDeepRunIfNeeded();
+
+                    Rec.Delete(true);
+                    CurrPage.Update(false);
                 end;
             }
 
@@ -128,47 +156,52 @@ page 53130 "DH Deep Scan Runs"
 
     trigger OnOpenPage()
     begin
-        Rec.SetCurrentKey("Requested At");
+        Rec.SetCurrentKey("Scan DateTime");
         Rec.Ascending(false);
     end;
 
     trigger OnAfterGetRecord()
     begin
-        StatusStyle := GetStatusStyle();
         ScoreStyle := GetScoreStyle();
+        RunIdStyle := 'Strong';
     end;
 
     var
-        StatusStyle: Text[30];
         ScoreStyle: Text[30];
+        RunIdStyle: Text[30];
 
-    local procedure GetStatusStyle(): Text
+    local procedure OpenDashboard()
+    var
+        DashboardMgt: Codeunit "DH Dashboard Mgt.";
     begin
-        case Rec.Status of
-            Rec.Status::Queued:
-                exit('Ambiguous');
-            Rec.Status::Running:
-                exit('StrongAccent');
-            Rec.Status::Completed:
-                exit('Favorable');
-            Rec.Status::Failed:
-                exit('Unfavorable');
-            Rec.Status::Canceled:
-                exit('Subordinate');
-        end;
+        DashboardMgt.RefreshDashboardIssueCache(Rec);
+        Page.Run(Page::"DH Dashboard", Rec);
+    end;
 
-        exit('Standard');
+    local procedure DeleteLinkedDeepRunIfNeeded()
+    var
+        DeepScanRun: Record "DH Deep Scan Run";
+    begin
+        if Rec."Scan Type" <> Rec."Scan Type"::Deep then
+            exit;
+
+        if Rec."Backend Scan Id" = '' then
+            exit;
+
+        DeepScanRun.SetRange("Run ID", Rec."Backend Scan Id");
+        if DeepScanRun.FindFirst() then
+            DeepScanRun.Delete(true);
     end;
 
     local procedure GetScoreStyle(): Text
     begin
-        if Rec."Deep Score" >= 86 then
+        if Rec."Data Score" >= 86 then
             exit('Favorable');
 
-        if Rec."Deep Score" >= 61 then
+        if Rec."Data Score" >= 61 then
             exit('Ambiguous');
 
-        if Rec."Deep Score" > 0 then
+        if Rec."Data Score" > 0 then
             exit('Unfavorable');
 
         exit('Standard');

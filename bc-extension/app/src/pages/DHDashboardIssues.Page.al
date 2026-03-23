@@ -4,7 +4,7 @@ page 53135 "DH Dashboard Issues"
     SourceTable = "DH Dashboard Issue";
     ApplicationArea = All;
     UsageCategory = None;
-    Caption = 'Dashboard Issues';
+    Caption = 'BCSentinel Issues';
     Editable = false;
     InsertAllowed = false;
     DeleteAllowed = false;

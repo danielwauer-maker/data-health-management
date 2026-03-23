@@ -4,7 +4,7 @@ page 53124 "DH Dashboard List"
     SourceTable = "DH Scan Header";
     ApplicationArea = All;
     UsageCategory = None;
-    Caption = 'Data Health Dashboards';
+    Caption = 'BCSentinel Dashboards';
     CardPageId = "DH Dashboard";
     Editable = false;
     DeleteAllowed = true;
