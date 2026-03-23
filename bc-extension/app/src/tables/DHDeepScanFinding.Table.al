@@ -47,7 +47,7 @@ table 53129 "DH Deep Scan Finding"
 
         field(9; "Premium Only"; Boolean)
         {
-            Caption = 'Premium Only';
+            Caption = 'Premium';
         }
 
         field(10; "Severity Sort Order"; Integer)

@@ -35,7 +35,7 @@ table 53121 "DH Scan Issue"
         }
         field(8; "Premium Only"; Boolean)
         {
-            Caption = 'Premium Only';
+            Caption = 'Premium';
         }
         field(9; "Severity Sort Order"; Integer)
         {

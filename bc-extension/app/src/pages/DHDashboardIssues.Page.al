@@ -56,7 +56,7 @@ page 53135 "DH Dashboard Issues"
                     ApplicationArea = All;
                 }
 
-                field("Premium Only"; Rec."Premium Only")
+                field("Premium"; Rec."Premium Only")
                 {
                     ApplicationArea = All;
                 }

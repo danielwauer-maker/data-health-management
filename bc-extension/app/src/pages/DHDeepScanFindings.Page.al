@@ -47,7 +47,7 @@ page 53131 "DH Deep Scan Findings"
                     ApplicationArea = All;
                 }
 
-                field("Premium Only"; Rec."Premium Only")
+                field("Premium"; Rec."Premium Only")
                 {
                     ApplicationArea = All;
                 }

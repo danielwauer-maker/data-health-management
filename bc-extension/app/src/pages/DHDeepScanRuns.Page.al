@@ -66,7 +66,7 @@ page 53130 "DH Deep Scan Runs"
                     ApplicationArea = All;
                 }
 
-                field("Premium Available"; Rec."Premium Available")
+                field("Premium"; GetIsPremiumRun())
                 {
                     ApplicationArea = All;
                     Caption = 'Premium';
@@ -205,5 +205,10 @@ page 53130 "DH Deep Scan Runs"
             exit('Unfavorable');
 
         exit('Standard');
+    end;
+
+    local procedure GetIsPremiumRun(): Boolean
+    begin
+        exit(Rec."Scan Type" = Rec."Scan Type"::Deep);
     end;
 }
