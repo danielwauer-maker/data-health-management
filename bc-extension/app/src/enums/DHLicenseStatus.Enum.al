@@ -1,4 +1,4 @@
-enum 53121 "DH License Status"
+enum 53102 "DH License Status"
 {
     Extensible = false;
     Caption = 'DH License Status';

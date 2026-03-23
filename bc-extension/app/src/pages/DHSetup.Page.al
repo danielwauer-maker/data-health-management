@@ -2,9 +2,9 @@ page 53100 "DH Setup"
 {
     PageType = Card;
     SourceTable = "DH Setup";
+    Caption = 'DH Setup';
     ApplicationArea = All;
     UsageCategory = Administration;
-    Caption = 'DH Setup';
 
     layout
     {
@@ -12,30 +12,85 @@ page 53100 "DH Setup"
         {
             group(General)
             {
+                Caption = 'General';
+
                 field("API Base URL"; Rec."API Base URL")
                 {
                     ApplicationArea = All;
+                    Editable = false;
+                    ToolTip = 'Fixed production API URL.';
                 }
+
                 field("Tenant ID"; Rec."Tenant ID")
                 {
                     ApplicationArea = All;
                     Editable = false;
                 }
+
                 field("API Token"; Rec."API Token")
                 {
                     ApplicationArea = All;
                     Editable = false;
                 }
+
+                field(Registered; Rec.Registered)
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
+
+                field("Registration Date"; Rec."Registration Date")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
+
+                field("Data Processing Consent"; Rec."Data Processing Consent")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Must be enabled before tenant registration and scan synchronization.';
+                }
+            }
+
+            group(License)
+            {
+                Caption = 'License';
+
+                field("Current Plan"; Rec."Current Plan")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
+
+                field("License Status"; Rec."License Status")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
+
+                field("Last License Check"; Rec."Last License Check")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
+
                 field("Premium Enabled"; Rec."Premium Enabled")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Enable this only for your own test tenant to unlock premium deep scan actions.';
+                    Editable = false;
                 }
+            }
+
+            group(Scan)
+            {
+                Caption = 'Last Scan';
+
                 field("Last Score"; Rec."Last Score")
                 {
                     ApplicationArea = All;
                     Editable = false;
                 }
+
                 field("Last Scan Date"; Rec."Last Scan Date")
                 {
                     ApplicationArea = All;
@@ -49,21 +104,6 @@ page 53100 "DH Setup"
     {
         area(Processing)
         {
-            action(RegisterTenant)
-            {
-                Caption = 'Register Tenant';
-                ApplicationArea = All;
-                Image = Add;
-
-                trigger OnAction()
-                var
-                    ApiClient: Codeunit "DH API Client";
-                begin
-                    ApiClient.RegisterTenant(Rec);
-                    CurrPage.Update();
-                end;
-            }
-
             action(TestConnection)
             {
                 Caption = 'Test Connection';
@@ -78,25 +118,36 @@ page 53100 "DH Setup"
                 end;
             }
 
-            action(StartScan)
+            action(RegisterTenant)
             {
-                Caption = 'Start Scan';
+                Caption = 'Register Tenant';
                 ApplicationArea = All;
-                Image = Calculate;
+                Image = Web;
 
                 trigger OnAction()
+                var
+                    ApiClient: Codeunit "DH API Client";
                 begin
-                    StartScanForCurrentTenant();
-                    CurrPage.Update();
+                    ApiClient.EnsureTenantRegistered(Rec);
+                    CurrPage.Update(false);
+                    Message('Tenant registration completed.');
                 end;
             }
 
-            action(OpenScanHistory)
+            action(RefreshLicense)
             {
-                Caption = 'Scan History';
+                Caption = 'Refresh License';
                 ApplicationArea = All;
-                Image = List;
-                RunObject = page "DH Dashboard List";
+                Image = Refresh;
+
+                trigger OnAction()
+                var
+                    ApiClient: Codeunit "DH API Client";
+                begin
+                    ApiClient.RefreshLicenseStatus(Rec);
+                    CurrPage.Update(false);
+                    Message('License status refreshed.');
+                end;
             }
         }
     }
@@ -111,18 +162,10 @@ page 53100 "DH Setup"
         if not Rec.Get('SETUP') then begin
             Rec.Init();
             Rec."Primary Key" := 'SETUP';
-            Rec.Insert();
+            Rec.Insert(true);
         end;
-    end;
 
-    local procedure StartScanForCurrentTenant()
-    var
-        QuickScanMgt: Codeunit "DH QuickScan Mgt.";
-        DeepScanMgt: Codeunit "DH Deep Scan Mgt.";
-    begin
-        if Rec."Premium Enabled" then
-            DeepScanMgt.QueueDeepScan(Rec)
-        else
-            QuickScanMgt.RunQuickScanAndOpenDashboard(Rec);
+        Rec.ApplyDefaults();
+        Rec.Modify(true);
     end;
 }

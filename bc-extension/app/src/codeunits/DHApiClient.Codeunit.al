@@ -7,49 +7,41 @@ codeunit 53100 "DH API Client"
         ResponseText: Text;
         JsonResponse: JsonObject;
         Token: JsonToken;
-        ServiceName: Text;
-        VersionText: Text;
         StatusText: Text;
     begin
-        EnsureApiBaseUrlConfigured(Setup);
-
-        AddPublicHeaders(Client);
+        EnsureSetupLoaded(Setup);
 
         if not Client.Get(BuildUrl(Setup."API Base URL", '/health'), Response) then
-            Error('The backend request could not be sent. Please verify the API Base URL and your network connection.');
+            Error('The backend request could not be sent. Please verify the network connection.');
 
-        Response.Content().ReadAs(ResponseText);
+        Response.Content.ReadAs(ResponseText);
 
         if not Response.IsSuccessStatusCode() then
             Error('Backend connection test failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
 
-        if not JsonResponse.ReadFrom(ResponseText) then
-            Error('The backend returned an invalid JSON response: %1', ResponseText);
+        if JsonResponse.ReadFrom(ResponseText) then
+            if JsonResponse.Get('status', Token) then
+                if not IsJsonNull(Token) then
+                    StatusText := Token.AsValue().AsText();
 
-        if JsonResponse.Get('service', Token) then
-            if not IsJsonNull(Token) then
-                ServiceName := Token.AsValue().AsText();
-
-        if JsonResponse.Get('version', Token) then
-            if not IsJsonNull(Token) then
-                VersionText := Token.AsValue().AsText();
-
-        if JsonResponse.Get('status', Token) then
-            if not IsJsonNull(Token) then
-                StatusText := Token.AsValue().AsText();
-
-        if ServiceName = '' then
-            ServiceName := 'Backend';
-        if VersionText = '' then
-            VersionText := 'unknown';
         if StatusText = '' then
-            StatusText := 'unknown';
+            StatusText := 'ok';
 
-        Message(
-            'Backend reachable.\Service: %1\Status: %2\Version: %3',
-            ServiceName,
-            StatusText,
-            VersionText);
+        Message('Backend reachable. Status: %1', StatusText);
+    end;
+
+    procedure EnsureTenantRegistered(var Setup: Record "DH Setup")
+    begin
+        EnsureSetupLoaded(Setup);
+
+        if not Setup."Data Processing Consent" then
+            Error('Please enable Data Processing Consent first.');
+
+        if Setup.Registered and (Setup."Tenant ID" <> '') and (Setup."API Token" <> '') then
+            exit;
+
+        RegisterTenant(Setup);
+        RefreshLicenseStatus(Setup);
     end;
 
     procedure RegisterTenant(var Setup: Record "DH Setup")
@@ -66,7 +58,7 @@ codeunit 53100 "DH API Client"
         TenantId: Text;
         ApiToken: Text;
     begin
-        EnsureApiBaseUrlConfigured(Setup);
+        EnsureSetupLoaded(Setup);
 
         JsonRequest.Add('environment_name', 'BC Cloud');
         JsonRequest.Add('app_version', '0.4.0');
@@ -77,12 +69,10 @@ codeunit 53100 "DH API Client"
         Headers.Clear();
         Headers.Add('Content-Type', 'application/json');
 
-        AddPublicHeaders(Client);
-
         if not Client.Post(BuildUrl(Setup."API Base URL", '/tenant/register'), Content, Response) then
-            Error('The backend request could not be sent. Please verify the API Base URL and your network connection.');
+            Error('The backend request could not be sent. Please verify the network connection.');
 
-        Response.Content().ReadAs(ResponseText);
+        Response.Content.ReadAs(ResponseText);
 
         if not Response.IsSuccessStatusCode() then
             Error('Tenant registration failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
@@ -106,9 +96,71 @@ codeunit 53100 "DH API Client"
 
         Setup.Validate("Tenant ID", CopyStr(TenantId, 1, MaxStrLen(Setup."Tenant ID")));
         Setup.Validate("API Token", CopyStr(ApiToken, 1, MaxStrLen(Setup."API Token")));
+        Setup.Registered := true;
+        Setup."Registration Date" := CurrentDateTime();
         Setup.Modify(true);
+    end;
 
-        Message('Tenant successfully registered.');
+    procedure RefreshLicenseStatus(var Setup: Record "DH Setup")
+    var
+        Client: HttpClient;
+        Response: HttpResponseMessage;
+        ResponseText: Text;
+        Headers: HttpHeaders;
+        JsonResponse: JsonObject;
+        Token: JsonToken;
+        FeaturesToken: JsonToken;
+        Features: JsonArray;
+    begin
+        EnsureTenantAccessConfigured(Setup);
+
+        Headers := Client.DefaultRequestHeaders();
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
+
+        if not Client.Get(BuildUrl(Setup."API Base URL", '/license/status'), Response) then
+            Error('The backend request could not be sent. Please verify the network connection.');
+
+        Response.Content.ReadAs(ResponseText);
+
+        if not Response.IsSuccessStatusCode() then
+            Error('License status request failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
+
+        if not JsonResponse.ReadFrom(ResponseText) then
+            Error('The backend returned an invalid JSON response: %1', ResponseText);
+
+        if JsonResponse.Get('plan', Token) then
+            if not IsJsonNull(Token) then
+                Setup."Current Plan" := MapPlan(Token.AsValue().AsText());
+
+        if JsonResponse.Get('license_status', Token) then
+            if not IsJsonNull(Token) then
+                Setup."License Status" := MapLicenseStatus(Token.AsValue().AsText());
+
+        Setup."Last License Check" := CurrentDateTime();
+        Setup."Premium Enabled" := false;
+
+        if JsonResponse.Get('features', FeaturesToken) then begin
+            Features := FeaturesToken.AsArray();
+            Setup."Premium Enabled" := JsonArrayContainsText(Features, 'deep_scan');
+        end else
+            Setup."Premium Enabled" := IsPremiumAllowed(Setup);
+
+        Setup.Modify(true);
+    end;
+
+    procedure EnsureReadyForScan(var Setup: Record "DH Setup")
+    begin
+        EnsureTenantRegistered(Setup);
+        RefreshLicenseStatus(Setup);
+    end;
+
+    procedure IsPremiumAllowed(Setup: Record "DH Setup"): Boolean
+    begin
+        exit(
+            (Setup."Current Plan" = Setup."Current Plan"::Premium) and
+            (Setup."License Status" in [Setup."License Status"::Trial, Setup."License Status"::Active]));
     end;
 
     procedure RunQuickScan(var Setup: Record "DH Setup"): Text
@@ -116,20 +168,19 @@ codeunit 53100 "DH API Client"
         Client: HttpClient;
         Content: HttpContent;
         Headers: HttpHeaders;
+        DefaultHeaders: HttpHeaders;
         Response: HttpResponseMessage;
         RequestText: Text;
         ResponseText: Text;
         JsonRequest: JsonObject;
         JsonMetrics: JsonObject;
     begin
-        EnsureTenantAccessConfigured(Setup);
+        EnsureReadyForScan(Setup);
 
         JsonRequest.Add('tenant_id', Setup."Tenant ID");
-
         AddCustomerMetrics(JsonMetrics);
         AddVendorMetrics(JsonMetrics);
         AddItemMetrics(JsonMetrics);
-
         JsonRequest.Add('metrics', JsonMetrics);
         JsonRequest.WriteTo(RequestText);
 
@@ -138,12 +189,15 @@ codeunit 53100 "DH API Client"
         Headers.Clear();
         Headers.Add('Content-Type', 'application/json');
 
-        AddAuthenticatedHeaders(Client, Setup);
+        Headers := Client.DefaultRequestHeaders();
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
 
         if not Client.Post(BuildUrl(Setup."API Base URL", '/scan/quick'), Content, Response) then
-            Error('The backend request could not be sent. Please verify the API Base URL and your network connection.');
+            Error('The backend request could not be sent. Please verify the network connection.');
 
-        Response.Content().ReadAs(ResponseText);
+        Response.Content.ReadAs(ResponseText);
 
         if not Response.IsSuccessStatusCode() then
             Error('Quick scan failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
@@ -157,20 +211,24 @@ codeunit 53100 "DH API Client"
         Response: HttpResponseMessage;
         ResponseText: Text;
         Url: Text;
+        Headers: HttpHeaders;
     begin
-        EnsureTenantAccessConfigured(Setup);
+        EnsureReadyForScan(Setup);
 
         if Limit <= 0 then
             Limit := 10;
 
         Url := BuildUrl(Setup."API Base URL", '/scan/history/' + Setup."Tenant ID" + '?limit=' + Format(Limit));
 
-        AddAuthenticatedHeaders(Client, Setup);
+        Headers := Client.DefaultRequestHeaders();
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
 
         if not Client.Get(Url, Response) then
-            Error('The backend request could not be sent. Please verify the API Base URL and your network connection.');
+            Error('The backend request could not be sent. Please verify the network connection.');
 
-        Response.Content().ReadAs(ResponseText);
+        Response.Content.ReadAs(ResponseText);
 
         if not Response.IsSuccessStatusCode() then
             Error('History request failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
@@ -184,17 +242,21 @@ codeunit 53100 "DH API Client"
         Response: HttpResponseMessage;
         Url: Text;
         ResponseText: Text;
+        Headers: HttpHeaders;
     begin
-        EnsureTenantAccessConfigured(Setup);
+        EnsureReadyForScan(Setup);
 
         Url := BuildUrl(Setup."API Base URL", '/scan/trend/' + Setup."Tenant ID");
 
-        AddAuthenticatedHeaders(Client, Setup);
+        Headers := Client.DefaultRequestHeaders();
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
 
         if not Client.Get(Url, Response) then
-            Error('The backend request could not be sent. Please verify the API Base URL and your network connection.');
+            Error('The backend request could not be sent. Please verify the network connection.');
 
-        Response.Content().ReadAs(ResponseText);
+        Response.Content.ReadAs(ResponseText);
 
         if not Response.IsSuccessStatusCode() then
             Error('Trend request failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
@@ -207,22 +269,26 @@ codeunit 53100 "DH API Client"
         Client: HttpClient;
         Content: HttpContent;
         Headers: HttpHeaders;
+        DefaultHeaders: HttpHeaders;
         Response: HttpResponseMessage;
         ResponseText: Text;
     begin
-        EnsureTenantAccessConfigured(Setup);
+        EnsureReadyForScan(Setup);
 
         Content.WriteFrom(RequestText);
         Content.GetHeaders(Headers);
         Headers.Clear();
         Headers.Add('Content-Type', 'application/json');
 
-        AddAuthenticatedHeaders(Client, Setup);
+        Headers := Client.DefaultRequestHeaders();
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
 
         if not Client.Post(BuildUrl(Setup."API Base URL", '/scan/sync'), Content, Response) then
-            Error('The backend sync request could not be sent. Please verify the API Base URL and your network connection.');
+            Error('The backend sync request could not be sent. Please verify the network connection.');
 
-        Response.Content().ReadAs(ResponseText);
+        Response.Content.ReadAs(ResponseText);
 
         if not Response.IsSuccessStatusCode() then
             Error('Scan sync failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
@@ -233,46 +299,47 @@ codeunit 53100 "DH API Client"
         Client: HttpClient;
         Response: HttpResponseMessage;
         ResponseText: Text;
+        Headers: HttpHeaders;
     begin
-        EnsureTenantAccessConfigured(Setup);
+        EnsureReadyForScan(Setup);
 
-        AddAuthenticatedHeaders(Client, Setup);
+        Headers := Client.DefaultRequestHeaders();
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
 
         if not Client.Delete(BuildUrl(Setup."API Base URL", '/scan/' + Format(ScanId)), Response) then
-            Error('The backend delete request could not be sent. Please verify the API Base URL and your network connection.');
+            Error('The backend delete request could not be sent. Please verify the network connection.');
 
-        Response.Content().ReadAs(ResponseText);
+        Response.Content.ReadAs(ResponseText);
 
         if not Response.IsSuccessStatusCode() then
             Error('Backend scan delete failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
     end;
 
-    local procedure EnsureApiBaseUrlConfigured(var Setup: Record "DH Setup")
+    local procedure EnsureSetupLoaded(var Setup: Record "DH Setup")
     begin
-        if Setup."API Base URL" = '' then
-            Error('Please configure API Base URL first.');
+        if not Setup.Get('SETUP') then begin
+            Setup.Init();
+            Setup."Primary Key" := 'SETUP';
+            Setup.Insert(true);
+        end;
+
+        if Setup."API Base URL" <> Setup.GetFixedApiBaseUrl() then begin
+            Setup."API Base URL" := Setup.GetFixedApiBaseUrl();
+            Setup.Modify(true);
+        end;
     end;
 
     local procedure EnsureTenantAccessConfigured(var Setup: Record "DH Setup")
     begin
-        EnsureApiBaseUrlConfigured(Setup);
+        EnsureSetupLoaded(Setup);
 
         if Setup."Tenant ID" = '' then
             Error('Please register the tenant first.');
 
         if Setup."API Token" = '' then
             Error('The API token is missing. Please register the tenant again.');
-    end;
-
-    local procedure AddPublicHeaders(var Client: HttpClient)
-    begin
-        Client.DefaultRequestHeaders().Add('ngrok-skip-browser-warning', 'true');
-    end;
-
-    local procedure AddAuthenticatedHeaders(var Client: HttpClient; var Setup: Record "DH Setup")
-    begin
-        AddPublicHeaders(Client);
-        Client.DefaultRequestHeaders().Add('x-dhm-api-token', Setup."API Token");
     end;
 
     local procedure BuildUrl(BaseUrl: Text; RelativePath: Text): Text
@@ -293,7 +360,51 @@ codeunit 53100 "DH API Client"
         JsonValueText: Text;
     begin
         JsonValueText := LowerCase(Format(Token));
-        exit((JsonValueText = 'null') or (JsonValueText = '<null>'));
+        exit((JsonValueText = 'null') or (JsonValueText = ''));
+    end;
+
+    local procedure MapPlan(Value: Text): Enum "DH License Plan"
+    begin
+        case LowerCase(Value) of
+            'free':
+                exit("DH License Plan"::Free);
+            'standard':
+                exit("DH License Plan"::Standard);
+            'premium':
+                exit("DH License Plan"::Premium);
+            else
+                exit("DH License Plan"::Free);
+        end;
+    end;
+
+    local procedure MapLicenseStatus(Value: Text): Enum "DH License Status"
+    begin
+        case LowerCase(Value) of
+            'trial':
+                exit("DH License Status"::Trial);
+            'active':
+                exit("DH License Status"::Active);
+            'expired':
+                exit("DH License Status"::Expired);
+            'blocked':
+                exit("DH License Status"::Blocked);
+            else
+                exit("DH License Status"::Trial);
+        end;
+    end;
+
+    local procedure JsonArrayContainsText(Values: JsonArray; SearchText: Text): Boolean
+    var
+        Token: JsonToken;
+        i: Integer;
+    begin
+        for i := 0 to Values.Count() - 1 do begin
+            Values.Get(i, Token);
+            if LowerCase(Token.AsValue().AsText()) = LowerCase(SearchText) then
+                exit(true);
+        end;
+
+        exit(false);
     end;
 
     local procedure AddCustomerMetrics(var JsonMetrics: JsonObject)
