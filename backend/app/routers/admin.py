@@ -25,7 +25,7 @@ def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
     if not (is_username_ok and is_password_ok):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid admin credentials",
+            detail="Not authenticated",
             headers={"WWW-Authenticate": "Basic"},
         )
 
