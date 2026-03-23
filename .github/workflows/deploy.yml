@@ -26,5 +26,5 @@ jobs:
             set -e
             cd ~/data-health-management
             git pull origin main
-            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+            docker compose --env-file .env.prod up -d --build
           EOF
