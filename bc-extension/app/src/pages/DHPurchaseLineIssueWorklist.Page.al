@@ -3,7 +3,7 @@ page 53144 "DH Purch. Line Worklist"
     PageType = List;
     SourceTable = "Purchase Line";
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'DH Purchase Line Issue Worklist';
     Editable = false;
 

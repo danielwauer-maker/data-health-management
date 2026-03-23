@@ -3,7 +3,7 @@ page 53156 "DH Customer Issue List"
     PageType = List;
     SourceTable = Customer;
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'DH Customer Issue List';
     Editable = false;
 

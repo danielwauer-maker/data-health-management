@@ -2,7 +2,7 @@ page 53123 "DHM Analytics"
 {
     PageType = Card;
     ApplicationArea = All;
-    UsageCategory = Administration;
+    UsageCategory = None;
     Caption = 'DHM Analytics';
 
     layout

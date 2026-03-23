@@ -8,6 +8,7 @@ page 53121 "DH Issues Part"
     InsertAllowed = false;
     DeleteAllowed = false;
     ModifyAllowed = false;
+    UsageCategory = None;
 
     layout
     {

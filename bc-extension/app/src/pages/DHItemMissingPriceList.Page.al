@@ -3,7 +3,7 @@ page 53148 "DH Item Missing Price List"
     PageType = List;
     SourceTable = Item;
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'DH Item Missing Price List';
     SourceTableView = where("Unit Price" = const(0));
 

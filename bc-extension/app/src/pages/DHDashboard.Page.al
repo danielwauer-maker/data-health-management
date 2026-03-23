@@ -3,7 +3,7 @@ page 53120 "DH Dashboard"
     PageType = Card;
     SourceTable = "DH Scan Header";
     ApplicationArea = All;
-    UsageCategory = Administration;
+    UsageCategory = None;
     Caption = 'Data Health Dashboard';
 
     layout

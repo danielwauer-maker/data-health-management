@@ -3,7 +3,7 @@ page 53124 "DH Dashboard List"
     PageType = List;
     SourceTable = "DH Scan Header";
     ApplicationArea = All;
-    UsageCategory = Administration;
+    UsageCategory = None;
     Caption = 'Data Health Dashboards';
     CardPageId = "DH Dashboard";
     Editable = false;

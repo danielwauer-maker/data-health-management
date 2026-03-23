@@ -3,7 +3,7 @@ page 53136 "DH Item Neg. Inventory"
     PageType = List;
     SourceTable = Item;
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'DH Item Negative Inventory List';
     SourceTableView = where(Inventory = filter(< 0));
     Editable = false;

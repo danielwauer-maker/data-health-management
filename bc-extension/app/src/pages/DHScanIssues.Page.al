@@ -3,7 +3,7 @@ page 53126 "DH Scan Issues"
     PageType = List;
     SourceTable = "DH Scan Issue";
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'Scan Issues';
     Editable = false;
     InsertAllowed = false;

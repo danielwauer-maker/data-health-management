@@ -5,6 +5,7 @@ page 53127 "DH Key Metrics Part"
     ApplicationArea = All;
     Caption = 'Key Metrics';
     Editable = false;
+    UsageCategory = None;
 
     layout
     {

@@ -2,7 +2,7 @@ page 53100 "DH Setup"
 {
     PageType = Card;
     SourceTable = "DH Setup";
-    Caption = 'DH Setup';
+    Caption = 'BCSentinel Setup';
     ApplicationArea = All;
     UsageCategory = Administration;
 
@@ -106,7 +106,7 @@ page 53100 "DH Setup"
         {
             action(TestConnection)
             {
-                Caption = 'Test Connection';
+                Caption = 'Test BCSentinel Connection';
                 ApplicationArea = All;
                 Image = TestFile;
 
@@ -120,7 +120,7 @@ page 53100 "DH Setup"
 
             action(RegisterTenant)
             {
-                Caption = 'Register Tenant';
+                Caption = 'Register with BCSentinel';
                 ApplicationArea = All;
                 Image = Web;
 
@@ -130,13 +130,13 @@ page 53100 "DH Setup"
                 begin
                     ApiClient.EnsureTenantRegistered(Rec);
                     CurrPage.Update(false);
-                    Message('Tenant registration completed.');
+                    Message('BCSentinel tenant registration completed.');
                 end;
             }
 
             action(RefreshLicense)
             {
-                Caption = 'Refresh License';
+                Caption = 'Refresh BCSentinel License';
                 ApplicationArea = All;
                 Image = Refresh;
 
@@ -146,7 +146,7 @@ page 53100 "DH Setup"
                 begin
                     ApiClient.RefreshLicenseStatus(Rec);
                     CurrPage.Update(false);
-                    Message('License status refreshed.');
+                    Message('BCSentinel license status refreshed.');
                 end;
             }
         }

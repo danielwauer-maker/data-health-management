@@ -5,6 +5,7 @@ page 53132 "DH Deep Scan Part"
     ApplicationArea = All;
     Caption = 'Deep Scan';
     Editable = false;
+    UsageCategory = None;
 
     layout
     {

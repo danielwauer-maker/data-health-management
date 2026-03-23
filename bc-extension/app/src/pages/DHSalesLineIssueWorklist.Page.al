@@ -3,7 +3,7 @@ page 53139 "DH Sales Line Issue Worklist"
     PageType = List;
     SourceTable = "Sales Line";
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'DH Sales Line Issue Worklist';
     Editable = false;
 

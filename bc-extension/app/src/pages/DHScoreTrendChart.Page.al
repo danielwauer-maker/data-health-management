@@ -5,6 +5,7 @@ page 53125 "DH Score Trend Chart"
     ApplicationArea = All;
     Caption = 'Score Trend';
     Editable = false;
+    UsageCategory = None;
 
     layout
     {

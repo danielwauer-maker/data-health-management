@@ -5,6 +5,7 @@ page 53122 "DH Score Part"
     ApplicationArea = All;
     Caption = 'Score Health';
     Editable = false;
+    UsageCategory = None;
 
     layout
     {

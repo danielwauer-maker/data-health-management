@@ -3,7 +3,7 @@ page 53138 "DH Blocked Items Inv"
     PageType = List;
     SourceTable = Item;
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'DH Blocked Items With Inventory';
     SourceTableView = where(Blocked = const(true), Inventory = filter(<> 0));
     Editable = false;

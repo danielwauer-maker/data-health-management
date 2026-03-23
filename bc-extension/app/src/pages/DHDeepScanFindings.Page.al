@@ -3,7 +3,7 @@ page 53131 "DH Deep Scan Findings"
     PageType = List;
     SourceTable = "DH Deep Scan Finding";
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'Deep Scan Findings';
     Editable = false;
     InsertAllowed = false;

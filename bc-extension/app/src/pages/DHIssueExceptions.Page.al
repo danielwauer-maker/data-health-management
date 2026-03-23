@@ -4,7 +4,7 @@ page 53153 "DH Issue Exceptions"
     SourceTable = "DH Issue Exception";
     ApplicationArea = All;
     UsageCategory = Lists;
-    Caption = 'DH Issue Exceptions';
+    Caption = 'BCSentinel Issue Exceptions';
     DeleteAllowed = false;
 
     layout

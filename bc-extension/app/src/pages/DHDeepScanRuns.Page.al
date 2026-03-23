@@ -4,7 +4,7 @@ page 53130 "DH Deep Scan Runs"
     SourceTable = "DH Deep Scan Run";
     ApplicationArea = All;
     UsageCategory = Administration;
-    Caption = 'Deep Scan Runs';
+    Caption = 'BCSentinel Scan History';
     Editable = false;
     InsertAllowed = false;
     DeleteAllowed = true;

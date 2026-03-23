@@ -4,7 +4,7 @@ page 53145 "DH Duplicate Worklist"
     SourceTable = "DH Duplicate Buffer";
     SourceTableTemporary = true;
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'DH Duplicate Worklist';
     Editable = false;
 

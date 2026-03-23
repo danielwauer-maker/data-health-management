@@ -3,7 +3,7 @@ page 53157 "DH Vendor Issue List"
     PageType = List;
     SourceTable = Vendor;
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'DH Vendor Issue List';
     Editable = false;
 

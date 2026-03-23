@@ -3,7 +3,7 @@ page 53135 "DH Dashboard Issues"
     PageType = List;
     SourceTable = "DH Dashboard Issue";
     ApplicationArea = All;
-    UsageCategory = Lists;
+    UsageCategory = None;
     Caption = 'Dashboard Issues';
     Editable = false;
     InsertAllowed = false;
