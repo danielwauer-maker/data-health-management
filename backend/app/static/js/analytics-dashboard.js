@@ -115,13 +115,6 @@ function renderTrend(items) {
     <text x="${point.x}" y="${height - 14}" text-anchor="middle" class="trend-axis-label">${escapeHtml(point.label)}</text>
   `).join('');
 
-  const legendItems = points.map((point) => `
-    <div class="trend-legend-item${point.is_selected ? ' is-selected' : ''}">
-      <span>${escapeHtml(point.timestamp)}</span>
-      <strong>${formatNumber(point.value)}</strong>
-    </div>
-  `).join('');
-
   host.innerHTML = `
     <svg viewBox="0 0 ${width} ${height}" class="trend-svg" role="img" aria-label="Score Trend">
       ${gridLines}
@@ -129,7 +122,6 @@ function renderTrend(items) {
       ${pointCircles}
       ${xLabels}
     </svg>
-    <div class="trend-legend">${legendItems}</div>
   `;
 }
 
@@ -244,34 +236,10 @@ async function loadDashboard(scanId = null) {
     setText('kpi-roi', formatCurrency(data?.kpis?.roi_eur));
 
     renderProfileCards(data?.profile_cards || []);
-
-    try {
-      renderTrend(data?.score_trend || []);
-    } catch (error) {
-      console.error('renderTrend failed:', error);
-      const trendHost = byId('trend-chart');
-      if (trendHost) {
-        trendHost.innerHTML = '<div class="empty-state">Trend konnte nicht geladen werden.</div>';
-      }
-    }
-
-    try {
-      renderRecentScans(data?.recent_scans || []);
-    } catch (error) {
-      console.error('renderRecentScans failed:', error);
-    }
-
-    try {
-      renderIssueGroups(data?.issue_groups || []);
-    } catch (error) {
-      console.error('renderIssueGroups failed:', error);
-    }
-
-    try {
-      renderFindings(data?.top_findings || []);
-    } catch (error) {
-      console.error('renderFindings failed:', error);
-    }
+    renderTrend(data?.score_trend || []);
+    renderRecentScans(data?.recent_scans || []);
+    renderIssueGroups(data?.issue_groups || []);
+    renderFindings(data?.top_findings || []);
   } catch (error) {
     console.error('loadDashboard failed:', error);
     setText('page-subtitle', 'Dashboard konnte nicht geladen werden.');
