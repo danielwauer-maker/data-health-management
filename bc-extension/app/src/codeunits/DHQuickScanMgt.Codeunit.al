@@ -66,6 +66,12 @@ codeunit 53123 "DH QuickScan Mgt."
         if JsonObj.Get('scan_id', JsonToken) then
             Header."Backend Scan Id" := CopyStr(JsonToken.AsValue().AsText(), 1, MaxStrLen(Header."Backend Scan Id"));
 
+        if JsonObj.Get('bc_run_id', JsonToken) then
+            Header."Run ID" := CopyStr(JsonToken.AsValue().AsText(), 1, MaxStrLen(Header."Run ID"));
+
+        if Header."Run ID" = '' then
+            Header."Run ID" := Header."Backend Scan Id";
+
         if JsonObj.Get('data_score', JsonToken) then
             Header."Data Score" := JsonToken.AsValue().AsInteger();
 
@@ -110,10 +116,10 @@ codeunit 53123 "DH QuickScan Mgt."
         Payload.Add('premium_available', Header."Premium Available");
         Payload.Add('headline', Header."Headline");
         Payload.Add('rating', Header."Rating");
-        Payload.Add('estimated_loss_eur', Header."Estimated Loss EUR");
-        Payload.Add('potential_saving_eur', Header."Potential Saving EUR");
-        Payload.Add('estimated_premium_price_monthly', Header."Estimated Premium Price Monthly");
-        Payload.Add('roi_eur', Header."ROI EUR");
+        Payload.Add('estimated_loss_eur', Header."Est. Loss");
+        Payload.Add('potential_saving_eur', Header."Potential Saving");
+        Payload.Add('estimated_premium_price_monthly', Header."Est. Premium Price");
+        Payload.Add('roi_eur', Header."ROI");
         Payload.Add('data_profile', DataProfilingMgt.BuildDataProfile());
 
         Issue.Reset();
@@ -160,16 +166,16 @@ codeunit 53123 "DH QuickScan Mgt."
         DataProfileObj: JsonObject;
     begin
         if JsonObj.Get('estimated_loss_eur', Token) then
-            Header."Estimated Loss EUR" := ReadJsonDecimal(Token);
+            Header."Est. Loss" := ReadJsonDecimal(Token);
 
         if JsonObj.Get('potential_saving_eur', Token) then
-            Header."Potential Saving EUR" := ReadJsonDecimal(Token);
+            Header."Potential Saving" := ReadJsonDecimal(Token);
 
         if JsonObj.Get('estimated_premium_price_monthly', Token) then
-            Header."Estimated Premium Price Monthly" := ReadJsonDecimal(Token);
+            Header."Est. Premium Price" := ReadJsonDecimal(Token);
 
         if JsonObj.Get('roi_eur', Token) then
-            Header."ROI EUR" := ReadJsonDecimal(Token);
+            Header."ROI" := ReadJsonDecimal(Token);
 
         if JsonObj.Get('data_profile', DataProfileToken) then begin
             DataProfileObj := DataProfileToken.AsObject();

@@ -29,7 +29,7 @@ page 53127 "DH Key Metrics Part"
                     StyleExpr = RecordsStyle;
                 }
 
-                field(PremiumPriceCue; Rec."Estimated Premium Price Monthly")
+                field(PremiumPriceCue; Rec."Est. Premium Price")
                 {
                     ApplicationArea = All;
                     Caption = 'Premium / Monat';
@@ -37,7 +37,7 @@ page 53127 "DH Key Metrics Part"
                     StyleExpr = PremiumPriceStyle;
                 }
 
-                field(EstimatedLossCue; Rec."Estimated Loss EUR")
+                field(EstimatedLossCue; Rec."Est. Loss")
                 {
                     ApplicationArea = All;
                     Caption = 'Potenzieller Verlust';
@@ -45,7 +45,7 @@ page 53127 "DH Key Metrics Part"
                     StyleExpr = LossStyle;
                 }
 
-                field(ROICue; Rec."ROI EUR")
+                field(ROICue; Rec."ROI")
                 {
                     ApplicationArea = All;
                     Caption = 'ROI';
@@ -79,7 +79,7 @@ page 53127 "DH Key Metrics Part"
         RecordsStyle := 'StrongAccent';
         PremiumPriceStyle := 'Ambiguous';
         LossStyle := 'Unfavorable';
-        ROIStyle := GetROIStyle(Rec."ROI EUR");
+        ROIStyle := GetROIStyle(Rec."ROI");
     end;
 
     local procedure GetScoreStyle(ScoreValue: Integer): Text

@@ -237,9 +237,8 @@ def render_analytics_dashboard(request: Request, token: str = Query(...)):
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
 
     return TEMPLATES.TemplateResponse(
-        request,
-        "analytics_embed.html",
-        {
+        name="analytics_embed.html",
+        context={"request": request,
             "page_title": "BCSentinel Analytics",
             "token": token,
         },

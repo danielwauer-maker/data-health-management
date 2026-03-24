@@ -72,9 +72,8 @@ def admin_tenants(request: Request, _: str = Depends(require_admin)):
         ensure_default_issue_costs(db)
         ensure_default_license_pricing(db)
         return TEMPLATES.TemplateResponse(
-            request,
-            "admin_tenants.html",
-            {
+            name="admin_tenants.html",
+            context={"request": request,
                 "page_title": "BCSentinel Admin",
                 "tenants": _load_tenant_rows(db),
                 "issue_costs": db.scalars(select(IssueCostConfig).order_by(IssueCostConfig.code.asc())).all(),
