@@ -165,11 +165,15 @@ codeunit 53123 "DH QuickScan Mgt."
         DataProfileToken: JsonToken;
         DataProfileObj: JsonObject;
     begin
-        if JsonObj.Get('estimated_loss_eur', Token) then
+        if JsonObj.Get('estimated_loss_eur', Token) then begin
             Header."Est. Loss" := ReadJsonDecimal(Token);
+            Header."Estimated Loss (EUR)" := Header."Est. Loss";
+        end;
 
-        if JsonObj.Get('potential_saving_eur', Token) then
+        if JsonObj.Get('potential_saving_eur', Token) then begin
             Header."Potential Saving" := ReadJsonDecimal(Token);
+            Header."Potential Saving (EUR)" := Header."Potential Saving";
+        end;
 
         if JsonObj.Get('estimated_premium_price_monthly', Token) then
             Header."Est. Premium Price" := ReadJsonDecimal(Token);

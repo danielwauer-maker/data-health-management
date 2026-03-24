@@ -879,6 +879,8 @@ codeunit 53128 "DH Deep Scan Runner"
         ScanHeader."Data Score" := DeepScanRun."Deep Score";
         ScanHeader."Checks Count" := DeepScanRun."Checks Count";
         ScanHeader."Issues Count" := DeepScanRun."Issues Count";
+        ScanHeader."Estimated Loss (EUR)" := DeepScanRun."Estimated Loss (EUR)";
+        ScanHeader."Potential Saving (EUR)" := DeepScanRun."Potential Saving (EUR)";
         ScanHeader."Est. Loss" := DeepScanRun."Estimated Loss (EUR)";
         ScanHeader."Potential Saving" := DeepScanRun."Potential Saving (EUR)";
         ScanHeader."Headline" := CopyStr(DeepScanRun."Headline", 1, MaxStrLen(ScanHeader."Headline"));

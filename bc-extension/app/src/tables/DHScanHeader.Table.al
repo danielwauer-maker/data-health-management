@@ -50,6 +50,16 @@ table 53120 "DH Scan Header"
         {
             Caption = 'Run ID';
         }
+        field(12; "Estimated Loss (EUR)"; Decimal)
+        {
+            Caption = 'Estimated Loss (EUR)';
+            DecimalPlaces = 0 : 2;
+        }
+        field(13; "Potential Saving (EUR)"; Decimal)
+        {
+            Caption = 'Potential Saving (EUR)';
+            DecimalPlaces = 0 : 2;
+        }
         field(20; "Total Records"; Integer)
         {
             Caption = 'Total Records';
