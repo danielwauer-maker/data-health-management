@@ -38,6 +38,15 @@ def _normalize_severity(value: Any) -> str:
     return "low"
 
 
+def _severity_rank(value: Any) -> int:
+    severity = _normalize_severity(value)
+    if severity == "high":
+        return 0
+    if severity == "medium":
+        return 1
+    return 2
+
+
 def _issue_group_from_code(code: str) -> str:
     code_upper = (code or "").upper()
     if code_upper.startswith("CUSTOMERS_"):
@@ -53,15 +62,6 @@ def _issue_group_from_code(code: str) -> str:
     if "LEDGER" in code_upper or code_upper.startswith("GL_"):
         return "Finance"
     return "Other"
-
-
-def _severity_sort_key(value: Any) -> int:
-    severity = _normalize_severity(value)
-    if severity == "high":
-        return 0
-    if severity == "medium":
-        return 1
-    return 2
 
 
 def _load_tenant(tenant_id: str | None, environment: str | None) -> Tenant | None:
@@ -80,7 +80,7 @@ def _load_tenant(tenant_id: str | None, environment: str | None) -> Tenant | Non
         return tenants[0] if tenants else None
 
 
-def _load_recent_scans(tenant_id: str, limit: int = 20) -> list[Scan]:
+def _load_recent_scans_desc(tenant_id: str, limit: int = 20) -> list[Scan]:
     with SessionLocal() as db:
         scans = db.scalars(
             select(Scan)
@@ -94,15 +94,59 @@ def _load_recent_scans(tenant_id: str, limit: int = 20) -> list[Scan]:
 def _load_scan_issues(scan_id: str) -> list[ScanIssueRecord]:
     with SessionLocal() as db:
         issues = db.scalars(select(ScanIssueRecord).where(ScanIssueRecord.scan_id == scan_id)).all()
+
     return sorted(
         issues,
         key=lambda row: (
-            -(row.estimated_impact_eur or 0.0),
-            _severity_sort_key(row.severity),
-            -(row.affected_count or 0),
+            -_safe_float(row.estimated_impact_eur),
+            _severity_rank(row.severity),
+            -_safe_int(row.affected_count),
             row.code,
         ),
     )
+
+
+def _has_profile_data(scan: Scan) -> bool:
+    return any(
+        _safe_int(value) > 0
+        for value in (
+            scan.total_records,
+            scan.customers_count,
+            scan.vendors_count,
+            scan.items_count,
+            scan.customer_ledger_entries_count,
+            scan.vendor_ledger_entries_count,
+            scan.item_ledger_entries_count,
+            scan.sales_headers_count,
+            scan.sales_lines_count,
+            scan.purchase_headers_count,
+            scan.purchase_lines_count,
+            scan.gl_entries_count,
+            scan.value_entries_count,
+            scan.warehouse_entries_count,
+        )
+    )
+
+
+def _has_commercial_data(scan: Scan) -> bool:
+    return any(
+        _safe_float(value) > 0
+        for value in (
+            scan.estimated_loss_eur,
+            scan.potential_saving_eur,
+            scan.estimated_premium_price_monthly,
+        )
+    )
+
+
+def _is_valid_dashboard_scan(scan: Scan) -> bool:
+    if _has_profile_data(scan):
+        return True
+    if _safe_int(scan.checks_count) > 0 and _safe_int(scan.issues_count) >= 0:
+        return True
+    if _has_commercial_data(scan):
+        return True
+    return False
 
 
 def _select_active_scan(scans_desc: list[Scan], selected_scan_id: str | None) -> Scan:
@@ -114,18 +158,22 @@ def _select_active_scan(scans_desc: list[Scan], selected_scan_id: str | None) ->
             if scan.scan_id == selected_scan_id:
                 return scan
 
+    for scan in scans_desc:
+        if _is_valid_dashboard_scan(scan):
+            return scan
+
     return scans_desc[0]
 
 
 def _build_trend_points(scans_desc: list[Scan], active_scan_id: str, max_points: int = 12) -> list[dict[str, Any]]:
-    start_index = 0
+    active_index = 0
     for index, scan in enumerate(scans_desc):
         if scan.scan_id == active_scan_id:
-            start_index = index
+            active_index = index
             break
 
-    visible_scans_desc = scans_desc[start_index : start_index + max_points]
-    visible_scans_asc = list(reversed(visible_scans_desc))
+    visible_desc = scans_desc[active_index : active_index + max_points]
+    visible_asc = list(reversed(visible_desc))
 
     return [
         {
@@ -136,7 +184,7 @@ def _build_trend_points(scans_desc: list[Scan], active_scan_id: str, max_points:
             "scan_type": scan.scan_type,
             "is_selected": scan.scan_id == active_scan_id,
         }
-        for scan in visible_scans_asc
+        for scan in visible_asc
     ]
 
 
@@ -204,7 +252,7 @@ def _build_dashboard_payload(
     if tenant is None:
         return _build_fallback_payload(company, environment, scan_mode)
 
-    recent_scans_desc = _load_recent_scans(tenant.tenant_id, limit=20)
+    recent_scans_desc = _load_recent_scans_desc(tenant.tenant_id, limit=20)
     if not recent_scans_desc:
         return _build_fallback_payload(company, environment, scan_mode)
 
@@ -212,22 +260,9 @@ def _build_dashboard_payload(
     issues = _load_scan_issues(active_scan.scan_id)
 
     issue_groups: dict[str, int] = {}
-    top_findings: list[dict[str, Any]] = []
     for issue in issues:
         group = _issue_group_from_code(issue.code)
         issue_groups[group] = issue_groups.get(group, 0) + _safe_int(issue.affected_count)
-        top_findings.append(
-            {
-                "code": issue.code,
-                "title": issue.title,
-                "severity": _normalize_severity(issue.severity),
-                "count": _safe_int(issue.affected_count),
-                "impact_eur": round(_safe_float(issue.estimated_impact_eur), 2),
-                "group": group,
-                "recommendation_preview": issue.recommendation_preview or "",
-                "premium_only": bool(issue.premium_only),
-            }
-        )
 
     recent_scans_payload = [
         {
@@ -238,8 +273,23 @@ def _build_dashboard_payload(
             "issues_count": _safe_int(scan.issues_count),
             "headline": scan.summary_headline,
             "is_selected": scan.scan_id == active_scan.scan_id,
+            "is_valid": _is_valid_dashboard_scan(scan),
         }
         for scan in recent_scans_desc[:10]
+    ]
+
+    top_findings = [
+        {
+            "code": issue.code,
+            "title": issue.title,
+            "severity": _normalize_severity(issue.severity),
+            "count": _safe_int(issue.affected_count),
+            "impact_eur": round(_safe_float(issue.estimated_impact_eur), 2),
+            "group": _issue_group_from_code(issue.code),
+            "recommendation_preview": issue.recommendation_preview or "",
+            "premium_only": bool(issue.premium_only),
+        }
+        for issue in issues
     ]
 
     return {
@@ -289,7 +339,10 @@ def get_analytics_token(
 
 
 @router.get("/analytics/embed/data", response_class=JSONResponse)
-def get_analytics_data(token: str = Query(...), scan_id: str | None = Query(default=None)):
+def get_analytics_data(
+    token: str = Query(...),
+    scan_id: str | None = Query(default=None),
+):
     payload = verify_token(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")

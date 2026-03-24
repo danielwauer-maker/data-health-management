@@ -1,9 +1,13 @@
+from __future__ import annotations
+
+import hmac
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.models import Scan, ScanIssueRecord, Tenant
@@ -51,49 +55,144 @@ class ScanSyncPayload(BaseModel):
     premium_available: bool = True
     headline: str = ""
     rating: str = ""
-    data_profile: DataProfilePayload = DataProfilePayload()
+    data_profile: DataProfilePayload = Field(default_factory=DataProfilePayload)
     estimated_loss_eur: float = 0.0
     potential_saving_eur: float = 0.0
     estimated_premium_price_monthly: float = 0.0
     roi_eur: float = 0.0
-    issues: List[ScanIssuePayload] = []
+    issues: List[ScanIssuePayload] = Field(default_factory=list)
+
+
+def _safe_int(value: object, default: int = 0) -> int:
+    try:
+        return int(value or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value: object, default: float = 0.0) -> float:
+    try:
+        return float(value or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_scan_type(value: str | None) -> str:
+    normalized = (value or "").strip().lower()
+    if normalized in {"deep", "premium_deep"}:
+        return "deep"
+    return "quick"
+
+
+def _normalize_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _validate_sync_headers(
+    payload_tenant_id: str,
+    header_tenant_id: str | None,
+    header_api_token: str | None,
+) -> None:
+    if not header_tenant_id or not header_api_token:
+        raise HTTPException(status_code=401, detail="Missing tenant authentication headers.")
+
+    if payload_tenant_id != header_tenant_id:
+        raise HTTPException(status_code=400, detail="Payload tenant_id does not match X-Tenant-Id header.")
+
+
+def _load_tenant_for_sync(db, tenant_id: str, api_token: str) -> Tenant:
+    tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+
+    if not hmac.compare_digest(tenant.api_token or "", api_token):
+        raise HTTPException(status_code=403, detail="Invalid API token.")
+
+    return tenant
+
+
+def _calculate_commercials(payload: ScanSyncPayload, db) -> tuple[int, float, float, float, float]:
+    cost_map = get_issue_cost_map(db)
+    pricing = get_license_pricing(db, "premium")
+
+    total_records = _safe_int(payload.data_profile.total_records)
+
+    estimated_loss = _safe_float(payload.estimated_loss_eur)
+    if estimated_loss <= 0:
+        estimated_loss = round(
+            sum(
+                calculate_issue_impact(issue.code, _safe_int(issue.affected_count), cost_map)
+                for issue in payload.issues
+            ),
+            2,
+        )
+
+    potential_saving = _safe_float(payload.potential_saving_eur)
+    if potential_saving <= 0:
+        potential_saving = round(estimated_loss * 0.7, 2)
+
+    premium_price = _safe_float(payload.estimated_premium_price_monthly)
+    if premium_price <= 0:
+        premium_price = round(calculate_monthly_price(total_records, pricing), 2)
+
+    roi = _safe_float(payload.roi_eur)
+    if roi == 0:
+        roi = round(potential_saving - (premium_price * 12), 2)
+
+    return total_records, estimated_loss, potential_saving, premium_price, roi
 
 
 @router.post("/scan/sync")
-def sync_scan(payload: ScanSyncPayload):
+def sync_scan(
+    payload: ScanSyncPayload,
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    x_api_token: str | None = Header(default=None, alias="X-Api-Token"),
+):
+    _validate_sync_headers(payload.tenant_id, x_tenant_id, x_api_token)
+
     with SessionLocal() as db:
-        tenant = db.query(Tenant).filter(Tenant.tenant_id == payload.tenant_id).first()
-        if tenant is None:
-            raise HTTPException(status_code=404, detail="Tenant not found.")
+        tenant = _load_tenant_for_sync(db, payload.tenant_id, x_api_token or "")
+        total_records, estimated_loss, potential_saving, premium_price, roi = _calculate_commercials(payload, db)
 
-        cost_map = get_issue_cost_map(db)
-        pricing = get_license_pricing(db, "premium")
-        total_records = int(payload.data_profile.total_records or 0)
-        estimated_loss = float(payload.estimated_loss_eur or 0.0)
-        if estimated_loss <= 0:
-            estimated_loss = round(
-                sum(calculate_issue_impact(issue.code, issue.affected_count, cost_map) for issue in payload.issues),
-                2,
-            )
-        potential_saving = float(payload.potential_saving_eur or round(estimated_loss * 0.7, 2))
-        premium_price = float(payload.estimated_premium_price_monthly or calculate_monthly_price(total_records, pricing))
-        roi = float(payload.roi_eur or round(potential_saving - (premium_price * 12), 2))
+        existing_scan = db.scalar(
+            select(Scan).where(Scan.scan_id == payload.scan_id)
+        )
 
-        scan = db.query(Scan).filter(Scan.scan_id == payload.scan_id).first()
+        if existing_scan is not None and existing_scan.tenant_id != payload.tenant_id:
+            raise HTTPException(status_code=409, detail="scan_id already exists for another tenant.")
+
+        scan = existing_scan
+        normalized_generated_at = _normalize_utc(payload.generated_at_utc)
+        normalized_scan_type = _normalize_scan_type(payload.scan_type)
+
         if scan is None:
-            scan = Scan(scan_id=payload.scan_id, tenant_id=payload.tenant_id, scan_type=payload.scan_type.lower(), generated_at_utc=payload.generated_at_utc, data_score=payload.data_score, checks_count=payload.checks_count, issues_count=payload.issues_count, premium_available=payload.premium_available, summary_headline=payload.headline, summary_rating=payload.rating)
+            scan = Scan(
+                scan_id=payload.scan_id,
+                tenant_id=payload.tenant_id,
+                scan_type=normalized_scan_type,
+                generated_at_utc=normalized_generated_at,
+                data_score=_safe_int(payload.data_score),
+                checks_count=_safe_int(payload.checks_count),
+                issues_count=_safe_int(payload.issues_count),
+                premium_available=bool(payload.premium_available),
+                summary_headline=payload.headline or "",
+                summary_rating=payload.rating or "",
+            )
             db.add(scan)
             db.flush()
         else:
             scan.tenant_id = payload.tenant_id
-            scan.scan_type = payload.scan_type.lower()
-            scan.generated_at_utc = payload.generated_at_utc
-            scan.data_score = payload.data_score
-            scan.checks_count = payload.checks_count
-            scan.issues_count = payload.issues_count
-            scan.premium_available = payload.premium_available
-            scan.summary_headline = payload.headline
-            scan.summary_rating = payload.rating
+            scan.scan_type = normalized_scan_type
+            scan.generated_at_utc = normalized_generated_at
+            scan.data_score = _safe_int(payload.data_score)
+            scan.checks_count = _safe_int(payload.checks_count)
+            scan.issues_count = _safe_int(payload.issues_count)
+            scan.premium_available = bool(payload.premium_available)
+            scan.summary_headline = payload.headline or ""
+            scan.summary_rating = payload.rating or ""
+
             db.query(ScanIssueRecord).filter(ScanIssueRecord.scan_id == payload.scan_id).delete()
 
         scan.total_records = total_records
@@ -101,39 +200,58 @@ def sync_scan(payload: ScanSyncPayload):
         scan.potential_saving_eur = potential_saving
         scan.estimated_premium_price_monthly = premium_price
         scan.roi_eur = roi
-        scan.customers_count = payload.data_profile.customers
-        scan.vendors_count = payload.data_profile.vendors
-        scan.items_count = payload.data_profile.items
-        scan.customer_ledger_entries_count = payload.data_profile.customer_ledger_entries
-        scan.vendor_ledger_entries_count = payload.data_profile.vendor_ledger_entries
-        scan.item_ledger_entries_count = payload.data_profile.item_ledger_entries
-        scan.sales_headers_count = payload.data_profile.sales_headers
-        scan.sales_lines_count = payload.data_profile.sales_lines
-        scan.purchase_headers_count = payload.data_profile.purchase_headers
-        scan.purchase_lines_count = payload.data_profile.purchase_lines
-        scan.gl_entries_count = payload.data_profile.gl_entries
-        scan.value_entries_count = payload.data_profile.value_entries
-        scan.warehouse_entries_count = payload.data_profile.warehouse_entries
+
+        scan.customers_count = _safe_int(payload.data_profile.customers)
+        scan.vendors_count = _safe_int(payload.data_profile.vendors)
+        scan.items_count = _safe_int(payload.data_profile.items)
+        scan.customer_ledger_entries_count = _safe_int(payload.data_profile.customer_ledger_entries)
+        scan.vendor_ledger_entries_count = _safe_int(payload.data_profile.vendor_ledger_entries)
+        scan.item_ledger_entries_count = _safe_int(payload.data_profile.item_ledger_entries)
+        scan.sales_headers_count = _safe_int(payload.data_profile.sales_headers)
+        scan.sales_lines_count = _safe_int(payload.data_profile.sales_lines)
+        scan.purchase_headers_count = _safe_int(payload.data_profile.purchase_headers)
+        scan.purchase_lines_count = _safe_int(payload.data_profile.purchase_lines)
+        scan.gl_entries_count = _safe_int(payload.data_profile.gl_entries)
+        scan.value_entries_count = _safe_int(payload.data_profile.value_entries)
+        scan.warehouse_entries_count = _safe_int(payload.data_profile.warehouse_entries)
 
         tenant.last_seen_at_utc = datetime.now(timezone.utc)
 
+        cost_map = get_issue_cost_map(db)
         for issue in payload.issues:
             db.add(
                 ScanIssueRecord(
                     scan_id=payload.scan_id,
                     code=issue.code,
                     title=issue.title,
-                    severity=issue.severity,
-                    affected_count=issue.affected_count,
-                    premium_only=issue.premium_only,
+                    severity=(issue.severity or "low").strip().lower(),
+                    affected_count=_safe_int(issue.affected_count),
+                    premium_only=bool(issue.premium_only),
                     recommendation_preview=issue.recommendation_preview,
-                    estimated_impact_eur=float(issue.estimated_impact_eur or calculate_issue_impact(issue.code, issue.affected_count, cost_map)),
+                    estimated_impact_eur=round(
+                        _safe_float(issue.estimated_impact_eur)
+                        or calculate_issue_impact(issue.code, _safe_int(issue.affected_count), cost_map),
+                        2,
+                    ),
                 )
             )
 
         db.commit()
 
-    return JSONResponse(content={"status": "ok"})
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "scan_id": payload.scan_id,
+            "tenant_id": payload.tenant_id,
+            "commercials": {
+                "total_records": total_records,
+                "estimated_loss_eur": estimated_loss,
+                "potential_saving_eur": potential_saving,
+                "estimated_premium_price_monthly": premium_price,
+                "roi_eur": roi,
+            },
+        }
+    )
 
 
 @router.delete("/scan/{scan_id}")
