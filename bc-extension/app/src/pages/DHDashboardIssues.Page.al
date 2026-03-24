@@ -1,6 +1,6 @@
 page 53135 "DH Dashboard Issues"
 {
-    PageType = List;
+    PageType = ListPart;
     SourceTable = "DH Dashboard Issue";
     ApplicationArea = All;
     UsageCategory = None;

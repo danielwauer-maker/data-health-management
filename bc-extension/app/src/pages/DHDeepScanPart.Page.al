@@ -13,7 +13,7 @@ page 53132 "DH Deep Scan Part"
         {
             group(DeepScanOverview)
             {
-                Caption = 'Latest Deep Scan';
+                Caption = 'Latest Scan';
 
                 field(LatestRunStatus; LatestRunStatus)
                 {
@@ -25,7 +25,7 @@ page 53132 "DH Deep Scan Part"
                 field(LatestDeepScore; LatestDeepScore)
                 {
                     ApplicationArea = All;
-                    Caption = 'Deep Score';
+                    Caption = 'Data Score';
                     StyleExpr = ScoreStyle;
                 }
 

@@ -5,59 +5,76 @@ page 53120 "DH Dashboard"
     ApplicationArea = All;
     UsageCategory = None;
     Caption = 'BCSentinel Dashboard';
+    DataCaptionExpression = Rec.GetDisplayRunId();
 
     layout
     {
         area(Content)
         {
-            group(Overview)
+            group(ScanResults)
             {
-                Caption = 'Overview';
-
-                field("Scan DateTime"; Rec."Scan DateTime")
-                {
-                    ApplicationArea = All;
-                    Editable = false;
-                }
-
-                field("Headline"; Rec."Headline")
-                {
-                    ApplicationArea = All;
-                    Editable = false;
-                    MultiLine = true;
-                }
-
-                field("Scan Type"; Rec."Scan Type")
-                {
-                    ApplicationArea = All;
-                    Editable = false;
-                }
-
-                field(DisplayRunId; Rec.GetDisplayRunId())
-                {
-                    ApplicationArea = All;
-                    Caption = 'Run ID';
-                    Editable = false;
-                }
-            }
-
-            part(KeyMetricsPart; "DH Key Metrics Part")
-            {
-                ApplicationArea = All;
-                SubPageLink = "Entry No." = field("Entry No.");
-            }
-
-            part(DeepScanPart; "DH Deep Scan Part")
-            {
-                ApplicationArea = All;
                 Caption = 'Scan Results';
-                SubPageLink = "Primary Key" = const('SETUP');
+
+                group(Header)
+                {
+                    ShowCaption = false;
+
+                    field(DisplayRunId; Rec.GetDisplayRunId())
+                    {
+                        ApplicationArea = All;
+                        Caption = 'Run ID';
+                        Style = Strong;
+                        ToolTip = 'Eindeutige Run ID des Scans.';
+                    }
+
+                    field("Scan DateTime"; Rec."Scan DateTime")
+                    {
+                        ApplicationArea = All;
+                        Caption = 'Scan Time';
+                        ToolTip = 'Zeitpunkt des Scans.';
+                    }
+
+                    field("Scan Type"; Rec."Scan Type")
+                    {
+                        ApplicationArea = All;
+                        ToolTip = 'Typ des Scans.';
+                    }
+
+                    field("Headline"; Rec."Headline")
+                    {
+                        ApplicationArea = All;
+                        MultiLine = true;
+                        ToolTip = 'Zusammenfassung des Scan-Ergebnisses.';
+                    }
+
+                    field("Total Records"; Rec."Total Records")
+                    {
+                        ApplicationArea = All;
+                        Caption = 'Datensätze';
+                        ToolTip = 'Anzahl der berücksichtigten Datensätze.';
+                    }
+
+                    field("Rating"; Rec."Rating")
+                    {
+                        ApplicationArea = All;
+                        StyleExpr = RatingStyle;
+                        ToolTip = 'Bewertung des Gesamtergebnisses.';
+                    }
+                }
+
+                part(KpiTiles; "DH Dashboard KPI Part")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Key Metrics';
+                    SubPageLink = "Entry No." = field("Entry No.");
+                }
             }
 
-            part(IssuesPart; "DH Issues Part")
+            part(Issues; "DH Dashboard Issues")
             {
                 ApplicationArea = All;
                 SubPageLink = "Dashboard Scan Entry No." = field("Entry No.");
+                UpdatePropagation = Both;
             }
         }
     }
@@ -138,6 +155,7 @@ page 53120 "DH Dashboard"
         DashboardMgt: Codeunit "DH Dashboard Mgt.";
     begin
         DashboardMgt.RefreshDashboardIssueCache(Rec);
+        UpdateStyles();
     end;
 
     trigger OnAfterGetRecord()
@@ -145,6 +163,33 @@ page 53120 "DH Dashboard"
         DashboardMgt: Codeunit "DH Dashboard Mgt.";
     begin
         DashboardMgt.RefreshDashboardIssueCache(Rec);
+        UpdateStyles();
+    end;
+
+    var
+        RatingStyle: Text[30];
+
+    local procedure UpdateStyles()
+    begin
+        RatingStyle := GetRatingStyle();
+    end;
+
+    local procedure GetRatingStyle(): Text[30]
+    var
+        RatingTxt: Text;
+    begin
+        RatingTxt := UpperCase(Rec."Rating");
+
+        if (RatingTxt = 'CRITICAL') or (RatingTxt = 'HIGH') then
+            exit('Unfavorable');
+
+        if (RatingTxt = 'MEDIUM') or (RatingTxt = 'WARNING') then
+            exit('Ambiguous');
+
+        if (RatingTxt = 'GOOD') or (RatingTxt = 'LOW') or (RatingTxt = 'OK') then
+            exit('Favorable');
+
+        exit('Standard');
     end;
 
     local procedure StartScanForCurrentTenant()
