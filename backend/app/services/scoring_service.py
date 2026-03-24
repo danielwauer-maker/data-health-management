@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 from app.schemas.scan import ScanIssue, ScanSummary
-from app.services.cost_service import calculate_issue_impact_eur, calculate_scan_cost_summary, CostedIssue
+from app.services.cost_service import DEFAULT_ISSUE_COSTS
 
 
 @dataclass(frozen=True)
@@ -247,9 +247,14 @@ def _build_summary(score: int) -> ScanSummary:
     )
 
 
+def _default_issue_impact(issue_code: str, affected_count: int) -> float:
+    unit_cost = float(DEFAULT_ISSUE_COSTS.get(issue_code, ("", 10.0))[1])
+    return round(max(int(affected_count or 0), 0) * unit_cost, 2)
+
+
 def calculate_quick_scan_result(
     metrics: Dict[str, int],
-) -> Tuple[int, int, int, ScanSummary, List[ScanIssue], float, float]:
+) -> Tuple[int, int, int, ScanSummary, List[ScanIssue]]:
     score = 100
     all_issues: List[ScanIssue] = []
 
@@ -273,20 +278,16 @@ def calculate_quick_scan_result(
                     affected_count=affected_count,
                     premium_only=check.premium_only,
                     recommendation_preview=check.recommendation_preview,
-                    estimated_impact_eur=calculate_issue_impact_eur(check.code, affected_count),
+                    estimated_impact_eur=_default_issue_impact(check.code, affected_count),
                 )
             )
 
     score = max(score, 0)
-    all_issues.sort(key=lambda issue: issue.estimated_impact_eur, reverse=True)
+    all_issues.sort(key=lambda issue: (-(issue.estimated_impact_eur or 0.0), -issue.affected_count))
 
     checks_count = len(QUICK_CHECKS)
     issues_count = len(all_issues)
     summary = _build_summary(score)
-    cost_summary = calculate_scan_cost_summary(
-        CostedIssue(code=issue.code, affected_count=issue.affected_count)
-        for issue in all_issues
-    )
 
     return (
         score,
@@ -294,6 +295,4 @@ def calculate_quick_scan_result(
         issues_count,
         summary,
         all_issues,
-        cost_summary.estimated_loss_eur,
-        cost_summary.potential_saving_eur,
     )
