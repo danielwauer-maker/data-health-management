@@ -897,7 +897,6 @@ codeunit 53128 "DH Deep Scan Runner"
         IssueObject: JsonObject;
         ScanDateTime: DateTime;
         RequestText: Text;
-        DataProfilingMgt: Codeunit "DH Data Profiling Mgt.";
     begin
         if DeepScanRun."Finished At" <> 0DT then
             ScanDateTime := DeepScanRun."Finished At"
@@ -915,7 +914,6 @@ codeunit 53128 "DH Deep Scan Runner"
         Payload.Add('premium_available', true);
         Payload.Add('estimated_loss_eur', DeepScanRun."Estimated Loss (EUR)");
         Payload.Add('potential_saving_eur', DeepScanRun."Potential Saving (EUR)");
-        Payload.Add('data_profile', DataProfilingMgt.BuildDataProfile());
         Payload.Add('headline', DeepScanRun."Headline");
         Payload.Add('rating', DeepScanRun."Rating");
 

@@ -86,23 +86,6 @@ def _load_scan_issues(scan_id: str) -> list[ScanIssueRecord]:
     return sorted(issues, key=lambda row: (_normalize_severity(row.severity), -(row.affected_count or 0)))
 
 
-def _select_active_scan(scans: list[Scan]) -> Scan:
-    if not scans:
-        raise ValueError('At least one scan is required.')
-
-    for scan in reversed(scans):
-        if _safe_int(getattr(scan, 'total_records', 0)) > 0:
-            return scan
-        if _safe_int(getattr(scan, 'customers_count', 0)) > 0:
-            return scan
-        if _safe_int(getattr(scan, 'vendors_count', 0)) > 0:
-            return scan
-        if _safe_int(getattr(scan, 'items_count', 0)) > 0:
-            return scan
-
-    return scans[-1]
-
-
 def _scan_mode_label(scan_type: str | None, fallback: str | None) -> str:
     normalized = (scan_type or fallback or "").strip().lower()
     if normalized == "deep" or normalized == "premium_deep":
@@ -141,7 +124,7 @@ def _build_dashboard_payload(company: str, environment: str, tenant: Tenant | No
     if not recent_scans:
         return _build_fallback_payload(company, environment, scan_mode)
 
-    active_scan = _select_active_scan(recent_scans)
+    active_scan = recent_scans[-1]
     issues = _load_scan_issues(active_scan.scan_id)
 
     issue_groups: dict[str, int] = {}
