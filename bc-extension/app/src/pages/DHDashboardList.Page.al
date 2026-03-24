@@ -139,6 +139,29 @@ page 53124 "DH Dashboard List"
                 end;
             }
 
+            action(ReconcileScanHistory)
+            {
+                Caption = 'Reconcile Scan History';
+                ApplicationArea = All;
+                Image = RefreshLines;
+
+                trigger OnAction()
+                var
+                    Setup: Record "DH Setup";
+                    ApiClient: Codeunit "DH API Client";
+                begin
+                    if not Setup.Get('SETUP') then
+                        Error('Setup not found.');
+
+                    if not Confirm('This will align the backend scan history with the current BC scan list and remove orphan backend scans. Continue?', false) then
+                        exit;
+
+                    ApiClient.ReconcileScansWithBackend(Setup);
+                    Message('Scan history synchronized with backend.');
+                    CurrPage.Update(false);
+                end;
+            }
+
             action(OpenSetup)
             {
                 Caption = 'Open Setup';
@@ -159,6 +182,9 @@ page 53124 "DH Dashboard List"
                 {
                 }
                 actionref(DeleteSelectedDashboard_Promoted; DeleteSelectedDashboard)
+                {
+                }
+                actionref(ReconcileScanHistory_Promoted; ReconcileScanHistory)
                 {
                 }
             }

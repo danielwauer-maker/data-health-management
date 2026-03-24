@@ -145,6 +145,29 @@ page 53130 "DH Deep Scan Runs"
                 end;
             }
 
+            action(ReconcileScanHistory)
+            {
+                Caption = 'Reconcile Scan History';
+                ApplicationArea = All;
+                Image = RefreshLines;
+
+                trigger OnAction()
+                var
+                    Setup: Record "DH Setup";
+                    ApiClient: Codeunit "DH API Client";
+                begin
+                    if not Setup.Get('SETUP') then
+                        Error('Setup not found.');
+
+                    if not Confirm('This will align the backend scan history with the current BC scan list and remove orphan backend scans. Continue?', false) then
+                        exit;
+
+                    ApiClient.ReconcileScansWithBackend(Setup);
+                    Message('Scan history successfully synchronized with the backend.');
+                    CurrPage.Update(false);
+                end;
+            }
+
             action(Refresh)
             {
                 Caption = 'Refresh';

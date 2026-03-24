@@ -335,6 +335,52 @@ codeunit 53100 "DH API Client"
             Error('Backend scan delete failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
     end;
 
+    procedure ReconcileScansWithBackend(var Setup: Record "DH Setup")
+    var
+        Client: HttpClient;
+        Content: HttpContent;
+        Headers: HttpHeaders;
+        Response: HttpResponseMessage;
+        RequestText: Text;
+        ResponseText: Text;
+        JsonRequest: JsonObject;
+        ScanIds: JsonArray;
+        ScanHeader: Record "DH Scan Header";
+        EffectiveScanId: Code[50];
+    begin
+        EnsureReadyForScan(Setup);
+
+        JsonRequest.Add('tenant_id', Setup."Tenant ID");
+
+        if ScanHeader.FindSet() then
+            repeat
+                EffectiveScanId := GetEffectiveScanId(ScanHeader);
+                if EffectiveScanId <> '' then
+                    ScanIds.Add(Format(EffectiveScanId));
+            until ScanHeader.Next() = 0;
+
+        JsonRequest.Add('scan_ids', ScanIds);
+        JsonRequest.WriteTo(RequestText);
+
+        Content.WriteFrom(RequestText);
+        Content.GetHeaders(Headers);
+        Headers.Clear();
+        Headers.Add('Content-Type', 'application/json');
+
+        Headers := Client.DefaultRequestHeaders();
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
+
+        if not Client.Post(BuildUrl(Setup."API Base URL", '/scan/reconcile'), Content, Response) then
+            Error('The backend reconcile request could not be sent. Please verify the network connection.');
+
+        Response.Content.ReadAs(ResponseText);
+
+        if not Response.IsSuccessStatusCode() then
+            Error('Backend reconcile failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
+    end;
+
     procedure ParseScanResponse(ResponseText: Text; var ScanId: Code[50]; var DataScore: Integer; var IssuesCount: Integer; var GeneratedAtUtc: DateTime)
     var
         JsonResponse: JsonObject;
@@ -471,6 +517,13 @@ codeunit 53100 "DH API Client"
         exit(false);
     end;
 
+    local procedure GetEffectiveScanId(var ScanHeader: Record "DH Scan Header"): Code[50]
+    begin
+        if ScanHeader."Backend Scan Id" <> '' then
+            exit(ScanHeader."Backend Scan Id");
+
+        exit(ScanHeader.GetDisplayRunId());
+    end;
 
     local procedure BuildDataProfile(): JsonObject
     var
