@@ -200,6 +200,7 @@ codeunit 53100 "DH API Client"
         AddVendorMetrics(JsonMetrics);
         AddItemMetrics(JsonMetrics);
         JsonRequest.Add('metrics', JsonMetrics);
+        JsonRequest.Add('data_profile', BuildDataProfile());
         JsonRequest.WriteTo(RequestText);
 
         Content.WriteFrom(RequestText);
@@ -468,6 +469,14 @@ codeunit 53100 "DH API Client"
         end;
 
         exit(false);
+    end;
+
+
+    local procedure BuildDataProfile(): JsonObject
+    var
+        DataProfilingMgt: Codeunit "DH Data Profiling Mgt.";
+    begin
+        exit(DataProfilingMgt.BuildDataProfile());
     end;
 
     local procedure AddCustomerMetrics(var JsonMetrics: JsonObject)

@@ -24,7 +24,7 @@ page 53124 "DH Dashboard List"
                 {
                     ApplicationArea = All;
                 }
-                field("Estimated Loss (EUR)"; Rec."Estimated Loss (EUR)")
+                field("Est. Loss"; Rec."Est. Loss")
                 {
                     ApplicationArea = All;
                     Caption = 'Loss €';

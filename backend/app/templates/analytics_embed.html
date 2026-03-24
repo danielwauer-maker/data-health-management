@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body data-token="{{ token }}" class="dashboard-body">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">BCSentinel</div>
+      <div class="nav-section-label">Analytics</div>
+      <nav class="nav-list">
+        <a class="nav-item active" href="#">Overview</a>
+        <a class="nav-item" href="#profile-grid">Data Profile</a>
+        <a class="nav-item" href="#scan-table">Recent Scans</a>
+        <a class="nav-item" href="#findings-table">Top Findings</a>
+      </nav>
+    </aside>
+    <main class="main-content">
+      <header class="page-header">
+        <div>
+          <h1 id="page-title">BCSentinel Analytics</h1>
+          <p id="page-subtitle" class="muted">Loading...</p>
+        </div>
+        <div class="header-badges">
+          <span id="scan-mode-badge" class="pill">QuickScan</span>
+          <span id="last-updated" class="pill muted-pill">Letzte Aktualisierung: —</span>
+        </div>
+      </header>
+
+      <section class="stats-grid" id="stats-grid">
+        <article class="stat-card emphasis">
+          <div class="stat-label">Data Score</div>
+          <div class="stat-value" id="kpi-score">0</div>
+          <div class="stat-helper">Health Score bleibt zentral</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">Datensätze</div>
+          <div class="stat-value" id="kpi-records">0</div>
+          <div class="stat-helper">Gesamtvolumen für Pricing &amp; Scopes</div>
+        </article>
+        <article class="stat-card accent-blue">
+          <div class="stat-label">Premium / Monat</div>
+          <div class="stat-value" id="kpi-price">0 €</div>
+          <div class="stat-helper">Konfigurierter Zielpreis</div>
+        </article>
+        <article class="stat-card accent-red">
+          <div class="stat-label">Potenzieller Verlust</div>
+          <div class="stat-value" id="kpi-loss">0 €</div>
+          <div class="stat-helper">Monetarisierter Impact</div>
+        </article>
+        <article class="stat-card accent-green">
+          <div class="stat-label">ROI</div>
+          <div class="stat-value" id="kpi-roi">0 €</div>
+          <div class="stat-helper">Potenzial minus Jahreskosten</div>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel panel-large" id="profile-grid">
+          <div class="panel-header">
+            <h2>Data Profile</h2>
+            <span class="muted">relevante Datensatzklassen</span>
+          </div>
+          <div class="mini-grid" id="profile-cards"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Score Trend</h2>
+            <span class="muted">letzte Scans</span>
+          </div>
+          <div id="trend-bars" class="bars"></div>
+        </article>
+
+        <article class="panel panel-large" id="scan-table">
+          <div class="panel-header">
+            <h2>Recent Scans</h2>
+            <span class="muted">ohne Kalender</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Datum</th><th>Typ</th><th>Score</th><th>Issues</th><th>Headline</th></tr>
+              </thead>
+              <tbody id="recent-scans-body"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Issues nach Bereich</h2>
+            <span class="muted">Gewichtung nach Menge</span>
+          </div>
+          <div id="issue-groups" class="progress-list"></div>
+        </article>
+
+        <article class="panel panel-large" id="findings-table">
+          <div class="panel-header">
+            <h2>Top Findings</h2>
+            <span class="muted">höchster Impact zuerst</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Code</th><th>Titel</th><th>Bereich</th><th>Severity</th><th>Anzahl</th><th>Impact</th></tr>
+              </thead>
+              <tbody id="findings-body"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+  <script src="/static/js/analytics-dashboard.js"></script>
+</body>
+</html>

@@ -50,15 +50,25 @@ table 53120 "DH Scan Header"
         {
             Caption = 'Run ID';
         }
-        field(12; "Estimated Loss (EUR)"; Decimal)
+        field(20; "Total Records"; Integer)
         {
-            Caption = 'Estimated Loss (EUR)';
-            DecimalPlaces = 0 : 2;
+            Caption = 'Total Records';
         }
-        field(13; "Potential Saving (EUR)"; Decimal)
+        field(21; "Est. Premium Price"; Decimal)
         {
-            Caption = 'Potential Saving (EUR)';
-            DecimalPlaces = 0 : 2;
+            Caption = 'Premium €/Month';
+        }
+        field(22; "Est. Loss"; Decimal)
+        {
+            Caption = 'Estimated Loss €';
+        }
+        field(23; "Potential Saving"; Decimal)
+        {
+            Caption = 'Potential Saving €';
+        }
+        field(24; "ROI"; Decimal)
+        {
+            Caption = 'ROI €';
         }
     }
 
@@ -68,9 +78,11 @@ table 53120 "DH Scan Header"
         {
             Clustered = true;
         }
+
         key(Key2; "Scan DateTime")
         {
         }
+
         key(Key3; "Run ID")
         {
         }

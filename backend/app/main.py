@@ -1,17 +1,19 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 
 from app.db import Base, SessionLocal, engine, wait_for_database
 from app.models import Scan, ScanIssueRecord, Tenant
 from app.routers.admin import router as admin_router
 from app.routers.analytics import router as analytics_router
-from app.routers.scans import router as scans_router
 from app.routers.license import router as license_router
+from app.routers.scans import router as scans_router
 from app.schemas.scan import (
     QuickScanRequest,
     QuickScanResponse,
@@ -21,54 +23,44 @@ from app.schemas.scan import (
     ScanSummary,
     ScanTrendResponse,
 )
+from app.services.cost_service import calculate_issue_impact, ensure_default_issue_costs, get_issue_cost_map
+from app.services.pricing_service import calculate_monthly_price, ensure_default_license_pricing, get_license_pricing
 from app.services.scoring_service import calculate_quick_scan_result
+
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def ensure_runtime_schema() -> None:
+    statements = [
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS total_records INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS estimated_loss_eur DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS potential_saving_eur DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS estimated_premium_price_monthly DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS roi_eur DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS customers_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS vendors_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS items_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS customer_ledger_entries_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS vendor_ledger_entries_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS item_ledger_entries_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS sales_headers_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS sales_lines_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS purchase_headers_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS purchase_lines_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS gl_entries_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS value_entries_count INTEGER DEFAULT 0",
+        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS warehouse_entries_count INTEGER DEFAULT 0",
+        "ALTER TABLE scan_issues ADD COLUMN IF NOT EXISTS estimated_impact_eur DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE issue_cost_config ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT ''",
+        "ALTER TABLE license_pricing_config ADD COLUMN IF NOT EXISTS display_name VARCHAR(80) DEFAULT ''",
+        "ALTER TABLE license_pricing_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
+    ]
     with engine.begin() as connection:
-        connection.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tenant_no INTEGER"))
-        connection.execute(text("ALTER TABLE scans ADD COLUMN IF NOT EXISTS estimated_loss_eur DOUBLE PRECISION DEFAULT 0"))
-        connection.execute(text("ALTER TABLE scans ADD COLUMN IF NOT EXISTS potential_saving_eur DOUBLE PRECISION DEFAULT 0"))
-        connection.execute(text("ALTER TABLE scan_issues ADD COLUMN IF NOT EXISTS estimated_impact_eur DOUBLE PRECISION DEFAULT 0"))
-
-        connection.execute(
-            text(
-                """
-                CREATE UNIQUE INDEX IF NOT EXISTS ix_tenants_tenant_no
-                ON tenants (tenant_no)
-                WHERE tenant_no IS NOT NULL
-                """
-            )
-        )
-
-        connection.execute(
-            text(
-                """
-                WITH base AS (
-                    SELECT COALESCE(MAX(tenant_no), 0) AS max_no
-                    FROM tenants
-                ),
-                missing AS (
-                    SELECT
-                        id,
-                        ROW_NUMBER() OVER (ORDER BY created_at_utc, id) AS rn
-                    FROM tenants
-                    WHERE tenant_no IS NULL
-                )
-                UPDATE tenants t
-                SET tenant_no = base.max_no + missing.rn
-                FROM base, missing
-                WHERE t.id = missing.id
-                """
-            )
-        )
-
-
-def get_next_tenant_no(db) -> int:
-    current_max = db.scalar(select(func.max(Tenant.tenant_no)))
-    if current_max is None:
-        return 1
-    return int(current_max) + 1
+        for statement in statements:
+            try:
+                connection.execute(text(statement))
+            except Exception:
+                pass
 
 
 @asynccontextmanager
@@ -76,6 +68,9 @@ async def lifespan(app: FastAPI):
     wait_for_database()
     Base.metadata.create_all(bind=engine)
     ensure_runtime_schema()
+    with SessionLocal() as db:
+        ensure_default_issue_costs(db)
+        ensure_default_license_pricing(db)
     yield
 
 
@@ -84,6 +79,7 @@ app = FastAPI(
     version="0.6.0",
     lifespan=lifespan,
 )
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 app.include_router(admin_router)
 app.include_router(analytics_router)
@@ -114,7 +110,6 @@ def register_tenant(payload: TenantRegisterRequest) -> TenantRegisterResponse:
 
     with SessionLocal() as db:
         tenant = Tenant(
-            tenant_no=get_next_tenant_no(db),
             tenant_id=tenant_id,
             api_token=api_token,
             environment_name=payload.environment_name,
@@ -140,18 +135,33 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
         if tenant is None:
             raise HTTPException(status_code=404, detail="Tenant not found.")
 
-        (
-            data_score,
-            checks_count,
-            issues_count,
-            summary,
-            issues,
-            estimated_loss_eur,
-            potential_saving_eur,
-        ) = calculate_quick_scan_result(payload.metrics)
-
+        data_score, checks_count, issues_count, summary, issues = calculate_quick_scan_result(payload.metrics)
         scan_id = f"scan_{uuid4().hex[:12]}"
         generated_at_utc = datetime.now(timezone.utc)
+        cost_map = get_issue_cost_map(db)
+        total_records = int(payload.data_profile.total_records or 0)
+        estimated_loss_eur = 0.0
+
+        enriched_issues: list[ScanIssue] = []
+        for issue in issues:
+            impact = calculate_issue_impact(issue.code, issue.affected_count, cost_map)
+            estimated_loss_eur += impact
+            enriched_issues.append(
+                ScanIssue(
+                    code=issue.code,
+                    title=issue.title,
+                    severity=issue.severity,
+                    affected_count=issue.affected_count,
+                    premium_only=issue.premium_only,
+                    recommendation_preview=issue.recommendation_preview,
+                    estimated_impact_eur=impact,
+                )
+            )
+
+        pricing = get_license_pricing(db, "premium")
+        estimated_premium_price_monthly = calculate_monthly_price(total_records, pricing)
+        potential_saving_eur = round(estimated_loss_eur * 0.7, 2)
+        roi_eur = round(potential_saving_eur - (estimated_premium_price_monthly * 12), 2)
 
         scan = Scan(
             scan_id=scan_id,
@@ -162,14 +172,30 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
             checks_count=checks_count,
             issues_count=issues_count,
             premium_available=True,
-            estimated_loss_eur=estimated_loss_eur,
-            potential_saving_eur=potential_saving_eur,
             summary_headline=summary.headline,
             summary_rating=summary.rating,
+            total_records=total_records,
+            estimated_loss_eur=estimated_loss_eur,
+            potential_saving_eur=potential_saving_eur,
+            estimated_premium_price_monthly=estimated_premium_price_monthly,
+            roi_eur=roi_eur,
+            customers_count=payload.data_profile.customers,
+            vendors_count=payload.data_profile.vendors,
+            items_count=payload.data_profile.items,
+            customer_ledger_entries_count=payload.data_profile.customer_ledger_entries,
+            vendor_ledger_entries_count=payload.data_profile.vendor_ledger_entries,
+            item_ledger_entries_count=payload.data_profile.item_ledger_entries,
+            sales_headers_count=payload.data_profile.sales_headers,
+            sales_lines_count=payload.data_profile.sales_lines,
+            purchase_headers_count=payload.data_profile.purchase_headers,
+            purchase_lines_count=payload.data_profile.purchase_lines,
+            gl_entries_count=payload.data_profile.gl_entries,
+            value_entries_count=payload.data_profile.value_entries,
+            warehouse_entries_count=payload.data_profile.warehouse_entries,
         )
         db.add(scan)
 
-        for issue in issues:
+        for issue in enriched_issues:
             db.add(
                 ScanIssueRecord(
                     scan_id=scan_id,
@@ -194,10 +220,13 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
         checks_count=checks_count,
         issues_count=issues_count,
         premium_available=True,
-        estimated_loss_eur=estimated_loss_eur,
-        potential_saving_eur=potential_saving_eur,
         summary=summary,
-        issues=issues,
+        issues=enriched_issues,
+        data_profile=payload.data_profile,
+        estimated_loss_eur=round(estimated_loss_eur, 2),
+        potential_saving_eur=potential_saving_eur,
+        estimated_premium_price_monthly=estimated_premium_price_monthly,
+        roi_eur=roi_eur,
     )
 
 
@@ -218,12 +247,11 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
         ).all()
 
         result_scans: list[ScanHistoryEntry] = []
-
         for scan in scans:
             issue_rows = db.scalars(
                 select(ScanIssueRecord)
                 .where(ScanIssueRecord.scan_id == scan.scan_id)
-                .order_by(ScanIssueRecord.estimated_impact_eur.desc(), ScanIssueRecord.affected_count.desc())
+                .order_by(ScanIssueRecord.affected_count.desc())
             ).all()
 
             issues = [
@@ -234,7 +262,7 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
                     affected_count=row.affected_count,
                     premium_only=row.premium_only,
                     recommendation_preview=row.recommendation_preview,
-                    estimated_impact_eur=row.estimated_impact_eur or 0,
+                    estimated_impact_eur=float(row.estimated_impact_eur or 0.0),
                 )
                 for row in issue_rows
             ]
@@ -248,13 +276,28 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
                     checks_count=scan.checks_count,
                     issues_count=scan.issues_count,
                     premium_available=scan.premium_available,
-                    estimated_loss_eur=scan.estimated_loss_eur or 0,
-                    potential_saving_eur=scan.potential_saving_eur or 0,
-                    summary=ScanSummary(
-                        headline=scan.summary_headline,
-                        rating=scan.summary_rating,
-                    ),
+                    summary=ScanSummary(headline=scan.summary_headline, rating=scan.summary_rating),
                     issues=issues,
+                    data_profile={
+                        "customers": scan.customers_count,
+                        "vendors": scan.vendors_count,
+                        "items": scan.items_count,
+                        "customer_ledger_entries": scan.customer_ledger_entries_count,
+                        "vendor_ledger_entries": scan.vendor_ledger_entries_count,
+                        "item_ledger_entries": scan.item_ledger_entries_count,
+                        "sales_headers": scan.sales_headers_count,
+                        "sales_lines": scan.sales_lines_count,
+                        "purchase_headers": scan.purchase_headers_count,
+                        "purchase_lines": scan.purchase_lines_count,
+                        "gl_entries": scan.gl_entries_count,
+                        "value_entries": scan.value_entries_count,
+                        "warehouse_entries": scan.warehouse_entries_count,
+                        "total_records": scan.total_records,
+                    },
+                    estimated_loss_eur=float(scan.estimated_loss_eur or 0.0),
+                    potential_saving_eur=float(scan.potential_saving_eur or 0.0),
+                    estimated_premium_price_monthly=float(scan.estimated_premium_price_monthly or 0.0),
+                    roi_eur=float(scan.roi_eur or 0.0),
                 )
             )
 
@@ -279,17 +322,18 @@ def get_scan_trend(tenant_id: str) -> ScanTrendResponse:
             return ScanTrendResponse(tenant_id=tenant_id, trend="same")
 
         if len(scans) == 1:
-            return ScanTrendResponse(tenant_id=tenant_id, trend="same")
+            latest = scans[0]
+            return ScanTrendResponse(
+                tenant_id=tenant_id,
+                latest_scan_id=latest.scan_id,
+                latest_score=latest.data_score,
+                trend="same",
+            )
 
         latest = scans[0]
         previous = scans[1]
-
-        if latest.data_score > previous.data_score:
-            trend = "up"
-        elif latest.data_score < previous.data_score:
-            trend = "down"
-        else:
-            trend = "same"
+        delta = latest.data_score - previous.data_score
+        trend = "up" if delta > 0 else "down" if delta < 0 else "same"
 
         return ScanTrendResponse(
             tenant_id=tenant_id,
@@ -297,6 +341,6 @@ def get_scan_trend(tenant_id: str) -> ScanTrendResponse:
             previous_scan_id=previous.scan_id,
             latest_score=latest.data_score,
             previous_score=previous.data_score,
-            delta=latest.data_score - previous.data_score,
+            delta=delta,
             trend=trend,
         )
