@@ -136,7 +136,7 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
             raise HTTPException(status_code=404, detail="Tenant not found.")
 
         data_score, checks_count, issues_count, summary, issues = calculate_quick_scan_result(payload.metrics)
-        scan_id = f"scan_{uuid4().hex[:12]}"
+        scan_id = (payload.bc_run_id or "").strip() or f"scan_{uuid4().hex[:12]}"
         generated_at_utc = datetime.now(timezone.utc)
         cost_map = get_issue_cost_map(db)
         total_records = int(payload.data_profile.total_records or 0)
@@ -163,37 +163,73 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
         potential_saving_eur = round(estimated_loss_eur * 0.7, 2)
         roi_eur = round(potential_saving_eur - (estimated_premium_price_monthly * 12), 2)
 
-        scan = Scan(
-            scan_id=scan_id,
-            tenant_id=payload.tenant_id,
-            scan_type="quick",
-            generated_at_utc=generated_at_utc,
-            data_score=data_score,
-            checks_count=checks_count,
-            issues_count=issues_count,
-            premium_available=True,
-            summary_headline=summary.headline,
-            summary_rating=summary.rating,
-            total_records=total_records,
-            estimated_loss_eur=estimated_loss_eur,
-            potential_saving_eur=potential_saving_eur,
-            estimated_premium_price_monthly=estimated_premium_price_monthly,
-            roi_eur=roi_eur,
-            customers_count=payload.data_profile.customers,
-            vendors_count=payload.data_profile.vendors,
-            items_count=payload.data_profile.items,
-            customer_ledger_entries_count=payload.data_profile.customer_ledger_entries,
-            vendor_ledger_entries_count=payload.data_profile.vendor_ledger_entries,
-            item_ledger_entries_count=payload.data_profile.item_ledger_entries,
-            sales_headers_count=payload.data_profile.sales_headers,
-            sales_lines_count=payload.data_profile.sales_lines,
-            purchase_headers_count=payload.data_profile.purchase_headers,
-            purchase_lines_count=payload.data_profile.purchase_lines,
-            gl_entries_count=payload.data_profile.gl_entries,
-            value_entries_count=payload.data_profile.value_entries,
-            warehouse_entries_count=payload.data_profile.warehouse_entries,
-        )
-        db.add(scan)
+        existing_scan = db.scalar(select(Scan).where(Scan.scan_id == scan_id))
+
+        if existing_scan is not None and existing_scan.tenant_id != payload.tenant_id:
+            raise HTTPException(status_code=409, detail="scan_id already exists for another tenant.")
+
+        if existing_scan is None:
+            scan = Scan(
+                scan_id=scan_id,
+                tenant_id=payload.tenant_id,
+                scan_type="quick",
+                generated_at_utc=generated_at_utc,
+                data_score=data_score,
+                checks_count=checks_count,
+                issues_count=issues_count,
+                premium_available=True,
+                summary_headline=summary.headline,
+                summary_rating=summary.rating,
+                total_records=total_records,
+                estimated_loss_eur=estimated_loss_eur,
+                potential_saving_eur=potential_saving_eur,
+                estimated_premium_price_monthly=estimated_premium_price_monthly,
+                roi_eur=roi_eur,
+                customers_count=payload.data_profile.customers,
+                vendors_count=payload.data_profile.vendors,
+                items_count=payload.data_profile.items,
+                customer_ledger_entries_count=payload.data_profile.customer_ledger_entries,
+                vendor_ledger_entries_count=payload.data_profile.vendor_ledger_entries,
+                item_ledger_entries_count=payload.data_profile.item_ledger_entries,
+                sales_headers_count=payload.data_profile.sales_headers,
+                sales_lines_count=payload.data_profile.sales_lines,
+                purchase_headers_count=payload.data_profile.purchase_headers,
+                purchase_lines_count=payload.data_profile.purchase_lines,
+                gl_entries_count=payload.data_profile.gl_entries,
+                value_entries_count=payload.data_profile.value_entries,
+                warehouse_entries_count=payload.data_profile.warehouse_entries,
+            )
+            db.add(scan)
+        else:
+            scan = existing_scan
+            scan.scan_type = "quick"
+            scan.generated_at_utc = generated_at_utc
+            scan.data_score = data_score
+            scan.checks_count = checks_count
+            scan.issues_count = issues_count
+            scan.premium_available = True
+            scan.summary_headline = summary.headline
+            scan.summary_rating = summary.rating
+            scan.total_records = total_records
+            scan.estimated_loss_eur = estimated_loss_eur
+            scan.potential_saving_eur = potential_saving_eur
+            scan.estimated_premium_price_monthly = estimated_premium_price_monthly
+            scan.roi_eur = roi_eur
+            scan.customers_count = payload.data_profile.customers
+            scan.vendors_count = payload.data_profile.vendors
+            scan.items_count = payload.data_profile.items
+            scan.customer_ledger_entries_count = payload.data_profile.customer_ledger_entries
+            scan.vendor_ledger_entries_count = payload.data_profile.vendor_ledger_entries
+            scan.item_ledger_entries_count = payload.data_profile.item_ledger_entries
+            scan.sales_headers_count = payload.data_profile.sales_headers
+            scan.sales_lines_count = payload.data_profile.sales_lines
+            scan.purchase_headers_count = payload.data_profile.purchase_headers
+            scan.purchase_lines_count = payload.data_profile.purchase_lines
+            scan.gl_entries_count = payload.data_profile.gl_entries
+            scan.value_entries_count = payload.data_profile.value_entries
+            scan.warehouse_entries_count = payload.data_profile.warehouse_entries
+
+            db.query(ScanIssueRecord).filter(ScanIssueRecord.scan_id == scan_id).delete()
 
         for issue in enriched_issues:
             db.add(
@@ -214,6 +250,7 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
 
     return QuickScanResponse(
         scan_id=scan_id,
+        bc_run_id=payload.bc_run_id,
         scan_type="quick",
         generated_at_utc=generated_at_utc,
         data_score=data_score,
@@ -276,7 +313,10 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
                     checks_count=scan.checks_count,
                     issues_count=scan.issues_count,
                     premium_available=scan.premium_available,
-                    summary=ScanSummary(headline=scan.summary_headline, rating=scan.summary_rating),
+                    summary=ScanSummary(
+                        headline=scan.summary_headline,
+                        rating=scan.summary_rating,
+                    ),
                     issues=issues,
                     data_profile={
                         "customers": scan.customers_count,
@@ -301,7 +341,10 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
                 )
             )
 
-    return ScanHistoryResponse(tenant_id=tenant_id, scans=result_scans)
+    return ScanHistoryResponse(
+        tenant_id=tenant_id,
+        scans=result_scans,
+    )
 
 
 @app.get("/scan/trend/{tenant_id}", response_model=ScanTrendResponse)
@@ -318,29 +361,32 @@ def get_scan_trend(tenant_id: str) -> ScanTrendResponse:
             .limit(2)
         ).all()
 
-        if not scans:
-            return ScanTrendResponse(tenant_id=tenant_id, trend="same")
-
-        if len(scans) == 1:
-            latest = scans[0]
-            return ScanTrendResponse(
-                tenant_id=tenant_id,
-                latest_scan_id=latest.scan_id,
-                latest_score=latest.data_score,
-                trend="same",
-            )
-
-        latest = scans[0]
-        previous = scans[1]
-        delta = latest.data_score - previous.data_score
-        trend = "up" if delta > 0 else "down" if delta < 0 else "same"
-
+    if not scans:
         return ScanTrendResponse(
             tenant_id=tenant_id,
-            latest_scan_id=latest.scan_id,
-            previous_scan_id=previous.scan_id,
-            latest_score=latest.data_score,
-            previous_score=previous.data_score,
-            delta=delta,
-            trend=trend,
+            trend="same",
         )
+
+    latest = scans[0]
+    previous = scans[1] if len(scans) > 1 else None
+
+    latest_score = latest.data_score
+    previous_score = previous.data_score if previous else None
+    delta = (latest_score - previous_score) if previous_score is not None else None
+
+    if delta is None or delta == 0:
+        trend = "same"
+    elif delta > 0:
+        trend = "up"
+    else:
+        trend = "down"
+
+    return ScanTrendResponse(
+        tenant_id=tenant_id,
+        latest_scan_id=latest.scan_id,
+        previous_scan_id=previous.scan_id if previous else None,
+        latest_score=latest_score,
+        previous_score=previous_score,
+        delta=delta,
+        trend=trend,
+    )

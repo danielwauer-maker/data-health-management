@@ -23,6 +23,7 @@ class DataProfile(BaseModel):
 
 class QuickScanRequest(BaseModel):
     tenant_id: str
+    bc_run_id: Optional[str] = None
     metrics: Dict[str, int] = Field(default_factory=dict)
     data_profile: DataProfile = Field(default_factory=DataProfile)
 
@@ -44,6 +45,7 @@ class ScanIssue(BaseModel):
 
 class QuickScanResponse(BaseModel):
     scan_id: str
+    bc_run_id: Optional[str] = None
     scan_type: str = "quick"
     generated_at_utc: datetime
     data_score: int = Field(ge=0, le=100)

@@ -167,14 +167,16 @@ codeunit 53100 "DH API Client"
     var
         ResponseText: Text;
         GeneratedAtUtc: DateTime;
+        RunIdMgt: Codeunit "DH Run ID Mgt.";
+        QuickRunId: Code[50];
     begin
         EnsureReadyForScan(Setup);
 
         UsedPremiumLicense := Setup."Premium Enabled";
 
-        // Aktuell wird auch im Premium-Fall noch der QuickScan-Endpunkt verwendet,
-        // bis der echte DeepScan-Endpunkt angebunden ist.
-        ResponseText := RunQuickScan(Setup);
+        QuickRunId := RunIdMgt.GetNextRunId(Setup);
+
+        ResponseText := RunQuickScan(Setup, QuickRunId);
 
         ParseScanResponse(ResponseText, ScanId, DataScore, IssuesCount, GeneratedAtUtc);
         UpdateSetupFromScanResult(Setup, DataScore, GeneratedAtUtc);
@@ -182,7 +184,7 @@ codeunit 53100 "DH API Client"
         exit(ResponseText);
     end;
 
-    procedure RunQuickScan(var Setup: Record "DH Setup"): Text
+    procedure RunQuickScan(var Setup: Record "DH Setup"; QuickRunId: Code[50]): Text
     var
         Client: HttpClient;
         Content: HttpContent;
@@ -196,6 +198,7 @@ codeunit 53100 "DH API Client"
         EnsureReadyForScan(Setup);
 
         JsonRequest.Add('tenant_id', Setup."Tenant ID");
+        JsonRequest.Add('bc_run_id', Format(QuickRunId));
         AddCustomerMetrics(JsonMetrics);
         AddVendorMetrics(JsonMetrics);
         AddItemMetrics(JsonMetrics);
