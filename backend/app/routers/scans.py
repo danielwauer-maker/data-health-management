@@ -255,11 +255,29 @@ def sync_scan(
 
 
 @router.delete("/scan/{scan_id}")
-def delete_scan(scan_id: str):
+def delete_scan(
+    scan_id: str,
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    x_api_token: str | None = Header(default=None, alias="X-Api-Token"),
+):
+    if not x_tenant_id or not x_api_token:
+        raise HTTPException(status_code=401, detail="Missing tenant authentication headers.")
+
     with SessionLocal() as db:
-        scan = db.query(Scan).filter(Scan.scan_id == scan_id).first()
+        tenant = _load_tenant_for_sync(db, x_tenant_id, x_api_token)
+
+        scan = db.scalar(
+            select(Scan).where(
+                Scan.scan_id == scan_id,
+                Scan.tenant_id == tenant.tenant_id,
+            )
+        )
+
         if scan is None:
-            return JSONResponse(content={"status": "not_found"})
+            return JSONResponse(content={"status": "not_found", "scan_id": scan_id})
+
+        db.query(ScanIssueRecord).filter(ScanIssueRecord.scan_id == scan_id).delete()
         db.delete(scan)
         db.commit()
-    return JSONResponse(content={"status": "deleted"})
+
+    return JSONResponse(content={"status": "deleted", "scan_id": scan_id})
