@@ -184,6 +184,15 @@ codeunit 53100 "DH API Client"
         exit(ResponseText);
     end;
 
+    procedure RunQuickScan(var Setup: Record "DH Setup"): Text
+    var
+        RunIdMgt: Codeunit "DH Run ID Mgt.";
+        QuickRunId: Code[50];
+    begin
+        QuickRunId := RunIdMgt.GetNextRunId(Setup);
+        exit(RunQuickScan(Setup, QuickRunId));
+    end;
+
     procedure RunQuickScan(var Setup: Record "DH Setup"; QuickRunId: Code[50]): Text
     var
         Client: HttpClient;
