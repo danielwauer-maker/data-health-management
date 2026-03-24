@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.db import SessionLocal
 from app.models import Scan, ScanIssueRecord, Tenant
 from app.security.token import create_token, verify_token
+from app.services.pricing_service import calculate_monthly_price, get_license_pricing
 
 router = APIRouter(tags=["analytics"])
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
@@ -45,6 +46,13 @@ def _severity_rank(value: Any) -> int:
     if severity == "medium":
         return 1
     return 2
+
+
+def _normalize_plan(value: Any) -> str:
+    plan = str(value or "").strip().lower()
+    if plan in {"free", "standard", "premium"}:
+        return plan
+    return "free"
 
 
 def _issue_group_from_code(code: str) -> str:
@@ -218,6 +226,26 @@ def _build_profile_cards(scan: Scan) -> list[dict[str, Any]]:
     ]
 
 
+def _get_current_plan_price_monthly(tenant: Tenant | None, scan: Scan | None) -> float:
+    if tenant is None or scan is None:
+        return 0.0
+
+    plan = _normalize_plan(getattr(tenant, "current_plan", "free"))
+    if plan == "free":
+        return 0.0
+
+    total_records = _safe_int(getattr(scan, "total_records", 0))
+
+    try:
+        with SessionLocal() as db:
+            pricing = get_license_pricing(db, plan)
+            return round(_safe_float(calculate_monthly_price(total_records, pricing)), 2)
+    except Exception:
+        if plan == "premium":
+            return round(_safe_float(getattr(scan, "estimated_premium_price_monthly", 0.0)), 2)
+        return 0.0
+
+
 def _build_fallback_payload(company: str, environment: str, scan_mode: str | None) -> dict[str, Any]:
     return {
         "title": "BCSentinel Analytics",
@@ -258,6 +286,8 @@ def _build_dashboard_payload(
 
     active_scan = _select_active_scan(recent_scans_desc, selected_scan_id)
     issues = _load_scan_issues(active_scan.scan_id)
+    current_plan_price_monthly = _get_current_plan_price_monthly(tenant, active_scan)
+    current_roi = round(_safe_float(active_scan.potential_saving_eur) - (current_plan_price_monthly * 12), 2)
 
     issue_groups: dict[str, int] = {}
     for issue in issues:
@@ -298,12 +328,13 @@ def _build_dashboard_payload(
         "scan_mode_label": _scan_mode_label(active_scan.scan_type, scan_mode),
         "last_updated": active_scan.generated_at_utc.strftime("%d.%m.%Y, %H:%M UTC"),
         "selected_scan_id": active_scan.scan_id,
+        "current_plan": _normalize_plan(getattr(tenant, "current_plan", "free")),
         "kpis": {
             "health_score": _safe_int(active_scan.data_score),
             "total_records": _safe_int(active_scan.total_records),
-            "estimated_premium_price_monthly": round(_safe_float(active_scan.estimated_premium_price_monthly), 2),
+            "estimated_premium_price_monthly": current_plan_price_monthly,
             "estimated_loss_eur": round(_safe_float(active_scan.estimated_loss_eur), 2),
-            "roi_eur": round(_safe_float(active_scan.roi_eur), 2),
+            "roi_eur": current_roi,
             "checks_run": _safe_int(active_scan.checks_count),
             "issues_count": _safe_int(active_scan.issues_count),
         },
