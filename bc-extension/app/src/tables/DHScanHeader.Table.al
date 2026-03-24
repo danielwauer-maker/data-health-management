@@ -46,19 +46,25 @@ table 53120 "DH Scan Header"
         {
             Caption = 'Premium Available';
         }
-        field(11; "Run ID"; Code[50])
+        field(20; "Total Records"; Integer)
         {
-            Caption = 'Run ID';
+            Caption = 'Total Records';
         }
-        field(12; "Estimated Loss (EUR)"; Decimal)
+        field(21; "Estimated Premium Price Monthly"; Decimal)
         {
-            Caption = 'Estimated Loss (EUR)';
-            DecimalPlaces = 0 : 2;
+            Caption = 'Estimated Premium Price Monthly';
         }
-        field(13; "Potential Saving (EUR)"; Decimal)
+        field(22; "Estimated Loss EUR"; Decimal)
         {
-            Caption = 'Potential Saving (EUR)';
-            DecimalPlaces = 0 : 2;
+            Caption = 'Estimated Loss EUR';
+        }
+        field(23; "Potential Saving EUR"; Decimal)
+        {
+            Caption = 'Potential Saving EUR';
+        }
+        field(24; "ROI EUR"; Decimal)
+        {
+            Caption = 'ROI EUR';
         }
     }
 
@@ -68,10 +74,8 @@ table 53120 "DH Scan Header"
         {
             Clustered = true;
         }
+
         key(Key2; "Scan DateTime")
-        {
-        }
-        key(Key3; "Run ID")
         {
         }
     }
@@ -88,13 +92,5 @@ table 53120 "DH Scan Header"
         DashboardIssue.SetRange("Dashboard Scan Entry No.", "Entry No.");
         if not DashboardIssue.IsEmpty() then
             DashboardIssue.DeleteAll(true);
-    end;
-
-    procedure GetDisplayRunId(): Code[50]
-    begin
-        if "Run ID" <> '' then
-            exit("Run ID");
-
-        exit("Backend Scan Id");
     end;
 }

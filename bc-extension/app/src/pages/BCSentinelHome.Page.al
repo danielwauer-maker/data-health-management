@@ -85,11 +85,7 @@ page 53110 "BCSentinel Home"
                             CurrPage.Update(false);
 
                             if DeepScanRun.Get(EntryNo) then
-                                Message(
-                                    'BCSentinel Premium scan queued.\' +
-                                    'Run ID: %1\Status: %2',
-                                    DeepScanRun."Run ID",
-                                    Format(DeepScanRun.Status));
+                                Message('BCSentinel Premium scan queued.\Run ID: %1\Status: %2', DeepScanRun."Run ID", Format(DeepScanRun.Status));
                         end else begin
                             EntryNo := QuickScanMgt.RunQuickScan(Setup);
                             CurrPage.Update(false);
@@ -126,15 +122,24 @@ page 53110 "BCSentinel Home"
                     trigger OnAction()
                     var
                         Setup: Record "DH Setup";
-                        Url: Text;
+                        Client: HttpClient;
+                        Response: HttpResponseMessage;
+                        ResponseText: Text;
+                        Token: Text;
                     begin
                         EnsureSetup(Setup);
 
-                        if Setup."Tenant ID" = '' then
-                            Error('Tenant is not registered yet.');
+                        if not Client.Get(GetTokenUrl(Setup), Response) then
+                            Error('The analytics token service could not be reached.');
 
-                        Url := 'https://admin.bcsentinel.com/admin/tenants/' + Setup."Tenant ID";
-                        Hyperlink(Url);
+                        if not Response.IsSuccessStatusCode() then begin
+                            Response.Content().ReadAs(ResponseText);
+                            Error('Token service failed. Status: %1. Response: %2', Response.HttpStatusCode(), CopyStr(ResponseText, 1, 1024));
+                        end;
+
+                        Response.Content().ReadAs(ResponseText);
+                        Token := ExtractTokenFromJson(ResponseText);
+                        Hyperlink(GetDashboardUrl(Setup, Token));
                     end;
                 }
             }
@@ -188,5 +193,62 @@ page 53110 "BCSentinel Home"
             Setup."Primary Key" := 'SETUP';
             Setup.Insert(true);
         end;
+    end;
+
+    local procedure GetTokenUrl(var Setup: Record "DH Setup"): Text
+    begin
+        if Setup."API Base URL" = '' then
+            Error('Please configure the API Base URL first.');
+
+        if Setup."Tenant ID" = '' then
+            Error('Tenant is not registered yet.');
+
+        exit(RemoveTrailingSlash(Setup."API Base URL") + '/analytics/get-token?company=' + EncodeUrlValue(CompanyName()) + '&environment=' + EncodeUrlValue('BC Cloud') + '&tenant_id=' + EncodeUrlValue(Setup."Tenant ID") + '&scan_mode=' + EncodeUrlValue(GetScanMode(Setup)));
+    end;
+
+    local procedure GetScanMode(var Setup: Record "DH Setup"): Text
+    begin
+        if Setup."Premium Enabled" then
+            exit('premium_deep');
+        exit('free_quick');
+    end;
+
+    local procedure GetDashboardUrl(var Setup: Record "DH Setup"; Token: Text): Text
+    begin
+        exit(RemoveTrailingSlash(Setup."API Base URL") + '/analytics/embed?token=' + EncodeUrlValue(Token));
+    end;
+
+    local procedure ExtractTokenFromJson(JsonText: Text): Text
+    var
+        JsonObj: JsonObject;
+        JsonToken: JsonToken;
+    begin
+        if not JsonObj.ReadFrom(JsonText) then
+            Error('The token response is not valid JSON.');
+
+        if not JsonObj.Get('token', JsonToken) then
+            Error('The token field is missing in the response.');
+
+        exit(JsonToken.AsValue().AsText());
+    end;
+
+    local procedure RemoveTrailingSlash(Value: Text): Text
+    begin
+        while (StrLen(Value) > 0) and (CopyStr(Value, StrLen(Value), 1) = '/') do
+            Value := CopyStr(Value, 1, StrLen(Value) - 1);
+        exit(Value);
+    end;
+
+    local procedure EncodeUrlValue(Value: Text): Text
+    begin
+        Value := Value.Replace('%', '%25');
+        Value := Value.Replace(' ', '%20');
+        Value := Value.Replace('&', '%26');
+        Value := Value.Replace('?', '%3F');
+        Value := Value.Replace('=', '%3D');
+        Value := Value.Replace('#', '%23');
+        Value := Value.Replace('+', '%2B');
+        Value := Value.Replace('/', '%2F');
+        exit(Value);
     end;
 }

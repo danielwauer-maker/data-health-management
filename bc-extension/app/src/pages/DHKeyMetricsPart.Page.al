@@ -18,69 +18,39 @@ page 53127 "DH Key Metrics Part"
                 field(DataScoreCue; Rec."Data Score")
                 {
                     ApplicationArea = All;
-                    Caption = 'Score';
+                    Caption = 'Data Score';
                     StyleExpr = DataScoreStyle;
                 }
 
-                field(DeltaCue; DeltaValue)
+                field(TotalRecordsCue; Rec."Total Records")
                 {
                     ApplicationArea = All;
-                    Caption = 'Delta';
-                    StyleExpr = DeltaStyle;
+                    Caption = 'Datensätze';
+                    StyleExpr = RecordsStyle;
                 }
 
-                field(ChecksCue; Rec."Checks Count")
+                field(PremiumPriceCue; Rec."Estimated Premium Price Monthly")
                 {
                     ApplicationArea = All;
-                    Caption = 'Checks';
-                    StyleExpr = ChecksStyle;
+                    Caption = 'Premium / Monat';
+                    AutoFormatType = 1;
+                    StyleExpr = PremiumPriceStyle;
                 }
 
-                field(IssuesCue; Rec."Issues Count")
+                field(EstimatedLossCue; Rec."Estimated Loss EUR")
                 {
                     ApplicationArea = All;
-                    Caption = 'Issues';
-                    StyleExpr = IssuesStyle;
-
-                    trigger OnDrillDown()
-                    var
-                        ScanIssue: Record "DH Scan Issue";
-                        DeepScanRun: Record "DH Deep Scan Run";
-                        DeepFinding: Record "DH Deep Scan Finding";
-                    begin
-                        case Rec."Scan Type" of
-                            Rec."Scan Type"::Quick:
-                                begin
-                                    ScanIssue.SetRange("Scan Entry No.", Rec."Entry No.");
-                                    Page.Run(Page::"DH Scan Issues", ScanIssue);
-                                end;
-                            Rec."Scan Type"::Deep:
-                                begin
-                                    DeepScanRun.SetRange("Run ID", Rec.GetDisplayRunId());
-                                    DeepScanRun.SetRange(Status, DeepScanRun.Status::Completed);
-
-                                    if not DeepScanRun.FindFirst() then
-                                        Error('No completed deep scan run is linked to this dashboard.');
-
-                                    DeepFinding.SetRange("Deep Scan Entry No.", DeepScanRun."Entry No.");
-                                    Page.Run(Page::"DH Deep Scan Findings", DeepFinding);
-                                end;
-                        end;
-                    end;
-                }
-
-                field(EstimatedLossCue; Rec."Estimated Loss (EUR)")
-                {
-                    ApplicationArea = All;
-                    Caption = 'Loss €';
+                    Caption = 'Potenzieller Verlust';
+                    AutoFormatType = 1;
                     StyleExpr = LossStyle;
                 }
 
-                field(PotentialSavingCue; Rec."Potential Saving (EUR)")
+                field(ROICue; Rec."ROI EUR")
                 {
                     ApplicationArea = All;
-                    Caption = 'Potential €';
-                    StyleExpr = SavingStyle;
+                    Caption = 'ROI';
+                    AutoFormatType = 1;
+                    StyleExpr = ROIStyle;
                 }
             }
         }
@@ -97,86 +67,36 @@ page 53127 "DH Key Metrics Part"
     end;
 
     var
-        DeltaValue: Integer;
         DataScoreStyle: Text[30];
-        DeltaStyle: Text[30];
-        ChecksStyle: Text[30];
-        IssuesStyle: Text[30];
+        RecordsStyle: Text[30];
+        PremiumPriceStyle: Text[30];
         LossStyle: Text[30];
-        SavingStyle: Text[30];
+        ROIStyle: Text[30];
 
     local procedure BuildStyles()
-    var
-        PreviousHeader: Record "DH Scan Header";
     begin
-        DeltaValue := 0;
-
-        PreviousHeader.Reset();
-        PreviousHeader.SetCurrentKey("Scan DateTime");
-        PreviousHeader.SetFilter("Entry No.", '<>%1', Rec."Entry No.");
-        PreviousHeader.SetFilter("Scan DateTime", '<%1', Rec."Scan DateTime");
-        PreviousHeader.SetRange("Scan Type", Rec."Scan Type");
-
-        if PreviousHeader.FindLast() then
-            DeltaValue := Rec."Data Score" - PreviousHeader."Data Score";
-
         DataScoreStyle := GetScoreStyle(Rec."Data Score");
-        DeltaStyle := GetDeltaStyle(DeltaValue);
-        ChecksStyle := 'StrongAccent';
-        IssuesStyle := GetIssuesStyle(Rec."Issues Count");
-        LossStyle := GetLossStyle(Rec."Estimated Loss (EUR)");
-        SavingStyle := GetSavingStyle(Rec."Potential Saving (EUR)");
+        RecordsStyle := 'StrongAccent';
+        PremiumPriceStyle := 'Ambiguous';
+        LossStyle := 'Unfavorable';
+        ROIStyle := GetROIStyle(Rec."ROI EUR");
     end;
 
     local procedure GetScoreStyle(ScoreValue: Integer): Text
     begin
         if ScoreValue >= 86 then
             exit('Favorable');
-
         if ScoreValue >= 61 then
             exit('Ambiguous');
-
         exit('Unfavorable');
     end;
 
-    local procedure GetDeltaStyle(Delta: Integer): Text
+    local procedure GetROIStyle(ROIValue: Decimal): Text
     begin
-        if Delta > 0 then
+        if ROIValue > 0 then
             exit('Favorable');
-
-        if Delta < 0 then
+        if ROIValue < 0 then
             exit('Unfavorable');
-
-        exit('Standard');
-    end;
-
-    local procedure GetIssuesStyle(IssuesCount: Integer): Text
-    begin
-        if IssuesCount = 0 then
-            exit('Favorable');
-
-        if IssuesCount <= 5 then
-            exit('Ambiguous');
-
-        exit('Unfavorable');
-    end;
-
-    local procedure GetLossStyle(LossValue: Decimal): Text
-    begin
-        if LossValue = 0 then
-            exit('Favorable');
-
-        if LossValue < 500 then
-            exit('Ambiguous');
-
-        exit('Unfavorable');
-    end;
-
-    local procedure GetSavingStyle(SavingValue: Decimal): Text
-    begin
-        if SavingValue > 0 then
-            exit('StrongAccent');
-
         exit('Standard');
     end;
 }

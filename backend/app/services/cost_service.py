@@ -1,47 +1,49 @@
 from __future__ import annotations
 
-from dataclasses import replace
-from typing import Iterable, List, Tuple
+from typing import Iterable
 
-from app.schemas.scan import ScanIssue
+from app.models import IssueCostConfig
 
-DEFAULT_ISSUE_COSTS_EUR: dict[str, float] = {
-    "CUSTOMERS_MISSING_POSTCODE": 8.0,
-    "CUSTOMERS_MISSING_PAYMENT_TERMS": 45.0,
-    "CUSTOMERS_MISSING_COUNTRY_CODE": 8.0,
-    "CUSTOMERS_MISSING_VAT_REG_NO": 20.0,
-    "CUSTOMERS_MISSING_EMAIL": 6.0,
-    "CUSTOMERS_MISSING_PHONE_NO": 4.0,
-    "CUSTOMERS_MISSING_CUSTOMER_POSTING_GROUP": 35.0,
-    "CUSTOMERS_MISSING_GEN_BUS_POSTING_GROUP": 30.0,
-    "VENDORS_MISSING_PAYMENT_TERMS": 45.0,
-    "VENDORS_MISSING_COUNTRY_CODE": 8.0,
-    "VENDORS_MISSING_EMAIL": 6.0,
-    "VENDORS_MISSING_PHONE_NO": 4.0,
-    "VENDORS_MISSING_VENDOR_POSTING_GROUP": 35.0,
-    "VENDORS_MISSING_GEN_BUS_POSTING_GROUP": 30.0,
-    "ITEMS_MISSING_CATEGORY": 12.0,
-    "ITEMS_MISSING_BASE_UNIT": 15.0,
-    "ITEMS_MISSING_GEN_PROD_POSTING_GROUP": 25.0,
-    "ITEMS_MISSING_INVENTORY_POSTING_GROUP": 25.0,
-    "ITEMS_MISSING_VAT_PROD_POSTING_GROUP": 20.0,
-    "ITEMS_MISSING_VENDOR_NO": 10.0,
+DEFAULT_ISSUE_COSTS: dict[str, tuple[str, float]] = {
+    "CUSTOMERS_MISSING_ADDRESS": ("Customers missing address", 15.0),
+    "CUSTOMERS_MISSING_EMAIL": ("Customers missing email", 8.0),
+    "CUSTOMERS_MISSING_PAYMENT_TERMS": ("Customers missing payment terms", 35.0),
+    "CUSTOMERS_MISSING_PAYMENT_METHOD": ("Customers missing payment method", 35.0),
+    "VENDORS_MISSING_ADDRESS": ("Vendors missing address", 15.0),
+    "VENDORS_MISSING_PAYMENT_TERMS": ("Vendors missing payment terms", 35.0),
+    "VENDORS_MISSING_PAYMENT_METHOD": ("Vendors missing payment method", 35.0),
+    "VENDORS_MISSING_BANK_ACCOUNT": ("Vendors missing bank account", 55.0),
+    "ITEMS_MISSING_BASE_UNIT": ("Items missing base unit", 25.0),
+    "ITEMS_MISSING_INVENTORY_POSTING_GROUP": ("Items missing inventory posting group", 50.0),
+    "ITEMS_MISSING_UNIT_PRICE": ("Items missing sales price", 65.0),
+    "ITEMS_MISSING_UNIT_COST": ("Items missing unit cost", 75.0),
+    "ITEMS_NEGATIVE_INVENTORY": ("Items with negative inventory", 95.0),
 }
 
-DEFAULT_COST_PER_ISSUE_EUR = 10.0
+
+def ensure_default_issue_costs(db) -> None:
+    for code, (title, cost_per_record) in DEFAULT_ISSUE_COSTS.items():
+        existing = db.get(IssueCostConfig, code)
+        if existing is None:
+            db.add(
+                IssueCostConfig(
+                    code=code,
+                    title=title,
+                    cost_per_record=cost_per_record,
+                    is_active=True,
+                )
+            )
+    db.commit()
 
 
-def get_issue_cost_per_record(issue_code: str) -> float:
-    return float(DEFAULT_ISSUE_COSTS_EUR.get((issue_code or "").upper(), DEFAULT_COST_PER_ISSUE_EUR))
+def get_issue_cost_map(db) -> dict[str, float]:
+    rows: Iterable[IssueCostConfig] = db.query(IssueCostConfig).filter(IssueCostConfig.is_active.is_(True)).all()
+    if not rows:
+        return {code: cost for code, (_, cost) in DEFAULT_ISSUE_COSTS.items()}
+    return {row.code: float(row.cost_per_record or 0.0) for row in rows}
 
 
-def enrich_issues_with_costs(issues: Iterable[ScanIssue]) -> Tuple[List[ScanIssue], float]:
-    enriched: List[ScanIssue] = []
-    total_loss = 0.0
-
-    for issue in issues:
-        impact = round(issue.affected_count * get_issue_cost_per_record(issue.code), 2)
-        total_loss += impact
-        enriched.append(replace(issue, estimated_impact_eur=impact))
-
-    return enriched, round(total_loss, 2)
+def calculate_issue_impact(issue_code: str, affected_count: int, cost_map: dict[str, float]) -> float:
+    count = max(int(affected_count or 0), 0)
+    unit_cost = float(cost_map.get(issue_code, 10.0))
+    return round(count * unit_cost, 2)

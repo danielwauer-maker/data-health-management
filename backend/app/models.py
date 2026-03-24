@@ -40,23 +40,23 @@ class Scan(Base):
     summary_headline: Mapped[str] = mapped_column(String(255))
     summary_rating: Mapped[str] = mapped_column(String(30))
     total_records: Mapped[int] = mapped_column(Integer, default=0)
-    customer_count: Mapped[int] = mapped_column(Integer, default=0)
-    vendor_count: Mapped[int] = mapped_column(Integer, default=0)
-    item_count: Mapped[int] = mapped_column(Integer, default=0)
-    customer_ledger_entry_count: Mapped[int] = mapped_column(Integer, default=0)
-    vendor_ledger_entry_count: Mapped[int] = mapped_column(Integer, default=0)
-    item_ledger_entry_count: Mapped[int] = mapped_column(Integer, default=0)
-    sales_header_count: Mapped[int] = mapped_column(Integer, default=0)
-    sales_line_count: Mapped[int] = mapped_column(Integer, default=0)
-    purchase_header_count: Mapped[int] = mapped_column(Integer, default=0)
-    purchase_line_count: Mapped[int] = mapped_column(Integer, default=0)
-    gl_entry_count: Mapped[int] = mapped_column(Integer, default=0)
-    value_entry_count: Mapped[int] = mapped_column(Integer, default=0)
-    warehouse_entry_count: Mapped[int] = mapped_column(Integer, default=0)
     estimated_loss_eur: Mapped[float] = mapped_column(Float, default=0.0)
     potential_saving_eur: Mapped[float] = mapped_column(Float, default=0.0)
     estimated_premium_price_monthly: Mapped[float] = mapped_column(Float, default=0.0)
     roi_eur: Mapped[float] = mapped_column(Float, default=0.0)
+    customers_count: Mapped[int] = mapped_column(Integer, default=0)
+    vendors_count: Mapped[int] = mapped_column(Integer, default=0)
+    items_count: Mapped[int] = mapped_column(Integer, default=0)
+    customer_ledger_entries_count: Mapped[int] = mapped_column(Integer, default=0)
+    vendor_ledger_entries_count: Mapped[int] = mapped_column(Integer, default=0)
+    item_ledger_entries_count: Mapped[int] = mapped_column(Integer, default=0)
+    sales_headers_count: Mapped[int] = mapped_column(Integer, default=0)
+    sales_lines_count: Mapped[int] = mapped_column(Integer, default=0)
+    purchase_headers_count: Mapped[int] = mapped_column(Integer, default=0)
+    purchase_lines_count: Mapped[int] = mapped_column(Integer, default=0)
+    gl_entries_count: Mapped[int] = mapped_column(Integer, default=0)
+    value_entries_count: Mapped[int] = mapped_column(Integer, default=0)
+    warehouse_entries_count: Mapped[int] = mapped_column(Integer, default=0)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="scans")
     issues: Mapped[list["ScanIssueRecord"]] = relationship(
@@ -79,3 +79,23 @@ class ScanIssueRecord(Base):
     estimated_impact_eur: Mapped[float] = mapped_column(Float, default=0.0)
 
     scan: Mapped["Scan"] = relationship(back_populates="issues")
+
+
+class IssueCostConfig(Base):
+    __tablename__ = "issue_cost_config"
+
+    code: Mapped[str] = mapped_column(String(80), primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), default="")
+    cost_per_record: Mapped[float] = mapped_column(Float, default=10.0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class LicensePricingConfig(Base):
+    __tablename__ = "license_pricing_config"
+
+    plan_code: Mapped[str] = mapped_column(String(20), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(80), default="")
+    base_price_monthly: Mapped[float] = mapped_column(Float, default=0.0)
+    included_records: Mapped[int] = mapped_column(Integer, default=0)
+    additional_price_per_1000_records: Mapped[float] = mapped_column(Float, default=0.0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body class="dashboard-body admin-body">
+  <div class="admin-shell">
+    <header class="page-header admin-header">
+      <div>
+        <h1>BCSentinel Admin</h1>
+        <p class="muted">Tenant overview, Pricing und Issue-Cost-Konfiguration</p>
+      </div>
+    </header>
+
+    <section class="panel panel-large">
+      <div class="panel-header"><h2>Tenants</h2><span class="muted">aktive BC Cloud Umgebungen</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Nr.</th><th>Tenant ID</th><th>Environment</th><th>App Version</th><th>Created At</th><th>Last Seen</th><th>Plan</th><th>License</th><th>Scans</th><th>Last Scan</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+          {% for tenant in tenants %}
+            <tr>
+              <td>{{ tenant.tenant_no }}</td>
+              <td>{{ tenant.tenant_id }}</td>
+              <td>{{ tenant.environment_name }}</td>
+              <td>{{ tenant.app_version }}</td>
+              <td>{{ tenant.created_at }}</td>
+              <td>{{ tenant.last_seen_at }}</td>
+              <td><span class="pill small-pill">{{ tenant.current_plan }}</span></td>
+              <td><span class="pill small-pill success-pill">{{ tenant.license_status }}</span></td>
+              <td>{{ tenant.scan_count }}</td>
+              <td>{{ tenant.last_scan }}</td>
+              <td>
+                <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/license" class="inline-form compact-form">
+                  <select name="plan">
+                    <option value="free">free</option>
+                    <option value="standard">standard</option>
+                    <option value="premium">premium</option>
+                  </select>
+                  <select name="license_status">
+                    <option value="trial">trial</option>
+                    <option value="active">active</option>
+                    <option value="expired">expired</option>
+                    <option value="blocked">blocked</option>
+                  </select>
+                  <button type="submit" class="btn btn-secondary">Save</button>
+                </form>
+                <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/delete" class="inline-form" onsubmit="return confirm('Tenant {{ tenant.tenant_id }} wirklich löschen?');">
+                  <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-grid">
+      <article class="panel">
+        <div class="panel-header"><h2>Issue Costs</h2><span class="muted">€ pro betroffenem Datensatz</span></div>
+        <div class="config-list">
+          {% for row in issue_costs %}
+          <form method="post" action="/admin/config/issue-costs/{{ row.code }}" class="config-row">
+            <div class="config-title">{{ row.code }}</div>
+            <input type="text" name="title" value="{{ row.title }}">
+            <input type="number" step="0.01" name="cost_per_record" value="{{ row.cost_per_record }}">
+            <label class="checkbox-inline"><input type="checkbox" name="is_active" {% if row.is_active %}checked{% endif %}> aktiv</label>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </form>
+          {% endfor %}
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header"><h2>License Pricing</h2><span class="muted">monatliche Preislogik</span></div>
+        <div class="config-list">
+          {% for row in license_prices %}
+          <form method="post" action="/admin/config/license-pricing/{{ row.plan_code }}" class="config-row">
+            <div class="config-title">{{ row.plan_code }}</div>
+            <input type="text" name="display_name" value="{{ row.display_name }}">
+            <input type="number" step="0.01" name="base_price_monthly" value="{{ row.base_price_monthly }}">
+            <input type="number" step="1" name="included_records" value="{{ row.included_records }}">
+            <input type="number" step="0.01" name="additional_price_per_1000_records" value="{{ row.additional_price_per_1000_records }}">
+            <label class="checkbox-inline"><input type="checkbox" name="is_active" {% if row.is_active %}checked{% endif %}> aktiv</label>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </form>
+          {% endfor %}
+        </div>
+      </article>
+    </section>
+  </div>
+</body>
+</html>
