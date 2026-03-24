@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -38,6 +38,8 @@ class Scan(Base):
     checks_count: Mapped[int] = mapped_column(Integer)
     issues_count: Mapped[int] = mapped_column(Integer)
     premium_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    estimated_loss_eur: Mapped[float] = mapped_column(Float, default=0)
+    potential_saving_eur: Mapped[float] = mapped_column(Float, default=0)
     summary_headline: Mapped[str] = mapped_column(String(255))
     summary_rating: Mapped[str] = mapped_column(String(30))
 
@@ -59,5 +61,6 @@ class ScanIssueRecord(Base):
     affected_count: Mapped[int] = mapped_column(Integer)
     premium_only: Mapped[bool] = mapped_column(Boolean, default=False)
     recommendation_preview: Mapped[str | None] = mapped_column(Text, nullable=True)
+    estimated_impact_eur: Mapped[float] = mapped_column(Float, default=0)
 
     scan: Mapped["Scan"] = relationship(back_populates="issues")

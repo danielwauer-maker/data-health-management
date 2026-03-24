@@ -80,6 +80,8 @@ codeunit 53123 "DH QuickScan Mgt."
         if JsonObj.Get('premium_available', JsonToken) then
             Header."Premium Available" := JsonToken.AsValue().AsBoolean();
 
+        ReadHeaderFieldDecimal(JsonObj, 'estimated_loss_eur', Header."Estimated Loss (EUR)");
+        ReadHeaderFieldDecimal(JsonObj, 'potential_saving_eur', Header."Potential Saving (EUR)");
         ReadSummary(JsonObj, Header);
 
         Header.Insert();
@@ -110,6 +112,8 @@ codeunit 53123 "DH QuickScan Mgt."
         Payload.Add('checks_count', Header."Checks Count");
         Payload.Add('issues_count', Header."Issues Count");
         Payload.Add('premium_available', Header."Premium Available");
+        Payload.Add('estimated_loss_eur', Header."Estimated Loss (EUR)");
+        Payload.Add('potential_saving_eur', Header."Potential Saving (EUR)");
         Payload.Add('headline', Header."Headline");
         Payload.Add('rating', Header."Rating");
 
@@ -124,6 +128,7 @@ codeunit 53123 "DH QuickScan Mgt."
                 IssueObject.Add('affected_count', Issue."Affected Count");
                 IssueObject.Add('premium_only', Issue."Premium Only");
                 IssueObject.Add('recommendation_preview', Issue."Recommendation Preview");
+                IssueObject.Add('estimated_impact_eur', Issue."Estimated Impact (EUR)");
                 IssuesArray.Add(IssueObject);
             until Issue.Next() = 0;
 
@@ -158,6 +163,7 @@ codeunit 53123 "DH QuickScan Mgt."
         IssueToken: JsonToken;
         IssueObj: JsonObject;
         Issue: Record "DH Scan Issue";
+        CostMgt: Codeunit "DH Cost Mgt.";
         i: Integer;
     begin
         if not JsonObj.Get('issues', IssuesToken) then
@@ -180,6 +186,9 @@ codeunit 53123 "DH QuickScan Mgt."
             Issue."Affected Count Sort Value" := -Issue."Affected Count";
             Issue."Recommendation Preview" := CopyStr(GetJsonText(IssueObj, 'recommendation_preview'), 1, MaxStrLen(Issue."Recommendation Preview"));
             ReadIssueFieldBool(IssueObj, 'premium_only', Issue."Premium Only");
+            ReadIssueFieldDecimal(IssueObj, 'estimated_impact_eur', Issue."Estimated Impact (EUR)");
+            if Issue."Estimated Impact (EUR)" = 0 then
+                Issue."Estimated Impact (EUR)" := CostMgt.GetIssueImpact(Issue."Issue Code", Issue."Affected Count");
 
             Issue.Insert(true);
         end;
@@ -218,6 +227,34 @@ codeunit 53123 "DH QuickScan Mgt."
                 Target := Token.AsValue().AsBoolean();
     end;
 
+    local procedure ReadIssueFieldDecimal(var IssueObj: JsonObject; FieldName: Text; var Target: Decimal)
+    var
+        Token: JsonToken;
+        ValueText: Text;
+    begin
+        Clear(Target);
+
+        if IssueObj.Get(FieldName, Token) then
+            if not IsJsonNull(Token) then begin
+                ValueText := Token.AsValue().AsText();
+                Evaluate(Target, ValueText);
+            end;
+    end;
+
+    local procedure ReadHeaderFieldDecimal(var JsonObj: JsonObject; FieldName: Text; var Target: Decimal)
+    var
+        Token: JsonToken;
+        ValueText: Text;
+    begin
+        Clear(Target);
+
+        if JsonObj.Get(FieldName, Token) then
+            if not IsJsonNull(Token) then begin
+                ValueText := Token.AsValue().AsText();
+                Evaluate(Target, ValueText);
+            end;
+    end;
+
     local procedure IsJsonNull(Token: JsonToken): Boolean
     var
         JsonValueText: Text;
@@ -246,7 +283,6 @@ codeunit 53123 "DH QuickScan Mgt."
 
         exit(1);
     end;
-
 
     local procedure GetSeveritySortOrder(SeverityValue: Code[20]): Integer
     begin

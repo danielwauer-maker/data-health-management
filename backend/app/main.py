@@ -11,6 +11,7 @@ from app.models import Scan, ScanIssueRecord, Tenant
 from app.routers.admin import router as admin_router
 from app.routers.analytics import router as analytics_router
 from app.routers.scans import router as scans_router
+from app.routers.license import router as license_router
 from app.schemas.scan import (
     QuickScanRequest,
     QuickScanResponse,
@@ -21,19 +22,14 @@ from app.schemas.scan import (
     ScanTrendResponse,
 )
 from app.services.scoring_service import calculate_quick_scan_result
-from app.routers.license import router as license_router
 
 
 def ensure_runtime_schema() -> None:
     with engine.begin() as connection:
-        connection.execute(
-            text(
-                """
-                ALTER TABLE tenants
-                ADD COLUMN IF NOT EXISTS tenant_no INTEGER
-                """
-            )
-        )
+        connection.execute(text("ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tenant_no INTEGER"))
+        connection.execute(text("ALTER TABLE scans ADD COLUMN IF NOT EXISTS estimated_loss_eur DOUBLE PRECISION DEFAULT 0"))
+        connection.execute(text("ALTER TABLE scans ADD COLUMN IF NOT EXISTS potential_saving_eur DOUBLE PRECISION DEFAULT 0"))
+        connection.execute(text("ALTER TABLE scan_issues ADD COLUMN IF NOT EXISTS estimated_impact_eur DOUBLE PRECISION DEFAULT 0"))
 
         connection.execute(
             text(
@@ -85,7 +81,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Data Health Management API",
-    version="0.5.0",
+    version="0.6.0",
     lifespan=lifespan,
 )
 
@@ -140,15 +136,19 @@ def register_tenant(payload: TenantRegisterRequest) -> TenantRegisterResponse:
 @app.post("/scan/quick", response_model=QuickScanResponse)
 def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
     with SessionLocal() as db:
-        tenant = db.scalar(
-            select(Tenant).where(Tenant.tenant_id == payload.tenant_id)
-        )
+        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == payload.tenant_id))
         if tenant is None:
             raise HTTPException(status_code=404, detail="Tenant not found.")
 
-        data_score, checks_count, issues_count, summary, issues = calculate_quick_scan_result(
-            payload.metrics
-        )
+        (
+            data_score,
+            checks_count,
+            issues_count,
+            summary,
+            issues,
+            estimated_loss_eur,
+            potential_saving_eur,
+        ) = calculate_quick_scan_result(payload.metrics)
 
         scan_id = f"scan_{uuid4().hex[:12]}"
         generated_at_utc = datetime.now(timezone.utc)
@@ -162,6 +162,8 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
             checks_count=checks_count,
             issues_count=issues_count,
             premium_available=True,
+            estimated_loss_eur=estimated_loss_eur,
+            potential_saving_eur=potential_saving_eur,
             summary_headline=summary.headline,
             summary_rating=summary.rating,
         )
@@ -177,6 +179,7 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
                     affected_count=issue.affected_count,
                     premium_only=issue.premium_only,
                     recommendation_preview=issue.recommendation_preview,
+                    estimated_impact_eur=issue.estimated_impact_eur,
                 )
             )
 
@@ -191,6 +194,8 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
         checks_count=checks_count,
         issues_count=issues_count,
         premium_available=True,
+        estimated_loss_eur=estimated_loss_eur,
+        potential_saving_eur=potential_saving_eur,
         summary=summary,
         issues=issues,
     )
@@ -201,9 +206,7 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
     safe_limit = min(max(limit, 1), 50)
 
     with SessionLocal() as db:
-        tenant = db.scalar(
-            select(Tenant).where(Tenant.tenant_id == tenant_id)
-        )
+        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
         if tenant is None:
             raise HTTPException(status_code=404, detail="Tenant not found.")
 
@@ -220,7 +223,7 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
             issue_rows = db.scalars(
                 select(ScanIssueRecord)
                 .where(ScanIssueRecord.scan_id == scan.scan_id)
-                .order_by(ScanIssueRecord.affected_count.desc())
+                .order_by(ScanIssueRecord.estimated_impact_eur.desc(), ScanIssueRecord.affected_count.desc())
             ).all()
 
             issues = [
@@ -231,6 +234,7 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
                     affected_count=row.affected_count,
                     premium_only=row.premium_only,
                     recommendation_preview=row.recommendation_preview,
+                    estimated_impact_eur=row.estimated_impact_eur or 0,
                 )
                 for row in issue_rows
             ]
@@ -244,6 +248,8 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
                     checks_count=scan.checks_count,
                     issues_count=scan.issues_count,
                     premium_available=scan.premium_available,
+                    estimated_loss_eur=scan.estimated_loss_eur or 0,
+                    potential_saving_eur=scan.potential_saving_eur or 0,
                     summary=ScanSummary(
                         headline=scan.summary_headline,
                         rating=scan.summary_rating,
@@ -252,18 +258,13 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
                 )
             )
 
-    return ScanHistoryResponse(
-        tenant_id=tenant_id,
-        scans=result_scans,
-    )
+    return ScanHistoryResponse(tenant_id=tenant_id, scans=result_scans)
 
 
 @app.get("/scan/trend/{tenant_id}", response_model=ScanTrendResponse)
 def get_scan_trend(tenant_id: str) -> ScanTrendResponse:
     with SessionLocal() as db:
-        tenant = db.scalar(
-            select(Tenant).where(Tenant.tenant_id == tenant_id)
-        )
+        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
         if tenant is None:
             raise HTTPException(status_code=404, detail="Tenant not found.")
 
@@ -275,16 +276,10 @@ def get_scan_trend(tenant_id: str) -> ScanTrendResponse:
         ).all()
 
         if not scans:
-            return ScanTrendResponse(
-                tenant_id=tenant_id,
-                trend="same",
-            )
+            return ScanTrendResponse(tenant_id=tenant_id, trend="same")
 
         if len(scans) == 1:
-            return ScanTrendResponse(
-                tenant_id=tenant_id,
-                trend="same",
-            )
+            return ScanTrendResponse(tenant_id=tenant_id, trend="same")
 
         latest = scans[0]
         previous = scans[1]
@@ -298,5 +293,10 @@ def get_scan_trend(tenant_id: str) -> ScanTrendResponse:
 
         return ScanTrendResponse(
             tenant_id=tenant_id,
+            latest_scan_id=latest.scan_id,
+            previous_scan_id=previous.scan_id,
+            latest_score=latest.data_score,
+            previous_score=previous.data_score,
+            delta=latest.data_score - previous.data_score,
             trend=trend,
         )

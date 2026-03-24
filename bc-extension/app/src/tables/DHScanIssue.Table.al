@@ -45,6 +45,11 @@ table 53121 "DH Scan Issue"
         {
             Caption = 'Affected Count Sort Value';
         }
+        field(11; "Estimated Impact (EUR)"; Decimal)
+        {
+            Caption = 'Estimated Impact (EUR)';
+            DecimalPlaces = 0 : 2;
+        }
     }
 
     keys
@@ -53,11 +58,9 @@ table 53121 "DH Scan Issue"
         {
             Clustered = true;
         }
-
         key(Key2; "Scan Entry No.")
         {
         }
-
         key(Key3; "Scan Entry No.", "Severity Sort Order", "Affected Count Sort Value")
         {
         }

@@ -42,6 +42,12 @@ page 53131 "DH Deep Scan Findings"
                     ApplicationArea = All;
                 }
 
+                field("Estimated Impact (EUR)"; Rec."Estimated Impact (EUR)")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Impact €';
+                }
+
                 field("Recommendation Preview"; Rec."Recommendation Preview")
                 {
                     ApplicationArea = All;

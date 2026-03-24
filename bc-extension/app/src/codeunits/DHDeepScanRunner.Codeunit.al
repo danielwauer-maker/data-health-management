@@ -34,6 +34,7 @@ codeunit 53128 "DH Deep Scan Runner"
         RunChecks(DeepScanRun, Score, ChecksCount, IssuesCount);
 
         DeepScanRun.Get(DeepScanRun."Entry No.");
+        RecalculateCostSummary(DeepScanRun);
         DeepScanRun."Deep Score" := Score;
         DeepScanRun."Checks Count" := ChecksCount;
         DeepScanRun."Issues Count" := IssuesCount;
@@ -878,6 +879,8 @@ codeunit 53128 "DH Deep Scan Runner"
         ScanHeader."Data Score" := DeepScanRun."Deep Score";
         ScanHeader."Checks Count" := DeepScanRun."Checks Count";
         ScanHeader."Issues Count" := DeepScanRun."Issues Count";
+        ScanHeader."Estimated Loss (EUR)" := DeepScanRun."Estimated Loss (EUR)";
+        ScanHeader."Potential Saving (EUR)" := DeepScanRun."Potential Saving (EUR)";
         ScanHeader."Headline" := CopyStr(DeepScanRun."Headline", 1, MaxStrLen(ScanHeader."Headline"));
         ScanHeader."Rating" := CopyStr(DeepScanRun."Rating", 1, MaxStrLen(ScanHeader."Rating"));
         ScanHeader."Premium Available" := true;
@@ -907,6 +910,8 @@ codeunit 53128 "DH Deep Scan Runner"
         Payload.Add('checks_count', DeepScanRun."Checks Count");
         Payload.Add('issues_count', DeepScanRun."Issues Count");
         Payload.Add('premium_available', true);
+        Payload.Add('estimated_loss_eur', DeepScanRun."Estimated Loss (EUR)");
+        Payload.Add('potential_saving_eur', DeepScanRun."Potential Saving (EUR)");
         Payload.Add('headline', DeepScanRun."Headline");
         Payload.Add('rating', DeepScanRun."Rating");
 
@@ -921,6 +926,7 @@ codeunit 53128 "DH Deep Scan Runner"
                 IssueObject.Add('affected_count', Finding."Affected Count");
                 IssueObject.Add('premium_only', Finding."Premium Only");
                 IssueObject.Add('recommendation_preview', Finding."Recommendation Preview");
+                IssueObject.Add('estimated_impact_eur', Finding."Estimated Impact (EUR)");
                 IssuesArray.Add(IssueObject);
             until Finding.Next() = 0;
 
@@ -932,6 +938,7 @@ codeunit 53128 "DH Deep Scan Runner"
     local procedure InsertFinding(DeepScanEntryNo: Integer; Category: Code[30]; IssueCode: Code[50]; Title: Text[150]; Severity: Code[20]; AffectedCount: Integer; RecommendationPreview: Text[250])
     var
         Finding: Record "DH Deep Scan Finding";
+        CostMgt: Codeunit "DH Cost Mgt.";
     begin
         Finding.Init();
         Finding."Entry No." := GetNextFindingEntryNo();
@@ -945,7 +952,25 @@ codeunit 53128 "DH Deep Scan Runner"
         Finding."Affected Count Sort Value" := -AffectedCount;
         Finding."Recommendation Preview" := CopyStr(RecommendationPreview, 1, MaxStrLen(Finding."Recommendation Preview"));
         Finding."Premium Only" := true;
+        Finding."Estimated Impact (EUR)" := CostMgt.GetIssueImpact(Finding."Issue Code", Finding."Affected Count");
         Finding.Insert(true);
+    end;
+
+    local procedure RecalculateCostSummary(var DeepScanRun: Record "DH Deep Scan Run")
+    var
+        Finding: Record "DH Deep Scan Finding";
+        EstimatedLoss: Decimal;
+    begin
+        EstimatedLoss := 0;
+
+        Finding.SetRange("Deep Scan Entry No.", DeepScanRun."Entry No.");
+        if Finding.FindSet() then
+            repeat
+                EstimatedLoss += Finding."Estimated Impact (EUR)";
+            until Finding.Next() = 0;
+
+        DeepScanRun."Estimated Loss (EUR)" := Round(EstimatedLoss, 0.01, '=');
+        DeepScanRun."Potential Saving (EUR)" := Round(EstimatedLoss, 0.01, '=');
     end;
 
     local procedure FindingExists(DeepScanEntryNo: Integer; IssueCode: Code[50]; ValueMarker: Text): Boolean

@@ -43,7 +43,8 @@ codeunit 53134 "DH Dashboard Mgt."
                     ScanIssue.Severity,
                     ScanIssue."Affected Count",
                     ScanIssue."Recommendation Preview",
-                    ScanIssue."Premium Only");
+                    ScanIssue."Premium Only",
+                    ScanIssue."Estimated Impact (EUR)");
             until ScanIssue.Next() = 0;
     end;
 
@@ -98,11 +99,12 @@ codeunit 53134 "DH Dashboard Mgt."
                     DeepFinding.Severity,
                     DeepFinding."Affected Count",
                     DeepFinding."Recommendation Preview",
-                    true);
+                    true,
+                    DeepFinding."Estimated Impact (EUR)");
             until DeepFinding.Next() = 0;
     end;
 
-    local procedure InsertDashboardIssue(DashboardScanEntryNo: Integer; SourceType: Option Quick,Deep; SourceEntryNo: Integer; IssueCode: Code[50]; Title: Text[150]; Severity: Code[20]; AffectedCount: Integer; RecommendationPreview: Text[250]; PremiumOnly: Boolean)
+    local procedure InsertDashboardIssue(DashboardScanEntryNo: Integer; SourceType: Option Quick,Deep; SourceEntryNo: Integer; IssueCode: Code[50]; Title: Text[150]; Severity: Code[20]; AffectedCount: Integer; RecommendationPreview: Text[250]; PremiumOnly: Boolean; EstimatedImpact: Decimal)
     var
         DashboardIssue: Record "DH Dashboard Issue";
     begin
@@ -119,6 +121,7 @@ codeunit 53134 "DH Dashboard Mgt."
         DashboardIssue."Affected Count Sort Value" := -AffectedCount;
         DashboardIssue."Recommendation Preview" := CopyStr(RecommendationPreview, 1, MaxStrLen(DashboardIssue."Recommendation Preview"));
         DashboardIssue."Premium Only" := PremiumOnly;
+        DashboardIssue."Estimated Impact (EUR)" := EstimatedImpact;
         DashboardIssue.Insert(true);
     end;
 
@@ -145,7 +148,6 @@ codeunit 53134 "DH Dashboard Mgt."
     begin
         exit(DashboardIssue."Source Type"::Deep);
     end;
-
 
     local procedure GetSeveritySortOrder(SeverityValue: Code[20]): Integer
     begin

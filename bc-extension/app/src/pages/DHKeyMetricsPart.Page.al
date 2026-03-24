@@ -68,6 +68,20 @@ page 53127 "DH Key Metrics Part"
                         end;
                     end;
                 }
+
+                field(EstimatedLossCue; Rec."Estimated Loss (EUR)")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Loss €';
+                    StyleExpr = LossStyle;
+                }
+
+                field(PotentialSavingCue; Rec."Potential Saving (EUR)")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Potential €';
+                    StyleExpr = SavingStyle;
+                }
             }
         }
     }
@@ -88,6 +102,8 @@ page 53127 "DH Key Metrics Part"
         DeltaStyle: Text[30];
         ChecksStyle: Text[30];
         IssuesStyle: Text[30];
+        LossStyle: Text[30];
+        SavingStyle: Text[30];
 
     local procedure BuildStyles()
     var
@@ -108,6 +124,8 @@ page 53127 "DH Key Metrics Part"
         DeltaStyle := GetDeltaStyle(DeltaValue);
         ChecksStyle := 'StrongAccent';
         IssuesStyle := GetIssuesStyle(Rec."Issues Count");
+        LossStyle := GetLossStyle(Rec."Estimated Loss (EUR)");
+        SavingStyle := GetSavingStyle(Rec."Potential Saving (EUR)");
     end;
 
     local procedure GetScoreStyle(ScoreValue: Integer): Text
@@ -141,5 +159,24 @@ page 53127 "DH Key Metrics Part"
             exit('Ambiguous');
 
         exit('Unfavorable');
+    end;
+
+    local procedure GetLossStyle(LossValue: Decimal): Text
+    begin
+        if LossValue = 0 then
+            exit('Favorable');
+
+        if LossValue < 500 then
+            exit('Ambiguous');
+
+        exit('Unfavorable');
+    end;
+
+    local procedure GetSavingStyle(SavingValue: Decimal): Text
+    begin
+        if SavingValue > 0 then
+            exit('StrongAccent');
+
+        exit('Standard');
     end;
 }

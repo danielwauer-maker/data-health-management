@@ -21,6 +21,7 @@ class ScanIssue(BaseModel):
     affected_count: int = Field(ge=0)
     premium_only: bool = False
     recommendation_preview: Optional[str] = None
+    estimated_impact_eur: float = Field(default=0, ge=0)
 
 
 class QuickScanResponse(BaseModel):
@@ -31,6 +32,8 @@ class QuickScanResponse(BaseModel):
     checks_count: int = Field(ge=0)
     issues_count: int = Field(ge=0)
     premium_available: bool = True
+    estimated_loss_eur: float = Field(default=0, ge=0)
+    potential_saving_eur: float = Field(default=0, ge=0)
     summary: ScanSummary
     issues: List[ScanIssue] = Field(default_factory=list)
 
@@ -43,6 +46,8 @@ class ScanHistoryEntry(BaseModel):
     checks_count: int
     issues_count: int
     premium_available: bool
+    estimated_loss_eur: float = Field(default=0, ge=0)
+    potential_saving_eur: float = Field(default=0, ge=0)
     summary: ScanSummary
     issues: List[ScanIssue] = Field(default_factory=list)
 

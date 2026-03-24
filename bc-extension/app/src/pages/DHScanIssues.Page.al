@@ -29,6 +29,11 @@ page 53126 "DH Scan Issues"
                 {
                     ApplicationArea = All;
                 }
+                field("Estimated Impact (EUR)"; Rec."Estimated Impact (EUR)")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Impact €';
+                }
                 field("Recommendation Preview"; Rec."Recommendation Preview")
                 {
                     ApplicationArea = All;

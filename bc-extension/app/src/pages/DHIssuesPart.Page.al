@@ -51,6 +51,12 @@ page 53121 "DH Issues Part"
                     end;
                 }
 
+                field("Estimated Impact (EUR)"; Rec."Estimated Impact (EUR)")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Impact €';
+                }
+
                 field("Recommendation Preview"; Rec."Recommendation Preview")
                 {
                     ApplicationArea = All;

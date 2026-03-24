@@ -24,6 +24,11 @@ page 53124 "DH Dashboard List"
                 {
                     ApplicationArea = All;
                 }
+                field("Estimated Loss (EUR)"; Rec."Estimated Loss (EUR)")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Loss €';
+                }
                 field("Rating"; Rec."Rating")
                 {
                     ApplicationArea = All;
@@ -102,11 +107,7 @@ page 53124 "DH Dashboard List"
                     if Rec."Entry No." = 0 then
                         Error('Please select a dashboard entry first.');
 
-                    if Confirm(
-                        'Do you want to delete the selected dashboard from %1?',
-                        false,
-                        Format(Rec."Scan DateTime"))
-                    then begin
+                    if Confirm('Do you want to delete the selected dashboard from %1?', false, Format(Rec."Scan DateTime")) then begin
                         if Setup.Get('SETUP') then
                             if Rec."Backend Scan Id" <> '' then
                                 ApiClient.DeleteScanFromBackend(Setup, Rec."Backend Scan Id");

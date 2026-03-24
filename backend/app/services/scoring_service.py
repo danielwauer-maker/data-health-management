@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 from app.schemas.scan import ScanIssue, ScanSummary
+from app.services.cost_service import calculate_issue_impact_eur, calculate_scan_cost_summary, CostedIssue
 
 
 @dataclass(frozen=True)
@@ -248,7 +249,7 @@ def _build_summary(score: int) -> ScanSummary:
 
 def calculate_quick_scan_result(
     metrics: Dict[str, int],
-) -> Tuple[int, int, int, ScanSummary, List[ScanIssue]]:
+) -> Tuple[int, int, int, ScanSummary, List[ScanIssue], float, float]:
     score = 100
     all_issues: List[ScanIssue] = []
 
@@ -272,14 +273,27 @@ def calculate_quick_scan_result(
                     affected_count=affected_count,
                     premium_only=check.premium_only,
                     recommendation_preview=check.recommendation_preview,
+                    estimated_impact_eur=calculate_issue_impact_eur(check.code, affected_count),
                 )
             )
 
     score = max(score, 0)
-    all_issues.sort(key=lambda issue: issue.affected_count, reverse=True)
+    all_issues.sort(key=lambda issue: issue.estimated_impact_eur, reverse=True)
 
     checks_count = len(QUICK_CHECKS)
     issues_count = len(all_issues)
     summary = _build_summary(score)
+    cost_summary = calculate_scan_cost_summary(
+        CostedIssue(code=issue.code, affected_count=issue.affected_count)
+        for issue in all_issues
+    )
 
-    return score, checks_count, issues_count, summary, all_issues
+    return (
+        score,
+        checks_count,
+        issues_count,
+        summary,
+        all_issues,
+        cost_summary.estimated_loss_eur,
+        cost_summary.potential_saving_eur,
+    )

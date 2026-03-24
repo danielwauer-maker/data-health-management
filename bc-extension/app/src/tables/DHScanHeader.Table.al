@@ -46,10 +46,19 @@ table 53120 "DH Scan Header"
         {
             Caption = 'Premium Available';
         }
-
         field(11; "Run ID"; Code[50])
         {
             Caption = 'Run ID';
+        }
+        field(12; "Estimated Loss (EUR)"; Decimal)
+        {
+            Caption = 'Estimated Loss (EUR)';
+            DecimalPlaces = 0 : 2;
+        }
+        field(13; "Potential Saving (EUR)"; Decimal)
+        {
+            Caption = 'Potential Saving (EUR)';
+            DecimalPlaces = 0 : 2;
         }
     }
 
@@ -59,11 +68,9 @@ table 53120 "DH Scan Header"
         {
             Clustered = true;
         }
-
         key(Key2; "Scan DateTime")
         {
         }
-
         key(Key3; "Run ID")
         {
         }
@@ -82,6 +89,7 @@ table 53120 "DH Scan Header"
         if not DashboardIssue.IsEmpty() then
             DashboardIssue.DeleteAll(true);
     end;
+
     procedure GetDisplayRunId(): Code[50]
     begin
         if "Run ID" <> '' then

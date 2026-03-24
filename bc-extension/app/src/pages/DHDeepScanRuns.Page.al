@@ -56,6 +56,12 @@ page 53130 "DH Deep Scan Runs"
                     ApplicationArea = All;
                 }
 
+                field("Estimated Loss (EUR)"; Rec."Estimated Loss (EUR)")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Loss €';
+                }
+
                 field("Rating"; Rec."Rating")
                 {
                     ApplicationArea = All;
@@ -122,11 +128,7 @@ page 53130 "DH Deep Scan Runs"
                     if Rec."Entry No." = 0 then
                         Error('Please select a scan first.');
 
-                    if not Confirm(
-                        'Do you want to delete scan %1?',
-                        false,
-                        Rec.GetDisplayRunId())
-                    then
+                    if not Confirm('Do you want to delete scan %1?', false, Rec.GetDisplayRunId()) then
                         exit;
 
                     if Setup.Get('SETUP') then
