@@ -3,56 +3,74 @@ page 53124 "DH Dashboard List"
     PageType = List;
     SourceTable = "DH Scan Header";
     ApplicationArea = All;
-    UsageCategory = None;
+    UsageCategory = Lists;
     Caption = 'BCSentinel Dashboards';
     CardPageId = "DH Dashboard";
     Editable = false;
-    DeleteAllowed = true;
     InsertAllowed = false;
+    DeleteAllowed = false;
+    ModifyAllowed = false;
 
     layout
     {
         area(Content)
         {
-            repeater(General)
+            repeater(Entries)
             {
+                field(DisplayRunId; Rec.GetDisplayRunId())
+                {
+                    ApplicationArea = All;
+                    Caption = 'Run ID';
+                }
+
+                field("Scan Type"; Rec."Scan Type")
+                {
+                    ApplicationArea = All;
+                }
+
                 field("Scan DateTime"; Rec."Scan DateTime")
                 {
                     ApplicationArea = All;
+                    Caption = 'Scan Date';
                 }
+
                 field("Data Score"; Rec."Data Score")
                 {
                     ApplicationArea = All;
+                    Caption = 'Score';
                 }
+
+                field("Checks Count"; Rec."Checks Count")
+                {
+                    ApplicationArea = All;
+                }
+
+                field("Issues Count"; Rec."Issues Count")
+                {
+                    ApplicationArea = All;
+                }
+
+                field("Est. Premium Price"; Rec."Est. Premium Price")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Premium €/Month';
+                }
+
                 field("Est. Loss"; Rec."Est. Loss")
                 {
                     ApplicationArea = All;
                     Caption = 'Loss €';
                 }
-                field("Rating"; Rec."Rating")
+
+                field("ROI"; Rec."ROI")
                 {
                     ApplicationArea = All;
+                    Caption = 'ROI €';
                 }
+
                 field("Headline"; Rec."Headline")
                 {
                     ApplicationArea = All;
-                }
-                field("Checks Count"; Rec."Checks Count")
-                {
-                    ApplicationArea = All;
-                }
-                field("Issues Count"; Rec."Issues Count")
-                {
-                    ApplicationArea = All;
-                }
-                field("Scan Type"; Rec."Scan Type")
-                {
-                    ApplicationArea = All;
-                }
-                field(DisplayRunId; Rec.GetDisplayRunId())
-                {
-                    ApplicationArea = All;
-                    Caption = 'Run ID';
                 }
             }
         }
@@ -66,7 +84,7 @@ page 53124 "DH Dashboard List"
             {
                 Caption = 'Open Dashboard';
                 ApplicationArea = All;
-                Image = View;
+                Image = Navigate;
 
                 trigger OnAction()
                 begin
@@ -76,7 +94,7 @@ page 53124 "DH Dashboard List"
 
             action(RunQuickScan)
             {
-                Caption = 'Run Quick Scan';
+                Caption = 'Run Scan';
                 ApplicationArea = All;
                 Image = Calculate;
 
@@ -103,14 +121,17 @@ page 53124 "DH Dashboard List"
                 var
                     Setup: Record "DH Setup";
                     ApiClient: Codeunit "DH API Client";
+                    BackendDeleteId: Code[50];
                 begin
                     if Rec."Entry No." = 0 then
                         Error('Please select a dashboard entry first.');
 
                     if Confirm('Do you want to delete the selected dashboard from %1?', false, Format(Rec."Scan DateTime")) then begin
+                        BackendDeleteId := GetBackendDeleteId();
+
                         if Setup.Get('SETUP') then
-                            if Rec."Backend Scan Id" <> '' then
-                                ApiClient.DeleteScanFromBackend(Setup, Rec."Backend Scan Id");
+                            if (Setup."Tenant ID" <> '') and (Setup."API Token" <> '') and (BackendDeleteId <> '') then
+                                ApiClient.DeleteScanFromBackend(Setup, BackendDeleteId);
 
                         Rec.Delete(true);
                         CurrPage.Update(false);
@@ -148,5 +169,13 @@ page 53124 "DH Dashboard List"
     begin
         Rec.SetCurrentKey("Scan DateTime");
         Rec.Ascending(false);
+    end;
+
+    local procedure GetBackendDeleteId(): Code[50]
+    begin
+        if Rec."Backend Scan Id" <> '' then
+            exit(Rec."Backend Scan Id");
+
+        exit(Rec.GetDisplayRunId());
     end;
 }

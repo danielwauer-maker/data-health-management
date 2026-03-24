@@ -124,6 +124,7 @@ page 53130 "DH Deep Scan Runs"
                 var
                     Setup: Record "DH Setup";
                     ApiClient: Codeunit "DH API Client";
+                    BackendDeleteId: Code[50];
                 begin
                     if Rec."Entry No." = 0 then
                         Error('Please select a scan first.');
@@ -131,9 +132,11 @@ page 53130 "DH Deep Scan Runs"
                     if not Confirm('Do you want to delete scan %1?', false, Rec.GetDisplayRunId()) then
                         exit;
 
+                    BackendDeleteId := GetBackendDeleteId();
+
                     if Setup.Get('SETUP') then
-                        if (Setup."Tenant ID" <> '') and (Setup."API Token" <> '') and (Rec."Backend Scan Id" <> '') then
-                            ApiClient.DeleteScanFromBackend(Setup, Rec."Backend Scan Id");
+                        if (Setup."Tenant ID" <> '') and (Setup."API Token" <> '') and (BackendDeleteId <> '') then
+                            ApiClient.DeleteScanFromBackend(Setup, BackendDeleteId);
 
                     DeleteLinkedDeepRunIfNeeded();
 
@@ -193,6 +196,14 @@ page 53130 "DH Deep Scan Runs"
         DeepScanRun.SetRange("Run ID", Rec.GetDisplayRunId());
         if DeepScanRun.FindFirst() then
             DeepScanRun.Delete(true);
+    end;
+
+    local procedure GetBackendDeleteId(): Code[50]
+    begin
+        if Rec."Backend Scan Id" <> '' then
+            exit(Rec."Backend Scan Id");
+
+        exit(Rec.GetDisplayRunId());
     end;
 
     local procedure GetScoreStyle(): Text

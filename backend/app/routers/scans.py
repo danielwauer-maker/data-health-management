@@ -63,6 +63,11 @@ class ScanSyncPayload(BaseModel):
     issues: List[ScanIssuePayload] = Field(default_factory=list)
 
 
+class ScanReconcilePayload(BaseModel):
+    tenant_id: str
+    scan_ids: List[str] = Field(default_factory=list)
+
+
 def _safe_int(value: object, default: int = 0) -> int:
     try:
         return int(value or default)
@@ -156,9 +161,7 @@ def sync_scan(
         tenant = _load_tenant_for_sync(db, payload.tenant_id, x_api_token or "")
         total_records, estimated_loss, potential_saving, premium_price, roi = _calculate_commercials(payload, db)
 
-        existing_scan = db.scalar(
-            select(Scan).where(Scan.scan_id == payload.scan_id)
-        )
+        existing_scan = db.scalar(select(Scan).where(Scan.scan_id == payload.scan_id))
 
         if existing_scan is not None and existing_scan.tenant_id != payload.tenant_id:
             raise HTTPException(status_code=409, detail="scan_id already exists for another tenant.")
@@ -250,6 +253,47 @@ def sync_scan(
                 "estimated_premium_price_monthly": premium_price,
                 "roi_eur": roi,
             },
+        }
+    )
+
+
+@router.post("/scan/reconcile")
+def reconcile_scans(
+    payload: ScanReconcilePayload,
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    x_api_token: str | None = Header(default=None, alias="X-Api-Token"),
+):
+    _validate_sync_headers(payload.tenant_id, x_tenant_id, x_api_token)
+
+    normalized_scan_ids = sorted({scan_id.strip() for scan_id in payload.scan_ids if scan_id and scan_id.strip()})
+
+    with SessionLocal() as db:
+        tenant = _load_tenant_for_sync(db, payload.tenant_id, x_api_token or "")
+
+        tenant_scans = db.scalars(
+            select(Scan)
+            .where(Scan.tenant_id == tenant.tenant_id)
+            .order_by(Scan.generated_at_utc.desc(), Scan.id.desc())
+        ).all()
+
+        deleted_scan_ids: list[str] = []
+
+        for scan in tenant_scans:
+            if scan.scan_id not in normalized_scan_ids:
+                db.query(ScanIssueRecord).filter(ScanIssueRecord.scan_id == scan.scan_id).delete()
+                deleted_scan_ids.append(scan.scan_id)
+                db.delete(scan)
+
+        tenant.last_seen_at_utc = datetime.now(timezone.utc)
+        db.commit()
+
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "tenant_id": payload.tenant_id,
+            "kept_scan_ids": normalized_scan_ids,
+            "deleted_scan_ids": deleted_scan_ids,
+            "deleted_count": len(deleted_scan_ids),
         }
     )
 
