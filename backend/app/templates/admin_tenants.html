@@ -26,7 +26,7 @@
           {% for tenant in tenants %}
             <tr>
               <td>{{ tenant.tenant_no }}</td>
-              <td>{{ tenant.tenant_id }}</td>
+              <td><a class="tenant-link" href="/admin/tenants/{{ tenant.tenant_id }}">{{ tenant.tenant_id }}</a></td>
               <td>{{ tenant.environment_name }}</td>
               <td>{{ tenant.app_version }}</td>
               <td>{{ tenant.created_at }}</td>
@@ -36,23 +36,12 @@
               <td>{{ tenant.scan_count }}</td>
               <td>{{ tenant.last_scan }}</td>
               <td>
-                <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/license" class="inline-form compact-form">
-                  <select name="plan">
-                    <option value="free" {% if tenant.current_plan == "free" %}selected{% endif %}>free</option>
-                    <option value="standard" {% if tenant.current_plan == "standard" %}selected{% endif %}>standard</option>
-                    <option value="premium" {% if tenant.current_plan == "premium" %}selected{% endif %}>premium</option>
-                  </select>
-                  <select name="license_status">
-                    <option value="trial" {% if tenant.license_status == "trial" %}selected{% endif %}>trial</option>
-                    <option value="active" {% if tenant.license_status == "active" %}selected{% endif %}>active</option>
-                    <option value="expired" {% if tenant.license_status == "expired" %}selected{% endif %}>expired</option>
-                    <option value="blocked" {% if tenant.license_status == "blocked" %}selected{% endif %}>blocked</option>
-                  </select>
-                  <button type="submit" class="btn btn-secondary">Save</button>
-                </form>
-                <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/delete" class="inline-form" onsubmit="return confirm('Tenant {{ tenant.tenant_id }} wirklich löschen?');">
-                  <button type="submit" class="btn btn-danger">Delete</button>
-                </form>
+                <div class="inline-form wrap-gap">
+                  <a class="btn btn-secondary" href="/admin/tenants/{{ tenant.tenant_id }}">Open</a>
+                  <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/delete" class="inline-form" onsubmit="return confirm('Tenant {{ tenant.tenant_id }} wirklich löschen?');">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                  </form>
+                </div>
               </td>
             </tr>
           {% endfor %}

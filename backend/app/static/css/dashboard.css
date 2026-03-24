@@ -86,3 +86,70 @@ input, select { width: 100%; border: 1px solid var(--border); border-radius: 12p
   .stats-grid { grid-template-columns: 1fr; }
   .mini-grid, .config-row { grid-template-columns: 1fr; }
 }
+
+
+a.tenant-link {
+  color: #e2e8f0;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+a.tenant-link:hover,
+.a-link:hover {
+  text-decoration: underline;
+}
+
+.wrap-gap {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tenant-back-link {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: #94a3b8;
+  text-decoration: none;
+}
+
+.compact-stats-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.stat-value-small {
+  font-size: 24px;
+}
+
+.stat-helper-strong {
+  color: #e2e8f0;
+  font-size: 14px;
+}
+
+.admin-detail-grid {
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.no-border {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+@media (max-width: 1024px) {
+  .compact-stats-grid,
+  .admin-detail-grid,
+  .two-col-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body class="dashboard-body admin-body">
+  <div class="admin-shell">
+    <header class="page-header admin-header">
+      <div>
+        <a class="tenant-back-link" href="/admin/tenants">← Zurück zur Tenant-Liste</a>
+        <h1>{{ tenant.tenant_id }}</h1>
+        <p class="muted">{{ tenant.environment_name }} · {{ tenant.app_version }}</p>
+      </div>
+      <div class="header-badges">
+        <span class="pill">Nr. {{ tenant_no }}</span>
+        <span class="pill muted-pill">Scans: {{ scan_count }}</span>
+        <span class="pill muted-pill">Last Scan: {{ last_scan }}</span>
+      </div>
+    </header>
+
+    <section class="stats-grid compact-stats-grid">
+      <article class="stat-card emphasis"><div class="stat-label">Plan</div><div class="stat-value stat-value-small">{{ tenant.current_plan }}</div></article>
+      <article class="stat-card"><div class="stat-label">License</div><div class="stat-value stat-value-small">{{ tenant.license_status }}</div></article>
+      <article class="stat-card"><div class="stat-label">Created</div><div class="stat-helper stat-helper-strong">{{ created_at }}</div></article>
+      <article class="stat-card"><div class="stat-label">Last Seen</div><div class="stat-helper stat-helper-strong">{{ last_seen_at }}</div></article>
+    </section>
+
+    <section class="content-grid admin-detail-grid">
+      <article class="panel">
+        <div class="panel-header"><h2>License Management</h2><span class="muted">Plan und Status direkt ändern</span></div>
+        <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/license" class="config-list">
+          <div class="config-row two-col-grid no-border">
+            <label>
+              <span class="field-label">Plan</span>
+              <select name="plan">
+                <option value="free" {% if tenant.current_plan == "free" %}selected{% endif %}>free</option>
+                <option value="standard" {% if tenant.current_plan == "standard" %}selected{% endif %}>standard</option>
+                <option value="premium" {% if tenant.current_plan == "premium" %}selected{% endif %}>premium</option>
+              </select>
+            </label>
+            <label>
+              <span class="field-label">License Status</span>
+              <select name="license_status">
+                <option value="trial" {% if tenant.license_status == "trial" %}selected{% endif %}>trial</option>
+                <option value="active" {% if tenant.license_status == "active" %}selected{% endif %}>active</option>
+                <option value="expired" {% if tenant.license_status == "expired" %}selected{% endif %}>expired</option>
+                <option value="blocked" {% if tenant.license_status == "blocked" %}selected{% endif %}>blocked</option>
+              </select>
+            </label>
+          </div>
+          <div class="inline-form wrap-gap">
+            <button type="submit" class="btn btn-primary">Save License</button>
+            <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/delete" class="inline-form" onsubmit="return confirm('Tenant {{ tenant.tenant_id }} wirklich löschen?');">
+              <button type="submit" class="btn btn-danger">Delete Tenant</button>
+            </form>
+          </div>
+        </form>
+      </article>
+
+      <article class="panel panel-large">
+        <div class="panel-header"><h2>Recent Scans</h2><span class="muted">letzte 20 Scans</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Run ID</th><th>Generated At</th><th>Type</th><th>Score</th><th>Issues</th><th>Records</th><th>Loss €</th></tr></thead>
+            <tbody>
+              {% for scan in scans %}
+              <tr>
+                <td>{{ scan.scan_id }}</td>
+                <td>{{ scan.generated_at_utc.strftime('%Y-%m-%d %H:%M:%S UTC') }}</td>
+                <td>{{ scan.scan_type }}</td>
+                <td>{{ scan.data_score }}</td>
+                <td>{{ scan.issues_count }}</td>
+                <td>{{ scan.total_records }}</td>
+                <td>{{ '%.2f'|format(scan.estimated_loss_eur or 0) }}</td>
+              </tr>
+              {% endfor %}
+              {% if not scans %}
+              <tr><td colspan="7">Noch keine Scans vorhanden.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

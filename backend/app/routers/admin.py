@@ -27,7 +27,11 @@ def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
     is_username_ok = secrets.compare_digest(credentials.username, expected_username)
     is_password_ok = secrets.compare_digest(credentials.password, expected_password)
     if not (is_username_ok and is_password_ok):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated", headers={"WWW-Authenticate": "Basic"})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Basic"},
+        )
     return credentials.username
 
 
@@ -43,10 +47,19 @@ def _load_tenant_rows(db):
     scan_counts = {}
     last_scans = {}
     if tenant_ids:
-        for tenant_id, scan_count in db.execute(select(Scan.tenant_id, func.count(Scan.id)).where(Scan.tenant_id.in_(tenant_ids)).group_by(Scan.tenant_id)).all():
+        for tenant_id, scan_count in db.execute(
+            select(Scan.tenant_id, func.count(Scan.id))
+            .where(Scan.tenant_id.in_(tenant_ids))
+            .group_by(Scan.tenant_id)
+        ).all():
             scan_counts[tenant_id] = int(scan_count)
-        for tenant_id, last_scan in db.execute(select(Scan.tenant_id, func.max(Scan.generated_at_utc)).where(Scan.tenant_id.in_(tenant_ids)).group_by(Scan.tenant_id)).all():
+        for tenant_id, last_scan in db.execute(
+            select(Scan.tenant_id, func.max(Scan.generated_at_utc))
+            .where(Scan.tenant_id.in_(tenant_ids))
+            .group_by(Scan.tenant_id)
+        ).all():
             last_scans[tenant_id] = last_scan
+
     rows = []
     for idx, tenant in enumerate(tenants, start=1):
         rows.append(
@@ -66,18 +79,58 @@ def _load_tenant_rows(db):
     return rows
 
 
+@router.get("/admin", response_class=HTMLResponse)
+def admin_root(_: str = Depends(require_admin)):
+    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.get("/admin/tenants", response_class=HTMLResponse)
+@router.get("/admin/tenants/", response_class=HTMLResponse)
 def admin_tenants(request: Request, _: str = Depends(require_admin)):
     with SessionLocal() as db:
         ensure_default_issue_costs(db)
         ensure_default_license_pricing(db)
         return TEMPLATES.TemplateResponse(
             name="admin_tenants.html",
-            context={"request": request,
+            context={
+                "request": request,
                 "page_title": "BCSentinel Admin",
                 "tenants": _load_tenant_rows(db),
                 "issue_costs": db.scalars(select(IssueCostConfig).order_by(IssueCostConfig.code.asc())).all(),
                 "license_prices": db.scalars(select(LicensePricingConfig).order_by(LicensePricingConfig.plan_code.asc())).all(),
+            },
+        )
+
+
+@router.get("/admin/tenants/{tenant_id}", response_class=HTMLResponse)
+@router.get("/admin/tenants/{tenant_id}/", response_class=HTMLResponse)
+def admin_tenant_detail(tenant_id: str, request: Request, _: str = Depends(require_admin)):
+    with SessionLocal() as db:
+        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="Tenant not found.")
+
+        scan_count = db.scalar(select(func.count(Scan.id)).where(Scan.tenant_id == tenant_id)) or 0
+        last_scan = db.scalar(select(func.max(Scan.generated_at_utc)).where(Scan.tenant_id == tenant_id))
+        scans = db.scalars(
+            select(Scan)
+            .where(Scan.tenant_id == tenant_id)
+            .order_by(Scan.generated_at_utc.desc())
+            .limit(20)
+        ).all()
+
+        return TEMPLATES.TemplateResponse(
+            name="admin_tenant_detail.html",
+            context={
+                "request": request,
+                "page_title": f"BCSentinel Admin · {tenant_id}",
+                "tenant": tenant,
+                "tenant_no": next((row["tenant_no"] for row in _load_tenant_rows(db) if row["tenant_id"] == tenant_id), "—"),
+                "scan_count": int(scan_count),
+                "last_scan": _fmt_dt(last_scan),
+                "created_at": _fmt_dt(tenant.created_at_utc),
+                "last_seen_at": _fmt_dt(tenant.last_seen_at_utc),
+                "scans": scans,
             },
         )
 
@@ -102,7 +155,7 @@ def update_tenant_license(
         tenant.current_plan = normalized_plan
         tenant.license_status = normalized_license_status
         db.commit()
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url=f"/admin/tenants/{tenant_id}", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/admin/tenants/{tenant_id}/delete")
