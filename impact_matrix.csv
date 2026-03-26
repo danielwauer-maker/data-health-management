@@ -1,0 +1,68 @@
+code,title,minutes_per_occurrence,probability,frequency_per_year,category
+BLOCKED_CUSTOMERS_WITH_OPEN_LEDGER,Blocked customers with open ledger,22,0.60,12,finance
+BLOCKED_CUSTOMERS_WITH_OPEN_SALES_DOCS,Blocked customers with open sales docs,18,0.50,12,customers
+BLOCKED_ITEMS_WITH_INVENTORY,Blocked items with inventory,15,0.45,12,items
+BLOCKED_VENDORS_WITH_OPEN_LEDGER,Blocked vendors with open ledger,22,0.60,12,finance
+BLOCKED_VENDORS_WITH_OPEN_PURCHASE_DOCS,Blocked vendors with open purchase docs,18,0.50,12,vendors
+CUSTOMERS_DUPLICATE_EMAIL,Customers duplicate email,18,0.25,12,customers
+CUSTOMERS_DUPLICATE_NAME_POST_CITY,Customers duplicate name/post code/city,25,0.25,12,customers
+CUSTOMERS_DUPLICATE_VAT,Customers duplicate VAT,30,0.35,12,customers
+CUSTOMERS_MISSING_ADDRESS,Customers missing address,6,0.35,8,customers
+CUSTOMERS_MISSING_CITY,Customers missing city,4,0.25,8,customers
+CUSTOMERS_MISSING_COUNTRY,Customers missing country,4,0.20,8,customers
+CUSTOMERS_MISSING_CUSTOMER_POSTING_GROUP,Customers missing customer posting group,12,0.45,12,customers
+CUSTOMERS_MISSING_EMAIL,Customers missing email,3,0.30,12,customers
+CUSTOMERS_MISSING_GEN_BUS_POSTING_GROUP,Customers missing Gen. Bus. Posting Group,10,0.40,12,customers
+CUSTOMERS_MISSING_NAME,Customers missing name,8,0.60,12,customers
+CUSTOMERS_MISSING_PAYMENT_METHOD,Customers missing payment method,7,0.30,12,customers
+CUSTOMERS_MISSING_PAYMENT_TERMS,Customers missing payment terms,10,0.30,12,customers
+CUSTOMERS_MISSING_PHONE,Customers missing phone,2,0.20,12,customers
+CUSTOMERS_MISSING_POST_CODE,Customers missing post code,4,0.25,8,customers
+CUSTOMERS_MISSING_SEARCH_NAME,Customers missing search name,2,0.20,12,customers
+CUSTOMERS_MISSING_VAT_BUS_POSTING,Customers missing VAT Bus. Posting,10,0.40,12,customers
+CUSTOMERS_MISSING_VAT_REG_NO,Customers missing VAT registration no.,15,0.40,12,customers
+CUSTOMER_LEDGER_OVERDUE_30,Customer ledger overdue 30 days,16,0.35,12,finance
+ITEMS_MISSING_BASE_UNIT,Items missing base unit,7,0.35,12,items
+ITEMS_MISSING_CATEGORY,Items missing category,4,0.20,12,items
+ITEMS_MISSING_DESCRIPTION,Items missing description,2,0.15,24,items
+ITEMS_MISSING_GEN_PROD_POSTING_GROUP,Items missing Gen. Prod. Posting Group,10,0.45,12,items
+ITEMS_MISSING_INVENTORY_POSTING_GROUP,Items missing inventory posting group,12,0.45,12,items
+ITEMS_MISSING_VAT_PROD_POSTING_GROUP,Items missing VAT Prod. Posting Group,9,0.35,12,items
+ITEMS_MISSING_VENDOR_NO,Items missing vendor no.,4,0.20,12,items
+ITEMS_NEGATIVE_INVENTORY,Items with negative inventory,20,0.60,12,items
+ITEMS_WITHOUT_UNIT_COST,Items without unit cost,12,0.60,12,items
+ITEMS_WITHOUT_UNIT_PRICE,Items without unit price,12,0.70,12,items
+PURCHASE_DOCS_WITH_BLOCKED_VENDORS,Purchase docs with blocked vendors,15,0.50,12,purchasing
+PURCHASE_LINES_MISSING_DIMENSIONS,Purchase lines missing dimensions,5,0.25,12,purchasing
+PURCHASE_LINES_MISSING_NO,Purchase lines missing item no.,12,0.50,12,purchasing
+PURCHASE_LINES_WITH_BLOCKED_ITEMS,Purchase lines with blocked items,14,0.50,12,purchasing
+PURCHASE_LINES_ZERO_COST,Purchase lines with zero cost,14,0.65,12,purchasing
+PURCHASE_LINES_ZERO_QUANTITY,Purchase lines with zero quantity,8,0.40,12,purchasing
+PURCHASE_ORDERS_MISSING_EXPECTED_DATE,Purchase orders missing expected date,7,0.30,12,purchasing
+PURCHASE_ORDERS_OLD_OPEN,Old open purchase orders,10,0.40,12,purchasing
+SALES_DOCS_WITH_BLOCKED_CUSTOMERS,Sales docs with blocked customers,15,0.50,12,sales
+SALES_LINES_MISSING_DIMENSIONS,Sales lines missing dimensions,5,0.25,12,sales
+SALES_LINES_MISSING_NO,Sales lines missing item no.,12,0.50,12,sales
+SALES_LINES_WITH_BLOCKED_ITEMS,Sales lines with blocked items,14,0.50,12,sales
+SALES_LINES_ZERO_PRICE,Sales lines with zero price,15,0.70,12,sales
+SALES_LINES_ZERO_QUANTITY,Sales lines with zero quantity,8,0.40,12,sales
+SALES_ORDERS_MISSING_SHIPMENT_DATE,Sales orders missing shipment date,8,0.35,12,sales
+SALES_ORDERS_OLD_OPEN,Old open sales orders,10,0.40,12,sales
+VENDORS_DUPLICATE_EMAIL,Vendors duplicate email,18,0.25,12,vendors
+VENDORS_DUPLICATE_NAME_POST_CITY,Vendors duplicate name/post code/city,25,0.25,12,vendors
+VENDORS_DUPLICATE_VAT,Vendors duplicate VAT,30,0.35,12,vendors
+VENDORS_MISSING_ADDRESS,Vendors missing address,6,0.35,8,vendors
+VENDORS_MISSING_BANK_ACCOUNT,Vendors missing bank account,12,0.55,12,vendors
+VENDORS_MISSING_CITY,Vendors missing city,4,0.25,8,vendors
+VENDORS_MISSING_COUNTRY,Vendors missing country,4,0.20,8,vendors
+VENDORS_MISSING_EMAIL,Vendors missing email,3,0.30,12,vendors
+VENDORS_MISSING_GEN_BUS_POSTING_GROUP,Vendors missing Gen. Bus. Posting Group,10,0.40,12,vendors
+VENDORS_MISSING_NAME,Vendors missing name,8,0.60,12,vendors
+VENDORS_MISSING_PAYMENT_METHOD,Vendors missing payment method,7,0.28,12,vendors
+VENDORS_MISSING_PAYMENT_TERMS,Vendors missing payment terms,9,0.30,12,vendors
+VENDORS_MISSING_PHONE,Vendors missing phone,2,0.20,12,vendors
+VENDORS_MISSING_POST_CODE,Vendors missing post code,4,0.25,8,vendors
+VENDORS_MISSING_SEARCH_NAME,Vendors missing search name,2,0.20,12,vendors
+VENDORS_MISSING_VAT_BUS_POSTING,Vendors missing VAT Bus. Posting,10,0.40,12,vendors
+VENDORS_MISSING_VENDOR_POSTING_GROUP,Vendors missing vendor posting group,12,0.45,12,vendors
+VENDOR_LEDGER_OVERDUE_30,Vendor ledger overdue 30 days,16,0.35,12,finance

@@ -11,7 +11,12 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.models import Scan, ScanIssueRecord, Tenant
-from app.services.cost_service import calculate_issue_impact, get_issue_cost_map
+from app.services.impact_service import (
+    calculate_issue_impact,
+    get_hourly_rate,
+    get_issue_impact_definition_map,
+    get_potential_saving_factor,
+)
 from app.services.pricing_service import calculate_monthly_price, get_license_pricing
 
 router = APIRouter(tags=["scans"])
@@ -119,32 +124,38 @@ def _load_tenant_for_sync(db, tenant_id: str, api_token: str) -> Tenant:
 
 
 def _calculate_commercials(payload: ScanSyncPayload, db) -> tuple[int, float, float, float, float]:
-    cost_map = get_issue_cost_map(db)
     pricing = get_license_pricing(db, "premium")
+    impact_definition_map = get_issue_impact_definition_map(db)
+    hourly_rate_eur = get_hourly_rate(db)
+    potential_saving_factor = get_potential_saving_factor(db)
 
     total_records = _safe_int(payload.data_profile.total_records)
 
-    estimated_loss = _safe_float(payload.estimated_loss_eur)
-    if estimated_loss <= 0:
-        estimated_loss = round(
-            sum(
-                calculate_issue_impact(issue.code, _safe_int(issue.affected_count), cost_map)
-                for issue in payload.issues
-            ),
-            2,
-        )
+    estimated_loss = round(
+        sum(
+            calculate_issue_impact(
+                issue.code,
+                _safe_int(issue.affected_count),
+                impact_definition_map,
+                hourly_rate_eur,
+            )
+            for issue in payload.issues
+        ),
+        2,
+    )
 
-    potential_saving = _safe_float(payload.potential_saving_eur)
-    if potential_saving <= 0:
-        potential_saving = round(estimated_loss * 0.7, 2)
+    if estimated_loss <= 0:
+        estimated_loss = round(_safe_float(payload.estimated_loss_eur), 2)
 
     premium_price = _safe_float(payload.estimated_premium_price_monthly)
     if premium_price <= 0:
         premium_price = round(calculate_monthly_price(total_records, pricing), 2)
 
-    roi = _safe_float(payload.roi_eur)
-    if roi == 0:
-        roi = round(potential_saving - (premium_price * 12), 2)
+    potential_saving = round(estimated_loss * potential_saving_factor, 2)
+    if potential_saving <= 0:
+        potential_saving = round(_safe_float(payload.potential_saving_eur), 2)
+
+    roi = round(potential_saving - (premium_price * 12), 2)
 
     return total_records, estimated_loss, potential_saving, premium_price, roi
 
@@ -220,7 +231,8 @@ def sync_scan(
 
         tenant.last_seen_at_utc = datetime.now(timezone.utc)
 
-        cost_map = get_issue_cost_map(db)
+        impact_definition_map = get_issue_impact_definition_map(db)
+        hourly_rate_eur = get_hourly_rate(db)
         for issue in payload.issues:
             db.add(
                 ScanIssueRecord(
@@ -232,8 +244,12 @@ def sync_scan(
                     premium_only=bool(issue.premium_only),
                     recommendation_preview=issue.recommendation_preview,
                     estimated_impact_eur=round(
-                        _safe_float(issue.estimated_impact_eur)
-                        or calculate_issue_impact(issue.code, _safe_int(issue.affected_count), cost_map),
+                        calculate_issue_impact(
+                            issue.code,
+                            _safe_int(issue.affected_count),
+                            impact_definition_map,
+                            hourly_rate_eur,
+                        ),
                         2,
                     ),
                 )
