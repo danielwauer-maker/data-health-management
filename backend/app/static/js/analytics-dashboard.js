@@ -9,11 +9,13 @@ function formatNumber(value) {
 }
 
 function formatCurrency(value) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'EUR',
+  const number = Number(value || 0);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(Number(value || 0));
+  }).format(number);
 }
 
 function escapeHtml(value) {
@@ -26,8 +28,8 @@ function escapeHtml(value) {
 }
 
 function setText(id, value) {
-  const el = byId(id);
-  if (el) el.textContent = value;
+  const el = document.getElementById(id);
+  if (el) el.textContent = value ?? "";
 }
 
 function setHtml(id, value) {
@@ -42,6 +44,30 @@ function scoreBand(score) {
   if (safeScore <= 85) return 'moderate';
   if (safeScore <= 95) return 'good';
   return 'excellent';
+}
+
+function renderPricingBreakdown(data) {
+  const breakdown = data?.pricing_breakdown || {};
+  const subscription = data?.subscription || {};
+  const subscriptionBreakdown = subscription?.pricing_breakdown || breakdown;
+  const billingOptions = subscription?.billing_options || {};
+
+  setText("preview-base-price", formatCurrency(breakdown.base_price_monthly));
+  setText("preview-variable-price", formatCurrency(breakdown.variable_price_monthly));
+  setText("preview-final-price", formatCurrency(breakdown.final_price_monthly));
+  setText("preview-annual-fixed", formatCurrency(breakdown.annual_fixed_price));
+  setText("preview-monthly-note", breakdown.monthly_note || "");
+  setText("preview-annual-note", breakdown.annual_note || "");
+
+  setText("subscription-base-price", formatCurrency(subscriptionBreakdown.base_price_monthly));
+  setText("subscription-variable-price", formatCurrency(subscriptionBreakdown.variable_price_monthly));
+  setText("subscription-final-price", formatCurrency(subscriptionBreakdown.final_price_monthly));
+  setText("subscription-annual-fixed", formatCurrency(subscriptionBreakdown.annual_fixed_price));
+
+  setText("subscription-monthly-label", billingOptions.monthly_label || "Monthly billing");
+  setText("subscription-monthly-note", billingOptions.monthly_note || "");
+  setText("subscription-annual-label", billingOptions.annual_label || "Annual fixed plan");
+  setText("subscription-annual-note", billingOptions.annual_note || "");
 }
 
 
@@ -367,6 +393,7 @@ async function loadDashboard(scanId = null) {
     renderFindings(data?.top_findings || [], Boolean(data?.visibility?.is_premium));
     renderUnlockPanel(data);
     renderSubscription(data);
+    renderPricingBreakdown(data);
     applyPlanState(data?.current_plan, data?.visibility);
   } catch (error) {
     console.error('loadDashboard failed:', error);

@@ -369,6 +369,22 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
             "annual_cost": 0.0,
             "cta_label": "Upgrade to Premium",
             "plan_note": "Insight is free. Action is Premium.",
+            "pricing_breakdown": {
+                "base_price_monthly": 149.0,
+                "step_records": 2000,
+                "price_per_step": 8.0,
+                "variable_price_monthly": 0.0,
+                "final_price_monthly": 149.0,
+                "annual_fixed_price": 1788.0,
+                "monthly_note": "Monthly billing is recalculated from your current scanned records.",
+                "annual_note": "Annual billing locks in your current price for 12 months, even if your record volume increases.",
+            },
+            "billing_options": {
+                "monthly_label": "Monthly billing",
+                "monthly_note": "Monthly billing is recalculated from your current scanned records.",
+                "annual_label": "Annual fixed plan",
+                "annual_note": "Annual billing locks in your current price for 12 months, even if your record volume increases.",
+            },
         },
     }
 
@@ -421,16 +437,26 @@ def _build_dashboard_payload(
 
     active_scan = _select_active_scan(recent_scans_desc, selected_scan_id)
     issues = _load_scan_issues(active_scan.scan_id)
+    
     current_plan = _normalize_plan(getattr(tenant, "current_plan", "free"))
     is_premium = current_plan == "premium"
+
+    pricing_breakdown = _get_premium_pricing_breakdown(active_scan)
+
     premium_price_monthly = round(
-        max(_safe_float(active_scan.estimated_premium_price_monthly), 149.0),
+        _safe_float(pricing_breakdown.get("final_price_monthly"), 0.0),
         2,
     )
-    current_plan_price_monthly = premium_price_monthly if not is_premium else _get_current_plan_price_monthly(tenant, active_scan) or premium_price_monthly
-    pricing_breakdown = _get_premium_pricing_breakdown(active_scan)
+
+    current_plan_price_monthly = _get_current_plan_price_monthly(tenant, active_scan)
+    if current_plan == "free":
+        current_plan_price_monthly = 0.0
+    elif current_plan_price_monthly <= 0:
+        current_plan_price_monthly = premium_price_monthly
+
     potential_saving_eur = round(_safe_float(active_scan.potential_saving_eur), 2)
-    current_roi = round(potential_saving_eur - (premium_price_monthly * 12), 2)
+    current_roi = round(potential_saving_eur - (current_plan_price_monthly * 12), 2)
+
     affected_records = sum(_safe_int(issue.affected_count) for issue in issues)
 
     issue_groups: dict[str, int] = {}
@@ -498,7 +524,7 @@ def _build_dashboard_payload(
             "health_score": _safe_int(active_scan.data_score),
             "total_records": _safe_int(active_scan.total_records),
             "affected_records": affected_records,
-            "estimated_premium_price_monthly": premium_price_monthly,
+            "estimated_premium_price_monthly": current_plan_price_monthly,
             "estimated_loss_eur": round(_safe_float(active_scan.estimated_loss_eur), 2),
             "potential_saving_eur": potential_saving_eur,
             "roi_eur": current_roi,
@@ -533,6 +559,12 @@ def _build_dashboard_payload(
             "cta_label": "Manage subscription" if is_premium else "Upgrade to Premium",
             "plan_note": "Current paying plan" if is_premium else "Free gives insight. Premium unlocks action.",
             "pricing_breakdown": pricing_breakdown,
+            "billing_options": {
+                "monthly_label": "Monthly billing",
+                "monthly_note": pricing_breakdown.get("monthly_note", ""),
+                "annual_label": "Annual fixed plan",
+                "annual_note": pricing_breakdown.get("annual_note", ""),
+            },
         },
     }
 

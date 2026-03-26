@@ -25,13 +25,13 @@ page 53142 "DH Dashboard KPI Part"
                     ToolTip = 'Bewertung der Datenqualität.';
                 }
 
-                field("Estimated Loss"; Rec."Estimated Loss (EUR)")
+                /*field("Estimated Loss"; Rec."Estimated Loss (EUR)")
                 {
                     ApplicationArea = All;
                     Caption = 'Potenzieller Verlust';
                     StyleExpr = EstimatedLossStyle;
                     ToolTip = 'Geschätzter potenzieller Verlust durch schlechte Datenqualität.';
-                }
+                }*/
 
                 field("Checks Count"; Rec."Checks Count")
                 {
