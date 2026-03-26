@@ -55,8 +55,16 @@ def ensure_runtime_schema() -> None:
         "ALTER TABLE issue_cost_config ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT ''",
         "ALTER TABLE license_pricing_config ADD COLUMN IF NOT EXISTS display_name VARCHAR(80) DEFAULT ''",
         "ALTER TABLE license_pricing_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
-        "CREATE TABLE IF NOT EXISTS issue_impact_config (code VARCHAR(80) PRIMARY KEY, title VARCHAR(255) DEFAULT '', minutes_per_occurrence DOUBLE PRECISION DEFAULT 5, probability DOUBLE PRECISION DEFAULT 0.2, frequency_per_year DOUBLE PRECISION DEFAULT 12, is_active BOOLEAN DEFAULT TRUE)",
-        "CREATE TABLE IF NOT EXISTS impact_settings_config (key VARCHAR(80) PRIMARY KEY, value_number DOUBLE PRECISION DEFAULT 0, title VARCHAR(255) DEFAULT '')",
+        "CREATE TABLE IF NOT EXISTS issue_impact_config (code VARCHAR(80) PRIMARY KEY)",
+        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT ''",
+        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS minutes_per_occurrence DOUBLE PRECISION DEFAULT 5",
+        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS probability DOUBLE PRECISION DEFAULT 0.2",
+        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS frequency_per_year DOUBLE PRECISION DEFAULT 12",
+        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
+        "CREATE TABLE IF NOT EXISTS impact_settings_config (key VARCHAR(80) PRIMARY KEY)",
+        "ALTER TABLE impact_settings_config ADD COLUMN IF NOT EXISTS value_number DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE impact_settings_config ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT ''",
+        "DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'impact_settings_config' AND column_name = 'value') THEN UPDATE impact_settings_config SET value_number = COALESCE(value_number, value) WHERE value_number IS NULL OR value_number = 0; END IF; END $$;",
     ]
     with engine.begin() as connection:
         for statement in statements:
