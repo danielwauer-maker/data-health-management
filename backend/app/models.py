@@ -95,6 +95,7 @@ class IssueImpactConfig(Base):
 
     code: Mapped[str] = mapped_column(String(80), primary_key=True)
     title: Mapped[str] = mapped_column(String(255), default="")
+    category: Mapped[str] = mapped_column(String(50), default="general")
     minutes_per_occurrence: Mapped[float] = mapped_column(Float, default=5.0)
     probability: Mapped[float] = mapped_column(Float, default=0.2)
     frequency_per_year: Mapped[float] = mapped_column(Float, default=12.0)
