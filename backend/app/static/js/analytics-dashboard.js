@@ -27,26 +27,41 @@ function escapeHtml(value) {
 
 function setText(id, value) {
   const el = byId(id);
-  if (el) {
-    el.textContent = value;
-  }
+  if (el) el.textContent = value;
 }
 
-function setHidden(id, hidden) {
-  const el = byId(id);
-  if (el) {
-    el.hidden = Boolean(hidden);
-  }
+function renderGauge(score) {
+  const host = byId('gauge-meter');
+  if (!host) return;
+
+  const safeScore = Math.max(0, Math.min(100, Number(score || 0)));
+  const severityClass = safeScore < 60 ? 'low' : safeScore < 85 ? 'medium' : 'high';
+  const radius = 74;
+  const circumference = Math.PI * radius;
+  const progress = circumference * (safeScore / 100);
+  const dashOffset = circumference - progress;
+
+  host.innerHTML = `
+    <svg viewBox="0 0 220 140" class="gauge-svg" role="img" aria-label="Data health gauge ${safeScore}">
+      <path d="M 36 110 A 74 74 0 0 1 184 110" class="gauge-track"></path>
+      <path d="M 36 110 A 74 74 0 0 1 184 110" class="gauge-progress ${severityClass}"
+            style="stroke-dasharray:${circumference};stroke-dashoffset:${dashOffset}"></path>
+      <text x="110" y="88" text-anchor="middle" class="gauge-score">${formatNumber(safeScore)}</text>
+      <text x="110" y="106" text-anchor="middle" class="gauge-caption">Data Gauge Meter</text>
+    </svg>
+  `;
 }
 
 function renderProfileCards(items) {
   const host = byId('profile-cards');
   if (!host) return;
   host.innerHTML = '';
+
   if (!Array.isArray(items) || items.length === 0) {
     host.innerHTML = '<div class="empty-state">Noch keine Profilwerte vorhanden.</div>';
     return;
   }
+
   items.forEach((item) => {
     const card = document.createElement('div');
     card.className = 'mini-card';
@@ -58,29 +73,54 @@ function renderProfileCards(items) {
   });
 }
 
-function renderLineChart(hostId, items, ariaLabel) {
-  const host = byId(hostId);
+function renderIssueGroups(items) {
+  const host = byId('issue-groups');
   if (!host) return;
   host.innerHTML = '';
+
+  if (!Array.isArray(items) || items.length === 0) {
+    host.innerHTML = '<div class="empty-state">Für diesen Scan wurden keine Findings gruppiert.</div>';
+    return;
+  }
+
+  const maxValue = Math.max(...items.map((item) => Number(item?.count || 0)), 1);
+
+  items.forEach((item) => {
+    const width = Math.max((Number(item?.count || 0) / maxValue) * 100, 2);
+    const row = document.createElement('div');
+    row.className = 'progress-row';
+    row.innerHTML = `
+      <div class="progress-meta">
+        <span>${escapeHtml(item?.name)}</span>
+        <span>${formatNumber(item?.count)}</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${width}%"></div></div>
+    `;
+    host.appendChild(row);
+  });
+}
+
+function renderTrend(containerId, items, asCurrency = false) {
+  const host = byId(containerId);
+  if (!host) return;
+  host.innerHTML = '';
+
   if (!Array.isArray(items) || items.length === 0) {
     host.innerHTML = '<div class="empty-state">Noch keine Trenddaten vorhanden.</div>';
     return;
   }
 
   const safeItems = items.map((item) => ({
-    scan_id: item?.scan_id || '',
     label: item?.label || '',
-    timestamp: item?.timestamp || '',
     value: Number(item?.value || 0),
-    scan_type: item?.scan_type || '',
     is_selected: Boolean(item?.is_selected),
   }));
 
   const width = 560;
   const height = 220;
-  const paddingX = 32;
-  const paddingTop = 20;
-  const paddingBottom = 42;
+  const paddingX = 34;
+  const paddingTop = 24;
+  const paddingBottom = 38;
   const usableWidth = width - paddingX * 2;
   const usableHeight = height - paddingTop - paddingBottom;
   const maxValue = Math.max(...safeItems.map((item) => item.value), 1);
@@ -94,12 +134,15 @@ function renderLineChart(hostId, items, ariaLabel) {
   });
 
   const polylinePoints = points.map((point) => `${point.x},${point.y}`).join(' ');
+  const areaPoints = `${paddingX},${height - paddingBottom} ${polylinePoints} ${width - paddingX},${height - paddingBottom}`;
+
   const gridLines = [0, 0.5, 1].map((ratio) => {
     const y = paddingTop + usableHeight - usableHeight * ratio;
-    const label = Math.round(maxValue * ratio);
+    const labelValue = maxValue * ratio;
+    const label = asCurrency ? formatCurrency(labelValue).replace(',00', '') : formatNumber(Math.round(labelValue));
     return `
       <line x1="${paddingX}" y1="${y}" x2="${width - paddingX}" y2="${y}" class="trend-grid-line"></line>
-      <text x="${paddingX - 10}" y="${y + 4}" text-anchor="end" class="trend-axis-label">${formatNumber(label)}</text>
+      <text x="${paddingX - 10}" y="${y + 4}" text-anchor="end" class="trend-axis-label">${escapeHtml(label)}</text>
     `;
   }).join('');
 
@@ -112,8 +155,9 @@ function renderLineChart(hostId, items, ariaLabel) {
   `).join('');
 
   host.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" class="trend-svg" role="img" aria-label="${escapeHtml(ariaLabel)}">
+    <svg viewBox="0 0 ${width} ${height}" class="trend-svg" role="img">
       ${gridLines}
+      <polygon points="${areaPoints}" class="trend-area"></polygon>
       <polyline points="${polylinePoints}" class="trend-line"></polyline>
       ${pointCircles}
       ${xLabels}
@@ -124,10 +168,12 @@ function renderLineChart(hostId, items, ariaLabel) {
 function renderRecentScans(items) {
   const host = byId('recent-scans-body');
   if (!host) return;
+
   if (!Array.isArray(items) || items.length === 0) {
     host.innerHTML = '<tr><td colspan="5" class="table-empty">Noch keine Scans vorhanden.</td></tr>';
     return;
   }
+
   host.innerHTML = items.map((item) => `
     <tr class="scan-row${item?.is_selected ? ' is-selected' : ''}" data-scan-id="${escapeHtml(item?.scan_id)}" tabindex="0">
       <td>${escapeHtml(item?.generated_at)}</td>
@@ -139,128 +185,113 @@ function renderRecentScans(items) {
   `).join('');
 }
 
-function renderIssueGroups(items) {
-  const host = byId('issue-groups');
-  if (!host) return;
-  host.innerHTML = '';
-  if (!Array.isArray(items) || items.length === 0) {
-    host.innerHTML = '<div class="empty-state">Für diesen Scan wurden keine Findings gruppiert.</div>';
-    return;
-  }
-  const maxValue = Math.max(...items.map((item) => Number(item?.count || 0)), 1);
-  items.forEach((item) => {
-    const width = Math.max((Number(item?.count || 0) / maxValue) * 100, 2);
-    const row = document.createElement('div');
-    row.className = 'progress-row';
-    row.innerHTML = `
-      <div class="progress-meta">
-        <span>${escapeHtml(item?.name)}</span>
-        <span>${formatNumber(item?.count)}</span>
-      </div>
-      <div class="progress-track">
-        <div class="progress-fill" style="width:${width}%"></div>
-      </div>
-    `;
-    host.appendChild(row);
-  });
-}
-
-function renderFindings(items, visibility) {
+function renderFindings(items, isPremium) {
   const host = byId('findings-body');
   if (!host) return;
+
   if (!Array.isArray(items) || items.length === 0) {
     host.innerHTML = '<tr><td colspan="6" class="table-empty">Für diesen Scan gibt es keine Findings.</td></tr>';
     return;
   }
 
-  const isPremium = Boolean(visibility?.show_issue_details);
   host.innerHTML = items.map((item) => {
-    const teaser = isPremium
-      ? escapeHtml(item?.recommendation_preview || '')
-      : 'Recommendation available with Premium';
+    const accessClass = isPremium ? 'premium' : 'locked';
+    const accessLabel = isPremium ? 'Open in BC' : 'Premium';
     return `
       <tr>
         <td>
-          <div class="issue-title-cell">${escapeHtml(item?.title)}</div>
-          <div class="issue-subline">${escapeHtml(item?.code)}</div>
-          <div class="issue-subline">${teaser}</div>
+          <strong>${escapeHtml(item?.title)}</strong><br>
+          <span class="muted">${escapeHtml(item?.code)}</span>
         </td>
         <td>${escapeHtml(item?.group)}</td>
-        <td><span class="severity severity-${escapeHtml(item?.severity)}">${escapeHtml(item?.severity)}</span></td>
+        <td><span class="severity severity-${escapeHtml(item?.severity)}">${escapeHtml(String(item?.severity || '').toUpperCase())}</span></td>
         <td>${formatNumber(item?.count)}</td>
         <td>${formatCurrency(item?.impact_eur)}</td>
-        <td><span class="access-pill access-${escapeHtml(item?.access_state)}">${escapeHtml(item?.access_label)}</span></td>
+        <td><span class="access-chip ${accessClass}">${accessLabel}</span></td>
       </tr>
     `;
   }).join('');
 }
 
-function renderLockedPanels(items, visibility) {
-  const host = byId('locked-panel-stack');
+function renderPremiumPreview(items) {
+  const host = byId('premium-preview-findings');
   if (!host) return;
   host.innerHTML = '';
-  if (visibility?.show_issue_details) {
-    host.innerHTML = `
-      <article class="panel unlocked-panel">
-        <div class="panel-header"><h2>Premium insights</h2><span class="muted">Unlocked</span></div>
-        <p class="panel-copy">Recommendations, record-level details, and BC actions are available for the active scan.</p>
-        <div class="panel-note">Use the Top Findings list to prioritize the next fixes.</div>
-      </article>
-    `;
+
+  if (!Array.isArray(items) || items.length === 0) {
+    host.innerHTML = '<div class="empty-state">Premium preview wird nach dem nächsten Scan angezeigt.</div>';
     return;
   }
-  (items || []).forEach((item) => {
-    const card = document.createElement('article');
-    card.className = 'panel locked-panel';
-    card.innerHTML = `
-      <div class="lock-icon">🔒</div>
-      <h3>${escapeHtml(item?.title)}</h3>
-      <p>${escapeHtml(item?.body)}</p>
-      <button type="button" class="cta-button subtle">${escapeHtml(item?.cta)}</button>
-    `;
-    host.appendChild(card);
+
+  host.innerHTML = items.map((item) => `
+    <article class="preview-card">
+      <div class="preview-card-top">
+        <div>
+          <h4>${escapeHtml(item?.title)}</h4>
+          <div class="muted">${escapeHtml(item?.group)}</div>
+        </div>
+        <div class="preview-impact">${formatCurrency(item?.impact_eur)}</div>
+      </div>
+      <div class="preview-metrics">
+        <span>${formatNumber(item?.count)} affected</span>
+        <span>Recommendations available</span>
+      </div>
+      <p class="muted">${escapeHtml(item?.recommendation_preview || '')}</p>
+    </article>
+  `).join('');
+}
+
+function renderUnlockPanel(data) {
+  setText('unlock-headline', data?.premium_unlock?.headline || 'Premium unlocks record-level details and direct action.');
+  setText('unlock-body', data?.premium_unlock?.body || 'Upgrade to see exact affected records and recommendations.');
+  setText('upgrade-button', data?.premium_unlock?.button_label || 'Upgrade to Premium');
+
+  const host = byId('unlock-highlights');
+  if (host) {
+    host.innerHTML = (data?.premium_unlock?.highlights || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+  }
+
+  renderPremiumPreview(data?.premium_preview_findings || []);
+}
+
+function applyPlanState(currentPlan, visibility) {
+  const isPremium = Boolean(visibility?.is_premium);
+  const planBadge = byId('current-plan-badge');
+  const subBadge = byId('subscription-plan-badge');
+  const freeUnlock = byId('free-unlock-panel');
+  const premiumPanels = byId('premium-overview-panels');
+  const findingsPanel = byId('premium-findings-panel');
+
+  if (planBadge) {
+    planBadge.textContent = isPremium ? 'Premium' : 'Free';
+    planBadge.classList.toggle('is-free', !isPremium);
+  }
+  if (subBadge) {
+    subBadge.textContent = isPremium ? 'Premium' : 'Free';
+    subBadge.classList.toggle('is-free', !isPremium);
+  }
+
+  if (freeUnlock) freeUnlock.classList.toggle('hidden', isPremium);
+  if (premiumPanels) premiumPanels.classList.toggle('hidden', !isPremium);
+  if (findingsPanel) findingsPanel.classList.toggle('hidden', !isPremium);
+}
+
+function renderSubscription(data) {
+  setText('subscription-plan', data?.subscription?.plan_label || 'Free');
+  setText('subscription-note', data?.subscription?.plan_note || '');
+  setText('subscription-price', formatCurrency(data?.subscription?.price_monthly));
+  setText('subscription-annual', formatCurrency(data?.subscription?.annual_cost));
+  setText('subscription-cta', data?.subscription?.cta_label || 'Upgrade to Premium');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.topnav-link').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.tab === tab);
   });
-}
-
-function renderBenefits(items) {
-  const host = byId('premium-benefits');
-  if (!host) return;
-  host.innerHTML = '';
-  (items || []).forEach((item) => {
-    const li = document.createElement('li');
-    li.innerHTML = `<span class="benefit-bullet">✓</span><span>${escapeHtml(item)}</span>`;
-    host.appendChild(li);
+  document.querySelectorAll('.tab-panel').forEach((panel) => {
+    panel.classList.toggle('hidden', panel.id !== `${tab}-tab`);
+    panel.classList.toggle('is-active', panel.id === `${tab}-tab`);
   });
-}
-
-function applyVisibility(data) {
-  const visibility = data?.visibility || {};
-  const license = data?.license || {};
-  const isPremium = Boolean(license?.is_premium);
-
-  setText('license-plan-badge', isPremium ? 'Premium active' : 'Free insight');
-  byId('license-plan-badge')?.classList.toggle('success-pill', isPremium);
-
-  setText('price-card-label', isPremium ? 'Premium / Monat' : 'Premium unlock');
-  setText('price-card-helper', isPremium ? 'Configured target price' : 'Unlock records, recommendations, and actions');
-  setText('roi-card-label', visibility.show_roi ? 'ROI' : 'Potential Saving');
-  setText('roi-card-helper', visibility.show_roi ? 'Potential minus annual cost' : 'Available in Premium');
-  setText('kpi-roi', visibility.show_roi ? formatCurrency(data?.kpis?.roi_eur) : formatCurrency(data?.kpis?.potential_saving_eur));
-  setHidden('upgrade-band', !visibility.show_upgrade_cta);
-  byId('benefits-panel')?.classList.toggle('premium-live', isPremium);
-  setText('findings-subtitle', isPremium ? 'Prioritized actions and recommendations' : 'Visible in Free, actionable in Premium');
-}
-
-function applyHero(data) {
-  setText('hero-eyebrow', data?.hero?.eyebrow || '');
-  setText('hero-title', data?.hero?.title || '');
-  setText('hero-subtitle', data?.hero?.subtitle || '');
-  setText('hero-cta-button', data?.hero?.cta_title || 'Unlock Premium');
-  setText('hero-cta-title', data?.hero?.cta_price_hint || '');
-  setText('hero-cta-body', data?.hero?.cta_body || '');
-  setText('hero-highlight-title', data?.hero?.highlight_title || '');
-  setText('hero-highlight-body', data?.hero?.highlight_body || '');
-  setText('hero-price-hint', data?.hero?.cta_price_hint || '');
 }
 
 async function loadDashboard(scanId = null) {
@@ -283,25 +314,31 @@ async function loadDashboard(scanId = null) {
 
     setText('page-title', data?.title || 'BCSentinel Analytics');
     setText('page-subtitle', data?.subtitle || '');
-    setText('scan-mode-badge', data?.scan_mode_label || '');
     setText('last-updated', `Letzte Aktualisierung: ${data?.last_updated || '—'}`);
+    setText('hero-eyebrow', data?.hero?.eyebrow || 'Insight is free. Action is Premium.');
+    setText('hero-prefix', data?.hero?.headline_prefix || 'Your data health is');
+    setText('hero-highlight', data?.hero?.headline_highlight || 'critical');
+    setText('hero-suffix', data?.hero?.headline_suffix || 'and costing money.');
+
     setText('kpi-score', formatNumber(data?.kpis?.health_score));
     setText('kpi-records', formatNumber(data?.kpis?.total_records));
-    setText('kpi-loss', formatCurrency(data?.kpis?.estimated_loss_eur));
-    setText('kpi-price', formatCurrency(data?.kpis?.estimated_premium_price_monthly));
+    setText('kpi-affected-records', formatNumber(data?.kpis?.affected_records));
     setText('kpi-checks', formatNumber(data?.kpis?.checks_run));
     setText('kpi-issues', formatNumber(data?.kpis?.issues_count));
+    setText('kpi-price', formatCurrency(data?.kpis?.estimated_premium_price_monthly));
+    setText('kpi-loss', formatCurrency(data?.kpis?.estimated_loss_eur));
+    setText('kpi-roi', formatCurrency(data?.kpis?.roi_eur));
 
-    applyHero(data);
-    applyVisibility(data);
+    renderGauge(data?.kpis?.health_score);
     renderProfileCards(data?.profile_cards || []);
-    renderLineChart('trend-chart', data?.score_trend || [], 'Score Trend');
-    renderLineChart('loss-trend-chart', data?.loss_trend || [], 'Loss Trend');
-    renderRecentScans(data?.recent_scans || []);
     renderIssueGroups(data?.issue_groups || []);
-    renderFindings(data?.top_findings || [], data?.visibility || {});
-    renderLockedPanels(data?.locked_panels || [], data?.visibility || {});
-    renderBenefits(data?.premium_benefits || []);
+    renderRecentScans(data?.recent_scans || []);
+    renderTrend('trend-chart', data?.score_trend || []);
+    renderTrend('loss-chart', data?.loss_trend || [], true);
+    renderFindings(data?.top_findings || [], Boolean(data?.visibility?.is_premium));
+    renderUnlockPanel(data);
+    renderSubscription(data);
+    applyPlanState(data?.current_plan, data?.visibility);
   } catch (error) {
     console.error('loadDashboard failed:', error);
     setText('page-subtitle', 'Dashboard konnte nicht geladen werden.');
@@ -310,28 +347,33 @@ async function loadDashboard(scanId = null) {
 
 function registerEvents() {
   const scansBody = byId('recent-scans-body');
-  if (!scansBody) return;
+  if (scansBody) {
+    scansBody.addEventListener('click', async (event) => {
+      const row = event.target.closest('.scan-row');
+      if (!row) return;
+      const scanId = row.dataset.scanId;
+      if (!scanId || scanId === currentSelectedScanId) return;
+      await loadDashboard(scanId);
+    });
 
-  scansBody.addEventListener('click', async (event) => {
-    const row = event.target.closest('.scan-row');
-    if (!row) return;
-    const scanId = row.dataset.scanId;
-    if (!scanId || scanId === currentSelectedScanId) return;
-    await loadDashboard(scanId);
-  });
+    scansBody.addEventListener('keydown', async (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const row = event.target.closest('.scan-row');
+      if (!row) return;
+      event.preventDefault();
+      const scanId = row.dataset.scanId;
+      if (!scanId || scanId === currentSelectedScanId) return;
+      await loadDashboard(scanId);
+    });
+  }
 
-  scansBody.addEventListener('keydown', async (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    const row = event.target.closest('.scan-row');
-    if (!row) return;
-    event.preventDefault();
-    const scanId = row.dataset.scanId;
-    if (!scanId || scanId === currentSelectedScanId) return;
-    await loadDashboard(scanId);
+  document.querySelectorAll('.topnav-link').forEach((btn) => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab || 'overview'));
   });
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   registerEvents();
-  await loadDashboard();
+  switchTab('overview');
+  loadDashboard();
 });

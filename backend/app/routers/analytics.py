@@ -51,12 +51,8 @@ def _severity_rank(value: Any) -> int:
 def _normalize_plan(value: Any) -> str:
     plan = str(value or "").strip().lower()
     if plan in {"free", "standard", "premium"}:
-        return plan
+        return "premium" if plan == "standard" else plan
     return "free"
-
-
-def _normalize_status(value: Any) -> str:
-    return str(value or "").strip().lower() or "unknown"
 
 
 def _issue_group_from_code(code: str) -> str:
@@ -74,6 +70,25 @@ def _issue_group_from_code(code: str) -> str:
     if "LEDGER" in code_upper or code_upper.startswith("GL_"):
         return "Finance"
     return "Other"
+
+
+def _issue_recommendation(issue: ScanIssueRecord) -> str:
+    preview = (issue.recommendation_preview or "").strip()
+    if preview:
+        return preview
+
+    group = _issue_group_from_code(issue.code)
+    if group == "Customers":
+        return "Review impacted customer master data and complete mandatory fields in Business Central."
+    if group == "Vendors":
+        return "Complete vendor setup and remove blocking gaps before the next purchasing cycle."
+    if group == "Items":
+        return "Prioritize item setup issues that affect planning, costing, or inventory transactions."
+    if group == "Purchasing":
+        return "Resolve purchasing document inconsistencies before they create follow-up workload."
+    if group == "Finance":
+        return "Investigate financial postings and open entries with missing or inconsistent setup."
+    return "Review the affected records and resolve the underlying setup issue in Business Central."
 
 
 def _load_tenant(tenant_id: str | None, environment: str | None) -> Tenant | None:
@@ -177,7 +192,12 @@ def _select_active_scan(scans_desc: list[Scan], selected_scan_id: str | None) ->
     return scans_desc[0]
 
 
-def _build_trend_points(scans_desc: list[Scan], active_scan_id: str, max_points: int = 12) -> list[dict[str, Any]]:
+def _build_trend_points(
+    scans_desc: list[Scan],
+    active_scan_id: str,
+    value_attr: str,
+    max_points: int = 12,
+) -> list[dict[str, Any]]:
     active_index = 0
     for index, scan in enumerate(scans_desc):
         if scan.scan_id == active_scan_id:
@@ -192,7 +212,7 @@ def _build_trend_points(scans_desc: list[Scan], active_scan_id: str, max_points:
             "scan_id": scan.scan_id,
             "label": scan.generated_at_utc.strftime("%d.%m"),
             "timestamp": scan.generated_at_utc.strftime("%d.%m.%Y %H:%M"),
-            "value": _safe_int(scan.data_score),
+            "value": round(_safe_float(getattr(scan, value_attr, 0)), 2),
             "scan_type": scan.scan_type,
             "is_selected": scan.scan_id == active_scan_id,
         }
@@ -213,11 +233,11 @@ def _build_profile_cards(scan: Scan) -> list[dict[str, Any]]:
         {"label": "Vendors", "value": _safe_int(scan.vendors_count)},
         {"label": "Items", "value": _safe_int(scan.items_count)},
         {
-            "label": "Sales Docs",
+            "label": "Sales",
             "value": _safe_int(scan.sales_headers_count) + _safe_int(scan.sales_lines_count),
         },
         {
-            "label": "Purchase Docs",
+            "label": "Purchase",
             "value": _safe_int(scan.purchase_headers_count) + _safe_int(scan.purchase_lines_count),
         },
         {
@@ -236,7 +256,7 @@ def _get_current_plan_price_monthly(tenant: Tenant | None, scan: Scan | None) ->
 
     plan = _normalize_plan(getattr(tenant, "current_plan", "free"))
     if plan == "free":
-        return round(_safe_float(getattr(scan, "estimated_premium_price_monthly", 149.0)) or 149.0, 2)
+        return 0.0
 
     total_records = _safe_int(getattr(scan, "total_records", 0))
 
@@ -250,45 +270,30 @@ def _get_current_plan_price_monthly(tenant: Tenant | None, scan: Scan | None) ->
         return 0.0
 
 
-def _build_visibility(plan: str, status: str) -> dict[str, bool]:
-    is_premium = plan == "premium" and status in {"active", "trial"}
-    return {
-        "show_summary": True,
-        "show_issue_counts": True,
-        "show_issue_impacts": True,
-        "show_issue_details": is_premium,
-        "show_recommendations": is_premium,
-        "show_record_details": is_premium,
-        "show_bc_actions": is_premium,
-        "show_roi": is_premium,
-        "show_potential_saving": is_premium,
-        "show_loss_trend": True,
-        "show_upgrade_cta": not is_premium,
-        "show_locked_panels": not is_premium,
-    }
-
-
 def _build_fallback_payload(company: str, environment: str, scan_mode: str | None) -> dict[str, Any]:
-    visibility = _build_visibility("free", "unknown")
     return {
         "title": "BCSentinel Analytics",
         "subtitle": f"{company} · {environment}",
         "scan_mode_label": _scan_mode_label(None, scan_mode),
         "last_updated": datetime.now(timezone.utc).strftime("%d.%m.%Y, %H:%M UTC"),
         "selected_scan_id": None,
-        "license": {"plan": "free", "status": "unknown", "is_premium": False},
-        "visibility": visibility,
+        "current_plan": "free",
+        "visibility": {
+            "is_premium": False,
+            "show_findings": False,
+            "show_trends": False,
+            "show_upgrade_preview": True,
+        },
         "hero": {
             "eyebrow": "Insight is free. Action is Premium.",
-            "title": "Your data is costing money.",
-            "subtitle": "BCSentinel highlights business impact and unlocks record-level action with Premium.",
-            "cta_title": "Unlock Premium",
-            "cta_body": "See affected records, recommendations, and direct actions in Business Central.",
-            "cta_price_hint": "Premium from 149 €/month",
+            "headline_prefix": "Your data health is",
+            "headline_highlight": "critical",
+            "headline_suffix": "and costing money.",
         },
         "kpis": {
             "health_score": 0,
             "total_records": 0,
+            "affected_records": 0,
             "estimated_premium_price_monthly": 149.0,
             "estimated_loss_eur": 0.0,
             "potential_saving_eur": 0.0,
@@ -302,8 +307,24 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
         "loss_trend": [],
         "issue_groups": [],
         "top_findings": [],
-        "locked_panels": [],
-        "premium_benefits": [],
+        "premium_preview_findings": [],
+        "premium_unlock": {
+            "headline": "Premium unlocks record-level details and direct action.",
+            "body": "Upgrade to see affected records, recommendations, and Business Central actions for your highest-impact issues.",
+            "button_label": "Upgrade to Premium",
+            "highlights": [
+                "Affected records and issue details",
+                "Action recommendations",
+                "Business Central navigation",
+            ],
+        },
+        "subscription": {
+            "plan_label": "Free",
+            "price_monthly": 0.0,
+            "annual_cost": 0.0,
+            "cta_label": "Upgrade to Premium",
+            "plan_note": "Insight is free. Action is Premium.",
+        },
     }
 
 
@@ -323,15 +344,16 @@ def _build_dashboard_payload(
 
     active_scan = _select_active_scan(recent_scans_desc, selected_scan_id)
     issues = _load_scan_issues(active_scan.scan_id)
-
     current_plan = _normalize_plan(getattr(tenant, "current_plan", "free"))
-    current_status = _normalize_status(getattr(tenant, "current_status", "unknown"))
-    visibility = _build_visibility(current_plan, current_status)
-    is_premium = visibility["show_issue_details"]
-
-    teaser_price_monthly = _get_current_plan_price_monthly(tenant, active_scan)
-    potential_saving = round(_safe_float(active_scan.potential_saving_eur), 2)
-    current_roi = round(potential_saving - (teaser_price_monthly * 12), 2)
+    is_premium = current_plan == "premium"
+    premium_price_monthly = round(
+        max(_safe_float(active_scan.estimated_premium_price_monthly), 149.0),
+        2,
+    )
+    current_plan_price_monthly = premium_price_monthly if not is_premium else _get_current_plan_price_monthly(tenant, active_scan) or premium_price_monthly
+    potential_saving_eur = round(_safe_float(active_scan.potential_saving_eur), 2)
+    current_roi = round(potential_saving_eur - (premium_price_monthly * 12), 2)
+    affected_records = sum(_safe_int(issue.affected_count) for issue in issues)
 
     issue_groups: dict[str, int] = {}
     for issue in issues:
@@ -360,73 +382,21 @@ def _build_dashboard_payload(
             "count": _safe_int(issue.affected_count),
             "impact_eur": round(_safe_float(issue.estimated_impact_eur), 2),
             "group": _issue_group_from_code(issue.code),
-            "recommendation_preview": issue.recommendation_preview or "Recommendation available with Premium.",
+            "recommendation_preview": _issue_recommendation(issue),
             "premium_only": bool(issue.premium_only),
-            "access_label": "Open in BC" if is_premium else "Locked",
-            "access_state": "open" if is_premium else "locked",
         }
         for issue in issues
     ]
 
-    loss_trend = [
+    premium_preview_findings = [
         {
-            "scan_id": point["scan_id"],
-            "label": point["label"],
-            "timestamp": point["timestamp"],
-            "value": round(_safe_float(scan.estimated_loss_eur), 2),
-            "scan_type": point["scan_type"],
-            "is_selected": point["is_selected"],
+            "title": item["title"],
+            "group": item["group"],
+            "count": item["count"],
+            "impact_eur": item["impact_eur"],
+            "recommendation_preview": item["recommendation_preview"],
         }
-        for point, scan in zip(
-            _build_trend_points(recent_scans_desc, active_scan.scan_id),
-            list(reversed(recent_scans_desc[: len(_build_trend_points(recent_scans_desc, active_scan.scan_id))])),
-        )
-    ]
-
-    highest_issue = top_findings[0] if top_findings else None
-    loss_value = round(_safe_float(active_scan.estimated_loss_eur), 2)
-
-    hero = {
-        "eyebrow": "Insight is free. Action is Premium." if not is_premium else "Premium is active.",
-        "title": "Your data is costing money." if not is_premium else "Your highest-impact data issues.",
-        "subtitle": (
-            f"BCSentinel detected data quality risks with an estimated annual impact of €{loss_value:,.2f}."
-            if not is_premium
-            else "Prioritized findings, recommendations, and direct actions for your Business Central data."
-        ).replace(",", "X").replace(".", ",").replace("X", "."),
-        "cta_title": "Unlock Premium" if not is_premium else "Premium active",
-        "cta_body": (
-            "See affected records, recommendations, and direct actions in Business Central."
-            if not is_premium
-            else "Use the prioritized findings below to start fixing the highest-impact issues."
-        ),
-        "cta_price_hint": f"Premium from {teaser_price_monthly:,.2f} €/month".replace(",", "X").replace(".", ",").replace("X", "."),
-        "highlight_title": highest_issue["title"] if highest_issue else "No top finding yet",
-        "highlight_body": (
-            f"Top driver: {highest_issue['count']} affected records · €{highest_issue['impact_eur']:,.2f} impact"
-            if highest_issue
-            else "Run a new scan to generate prioritized findings."
-        ).replace(",", "X").replace(".", ",").replace("X", "."),
-    }
-
-    premium_benefits = [
-        "Affected records and direct BC navigation",
-        "Issue-specific recommendations and next steps",
-        "Prioritization by business impact",
-        "Deeper drilldowns for customers, vendors, items, and finance",
-    ]
-
-    locked_panels = [
-        {
-            "title": "Affected record details",
-            "body": "See exactly which customers, vendors, or items are impacted.",
-            "cta": "Unlock record-level insights",
-        },
-        {
-            "title": "Recommendations",
-            "body": "Unlock issue-specific fix guidance and direct next steps.",
-            "cta": "Unlock fix guidance",
-        },
+        for item in top_findings[:3]
     ]
 
     return {
@@ -435,31 +405,57 @@ def _build_dashboard_payload(
         "scan_mode_label": _scan_mode_label(active_scan.scan_type, scan_mode),
         "last_updated": active_scan.generated_at_utc.strftime("%d.%m.%Y, %H:%M UTC"),
         "selected_scan_id": active_scan.scan_id,
-        "license": {"plan": current_plan, "status": current_status, "is_premium": is_premium},
-        "visibility": visibility,
-        "hero": hero,
         "current_plan": current_plan,
+        "visibility": {
+            "is_premium": is_premium,
+            "show_findings": is_premium,
+            "show_trends": is_premium,
+            "show_upgrade_preview": not is_premium,
+        },
+        "hero": {
+            "eyebrow": "Insight is free. Action is Premium.",
+            "headline_prefix": "Your data health is",
+            "headline_highlight": "critical" if _safe_int(active_scan.data_score) < 60 else "visible",
+            "headline_suffix": "and costing money.",
+        },
         "kpis": {
             "health_score": _safe_int(active_scan.data_score),
             "total_records": _safe_int(active_scan.total_records),
-            "estimated_premium_price_monthly": teaser_price_monthly,
-            "estimated_loss_eur": loss_value,
-            "potential_saving_eur": potential_saving,
+            "affected_records": affected_records,
+            "estimated_premium_price_monthly": premium_price_monthly,
+            "estimated_loss_eur": round(_safe_float(active_scan.estimated_loss_eur), 2),
+            "potential_saving_eur": potential_saving_eur,
             "roi_eur": current_roi,
             "checks_run": _safe_int(active_scan.checks_count),
             "issues_count": _safe_int(active_scan.issues_count),
         },
         "profile_cards": _build_profile_cards(active_scan),
         "recent_scans": recent_scans_payload,
-        "score_trend": _build_trend_points(recent_scans_desc, active_scan.scan_id),
-        "loss_trend": loss_trend,
+        "score_trend": _build_trend_points(recent_scans_desc, active_scan.scan_id, "data_score"),
+        "loss_trend": _build_trend_points(recent_scans_desc, active_scan.scan_id, "estimated_loss_eur"),
         "issue_groups": [
             {"name": name, "count": count}
             for name, count in sorted(issue_groups.items(), key=lambda item: item[1], reverse=True)
         ],
         "top_findings": top_findings,
-        "locked_panels": locked_panels,
-        "premium_benefits": premium_benefits,
+        "premium_preview_findings": premium_preview_findings,
+        "premium_unlock": {
+            "headline": "Do you want to keep losing money or start fixing the root causes?",
+            "body": "Premium reveals the exact affected records, explains what to fix, and prioritizes the work by business impact.",
+            "button_label": "Upgrade to Premium",
+            "highlights": [
+                "Affected records in Business Central",
+                "Clear recommendations per issue",
+                "Prioritized actions by financial impact",
+            ],
+        },
+        "subscription": {
+            "plan_label": "Premium" if is_premium else "Free",
+            "price_monthly": current_plan_price_monthly if is_premium else 0.0,
+            "annual_cost": round(current_plan_price_monthly * 12, 2) if is_premium else 0.0,
+            "cta_label": "Manage subscription" if is_premium else "Upgrade to Premium",
+            "plan_note": "Current paying plan" if is_premium else "Free gives insight. Premium unlocks action.",
+        },
     }
 
 
