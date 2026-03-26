@@ -46,8 +46,6 @@ codeunit 53124 "DH Deep Scan Mgt."
         if Setup."Tenant ID" = '' then
             Error('Please register the tenant first.');
 
-        if not Setup."Premium Enabled" then
-            Error('Deep scan is currently blocked. Enable Premium Enabled in setup for your test tenant.');
     end;
 
     local procedure GetNextRunEntryNo(): Integer

@@ -24,6 +24,7 @@ page 53131 "DH Deep Scan Findings"
                 field("Issue Code"; Rec."Issue Code")
                 {
                     ApplicationArea = All;
+                    Visible = ShowPremiumDetails;
                 }
 
                 field(Title; Rec.Title)
@@ -51,11 +52,13 @@ page 53131 "DH Deep Scan Findings"
                 field("Recommendation Preview"; Rec."Recommendation Preview")
                 {
                     ApplicationArea = All;
+                    Visible = ShowPremiumDetails;
                 }
 
-                field("Premium"; Rec."Premium Only")
+                field(Access; AccessText)
                 {
                     ApplicationArea = All;
+                    Caption = 'Access';
                 }
             }
         }
@@ -63,18 +66,22 @@ page 53131 "DH Deep Scan Findings"
 
     trigger OnAfterGetRecord()
     begin
+        UpdateAccessState();
         SeverityStyle := GetSeverityStyle();
     end;
 
     trigger OnOpenPage()
     begin
         EnsureSortFields();
+        UpdateAccessState();
         Rec.SetCurrentKey("Deep Scan Entry No.", "Severity Sort Order", "Affected Count Sort Value");
         Rec.Ascending(true);
     end;
 
     var
         SeverityStyle: Text[30];
+        ShowPremiumDetails: Boolean;
+        AccessText: Text[80];
 
     local procedure EnsureSortFields()
     var
@@ -127,5 +134,19 @@ page 53131 "DH Deep Scan Findings"
         end;
 
         exit('Standard');
+    end;
+
+    local procedure UpdateAccessState()
+    var
+        Setup: Record "DH Setup";
+    begin
+        ShowPremiumDetails := false;
+        AccessText := 'Upgrade to Premium';
+
+        if Setup.Get('SETUP') then
+            if Setup.IsPremiumLicenseActive() then begin
+                ShowPremiumDetails := true;
+                AccessText := 'Unlocked';
+            end;
     end;
 }

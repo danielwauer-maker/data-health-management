@@ -132,4 +132,26 @@ table 53100 "DH Setup"
     begin
         exit('https://api.bcsentinel.com');
     end;
+
+    procedure IsPremiumLicenseActive(): Boolean
+    begin
+        exit(("Current Plan" = "Current Plan"::Premium) and (("License Status" = "License Status"::Active) or ("License Status" = "License Status"::Trial)));
+    end;
+
+    procedure GetFeatureAccessText(): Text[100]
+    begin
+        if IsPremiumLicenseActive() then
+            exit('Premium access unlocked');
+
+        exit('Free mode: insights visible, actions locked');
+    end;
+
+    procedure GetUpgradeHintText(): Text[250]
+    begin
+        if IsPremiumLicenseActive() then
+            exit('Premium recommendations and correction actions are available for this tenant.');
+
+        exit('This scan already uses the full DeepScan data basis. Upgrade to Premium to unlock recommendations, drilldowns, and correction worklists.');
+    end;
+
 }

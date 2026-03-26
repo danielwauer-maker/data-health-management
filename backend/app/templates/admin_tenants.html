@@ -67,15 +67,15 @@
       </article>
 
       <article class="panel">
-        <div class="panel-header"><h2>License Pricing</h2><span class="muted">monatliche Preislogik</span></div>
+        <div class="panel-header"><h2>License Pricing</h2><span class="muted">Free stays at €0. Premium = base price + price per step with friendly rounding.</span></div>
         <div class="config-list">
-          {% for row in license_prices %}
+          {% for row in license_prices if row.plan_code in ["free", "premium"] %}
           <form method="post" action="/admin/config/license-pricing/{{ row.plan_code }}" class="config-row">
             <div class="config-title">{{ row.plan_code }}</div>
             <input type="text" name="display_name" value="{{ row.display_name }}">
             <input type="number" step="0.01" name="base_price_monthly" value="{{ row.base_price_monthly }}">
-            <input type="number" step="1" name="included_records" value="{{ row.included_records }}">
-            <input type="number" step="0.01" name="additional_price_per_1000_records" value="{{ row.additional_price_per_1000_records }}">
+            <input type="number" step="1" name="included_records" value="{{ row.included_records }}" title="Step records">
+            <input type="number" step="0.01" name="additional_price_per_1000_records" value="{{ row.additional_price_per_1000_records }}" title="Price per step">
             <label class="checkbox-inline"><input type="checkbox" name="is_active" {% if row.is_active %}checked{% endif %}> aktiv</label>
             <button type="submit" class="btn btn-primary">Save</button>
           </form>

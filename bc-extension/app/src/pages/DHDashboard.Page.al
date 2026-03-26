@@ -50,7 +50,7 @@ page 53120 "DH Dashboard"
                     field("Total Records"; Rec."Total Records")
                     {
                         ApplicationArea = All;
-                        Caption = 'Datensätze';
+                        Caption = 'Records';
                         ToolTip = 'Anzahl der berücksichtigten Datensätze.';
                     }
 
@@ -67,6 +67,30 @@ page 53120 "DH Dashboard"
                     ApplicationArea = All;
                     Caption = 'Key Metrics';
                     SubPageLink = "Entry No." = field("Entry No.");
+                }
+            }
+
+            group(AccessMode)
+            {
+                Caption = 'Access';
+                Visible = ShowFreeUpgradeHint;
+
+                field(AccessModeText; AccessModeText)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Mode';
+                    Editable = false;
+                    Style = Attention;
+                    ToolTip = 'Shows which features are currently unlocked.';
+                }
+
+                field(UpgradeHintText; UpgradeHintText)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Premium unlock';
+                    Editable = false;
+                    MultiLine = true;
+                    ToolTip = 'Premium unlocks recommendations, drilldowns, and correction worklists.';
                 }
             }
 
@@ -168,10 +192,24 @@ page 53120 "DH Dashboard"
 
     var
         RatingStyle: Text[30];
+        AccessModeText: Text[100];
+        UpgradeHintText: Text[250];
+        ShowFreeUpgradeHint: Boolean;
 
     local procedure UpdateStyles()
+    var
+        Setup: Record "DH Setup";
     begin
         RatingStyle := GetRatingStyle();
+        AccessModeText := '';
+        UpgradeHintText := '';
+        ShowFreeUpgradeHint := false;
+
+        if Setup.Get('SETUP') then begin
+            ShowFreeUpgradeHint := not Setup.IsPremiumLicenseActive();
+            AccessModeText := Setup.GetFeatureAccessText();
+            UpgradeHintText := Setup.GetUpgradeHintText();
+        end;
     end;
 
     local procedure GetRatingStyle(): Text[30]
@@ -195,17 +233,13 @@ page 53120 "DH Dashboard"
     local procedure StartScanForCurrentTenant()
     var
         Setup: Record "DH Setup";
-        QuickScanMgt: Codeunit "DH QuickScan Mgt.";
         DeepScanMgt: Codeunit "DH Deep Scan Mgt.";
     begin
         if not Setup.Get('SETUP') then
             Error('Setup not found.');
 
-        if Setup."Premium Enabled" then begin
-            DeepScanMgt.QueueDeepScan(Setup);
-            CurrPage.Update(false);
-        end else
-            QuickScanMgt.RunQuickScanAndOpenDashboard(Setup);
+        DeepScanMgt.QueueDeepScan(Setup);
+        CurrPage.Update(false);
     end;
 
     local procedure OpenAnalyticsDashboardForCurrentScan()

@@ -17,7 +17,7 @@ router = APIRouter(tags=["admin"])
 security = HTTPBasic()
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
 
-ALLOWED_PLANS = {"free", "standard", "premium"}
+ALLOWED_PLANS = {"free", "premium"}
 ALLOWED_LICENSE_STATUSES = {"trial", "active", "expired", "blocked"}
 
 

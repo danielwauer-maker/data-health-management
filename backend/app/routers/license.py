@@ -22,16 +22,14 @@ def build_features(plan: str, license_status: str) -> list[str]:
     if normalized_license_status in {"expired", "blocked"}:
         return []
 
-    features = ["quick_scan"]
-
-    if normalized_plan in {"standard", "premium"}:
-        features.append("scan_sync")
+    features = ["scan_sync", "deep_scan"]
 
     if normalized_plan == "premium":
         features.extend(
             [
-                "deep_scan",
                 "advanced_checks",
+                "recommendations",
+                "record_drilldown",
             ]
         )
 
@@ -54,11 +52,15 @@ def get_license_status(
         if tenant.api_token != x_api_token:
             raise HTTPException(status_code=401, detail="Invalid API token.")
 
-        features = build_features(tenant.current_plan, tenant.license_status)
+        normalized_plan = (tenant.current_plan or "free").lower()
+        if normalized_plan not in {"free", "premium"}:
+            normalized_plan = "free"
+
+        features = build_features(normalized_plan, tenant.license_status)
 
         return LicenseStatusResponse(
             tenant_id=tenant.tenant_id,
-            plan=tenant.current_plan or "free",
+            plan=normalized_plan,
             license_status=tenant.license_status or "trial",
             features=features,
         )

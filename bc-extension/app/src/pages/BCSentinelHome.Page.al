@@ -43,11 +43,12 @@ page 53110 "BCSentinel Home"
             {
                 Caption = 'Scan';
 
-                field("Premium Enabled"; Rec."Premium Enabled")
+                field(FeatureAccess; Rec.GetFeatureAccessText())
                 {
                     ApplicationArea = All;
+                    Caption = 'Feature access';
                     Editable = false;
-                    ToolTip = 'Indicates whether Premium features are enabled.';
+                    ToolTip = 'Shows whether premium actions are unlocked.';
                 }
             }
         }
@@ -71,28 +72,21 @@ page 53110 "BCSentinel Home"
                     var
                         Setup: Record "DH Setup";
                         ApiClient: Codeunit "DH API Client";
-                        QuickScanMgt: Codeunit "DH QuickScan Mgt.";
                         DeepScanMgt: Codeunit "DH Deep Scan Mgt.";
-                        Header: Record "DH Scan Header";
                         DeepScanRun: Record "DH Deep Scan Run";
                         EntryNo: Integer;
                     begin
                         EnsureSetup(Setup);
                         ApiClient.EnsureReadyForScan(Setup);
 
-                        if Setup."Premium Enabled" then begin
-                            EntryNo := DeepScanMgt.QueueDeepScan(Setup);
-                            CurrPage.Update(false);
+                        EntryNo := DeepScanMgt.QueueDeepScan(Setup);
+                        CurrPage.Update(false);
 
-                            if DeepScanRun.Get(EntryNo) then
-                                Message('BCSentinel Premium scan queued.\Run ID: %1\Status: %2', DeepScanRun."Run ID", Format(DeepScanRun.Status));
-                        end else begin
-                            EntryNo := QuickScanMgt.RunQuickScan(Setup);
-                            CurrPage.Update(false);
-
-                            if Header.Get(EntryNo) then
-                                Page.Run(Page::"DH Dashboard", Header);
-                        end;
+                        if DeepScanRun.Get(EntryNo) then
+                            if Setup.IsPremiumLicenseActive() then
+                                Message('BCSentinel Premium deep scan queued.\Run ID: %1\Status: %2', DeepScanRun."Run ID", Format(DeepScanRun.Status))
+                            else
+                                Message('BCSentinel deep scan queued in Free mode.\Run ID: %1\Status: %2\Premium unlocks recommendations and correction actions.', DeepScanRun."Run ID", Format(DeepScanRun.Status));
                     end;
                 }
 
@@ -208,9 +202,9 @@ page 53110 "BCSentinel Home"
 
     local procedure GetScanMode(var Setup: Record "DH Setup"): Text
     begin
-        if Setup."Premium Enabled" then
+        if Setup.IsPremiumLicenseActive() then
             exit('premium_deep');
-        exit('free_quick');
+        exit('free_deep');
     end;
 
     local procedure GetDashboardUrl(var Setup: Record "DH Setup"; Token: Text): Text

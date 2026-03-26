@@ -37,7 +37,6 @@
               <span class="field-label">Plan</span>
               <select name="plan">
                 <option value="free" {% if tenant.current_plan == "free" %}selected{% endif %}>free</option>
-                <option value="standard" {% if tenant.current_plan == "standard" %}selected{% endif %}>standard</option>
                 <option value="premium" {% if tenant.current_plan == "premium" %}selected{% endif %}>premium</option>
               </select>
             </label>

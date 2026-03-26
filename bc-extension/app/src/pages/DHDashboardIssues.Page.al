@@ -16,9 +16,14 @@ page 53135 "DH Dashboard Issues"
         {
             repeater(Issues)
             {
-                field("Source Type"; Rec."Source Type")
+                /*field("Source Type"; Rec."Source Type")
                 {
                     ApplicationArea = All;
+                }*/
+                field(Severity; Rec.Severity)
+                {
+                    ApplicationArea = All;
+                    StyleExpr = SeverityStyle;
                 }
 
                 field(Title; Rec.Title)
@@ -33,15 +38,10 @@ page 53135 "DH Dashboard Issues"
                     end;
                 }
 
-                field(Severity; Rec.Severity)
-                {
-                    ApplicationArea = All;
-                    StyleExpr = SeverityStyle;
-                }
-
                 field("Affected Count"; Rec."Affected Count")
                 {
                     ApplicationArea = All;
+                    Caption = 'Count';
 
                     trigger OnDrillDown()
                     var
@@ -57,38 +57,46 @@ page 53135 "DH Dashboard Issues"
                     Caption = 'Impact €';
                 }
 
-                field("Recommendation Preview"; Rec."Recommendation Preview")
+                field("Recommendation Review"; Rec."Recommendation Preview")
                 {
                     ApplicationArea = All;
+                    Caption = 'Recommendation';
+                    Visible = ShowPremiumDetails;
                 }
 
-                field("Premium"; Rec."Premium Only")
+                field(Access; AccessText)
                 {
                     ApplicationArea = All;
+                    Caption = 'Access';
                 }
 
-                field("Issue Code"; Rec."Issue Code")
+                /*field("Issue Code"; Rec."Issue Code")
                 {
                     ApplicationArea = All;
-                }
+                    Visible = ShowPremiumDetails;
+                }*/
             }
         }
     }
 
     trigger OnAfterGetRecord()
     begin
+        UpdateAccessState();
         SeverityStyle := GetSeverityStyle();
     end;
 
     trigger OnOpenPage()
     begin
         EnsureSortFields();
+        UpdateAccessState();
         Rec.SetCurrentKey("Dashboard Scan Entry No.", "Severity Sort Order", "Affected Count Sort Value");
         Rec.Ascending(true);
     end;
 
     var
         SeverityStyle: Text[30];
+        ShowPremiumDetails: Boolean;
+        AccessText: Text[80];
 
     local procedure EnsureSortFields()
     var
@@ -141,5 +149,19 @@ page 53135 "DH Dashboard Issues"
         end;
 
         exit('Standard');
+    end;
+
+    local procedure UpdateAccessState()
+    var
+        Setup: Record "DH Setup";
+    begin
+        ShowPremiumDetails := false;
+        AccessText := 'Upgrade to Premium';
+
+        if Setup.Get('SETUP') then
+            if Setup.IsPremiumLicenseActive() then begin
+                ShowPremiumDetails := true;
+                AccessText := 'Unlocked';
+            end;
     end;
 }
