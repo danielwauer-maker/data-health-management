@@ -12,7 +12,6 @@
       <div class="topbar-left">
         <div class="title-row">
           <h1 id="page-title">BCSentinel Analytics</h1>
-          <span id="current-plan-badge" class="plan-badge is-free">Free</span>
           </div>
         <p id="page-subtitle" class="page-subtitle">Loading...</p>
       </div>
@@ -32,10 +31,9 @@
           <h2 class="hero-title">
             <span id="hero-prefix">Your data health is</span>
             <span id="hero-highlight" class="hero-highlight">critical</span>
-            <span id="hero-suffix"></span>
+            <span id="hero-suffix">and costing money.</span>
           </h2>
         </div>
-                <ul id="hero-points" class="hero-points"></ul>
       </section>
 
       <section class="stats-grid">
@@ -152,6 +150,15 @@
             <h3>Premium unlocks</h3>
             <p id="unlock-headline" class="unlock-copy">Do you want to keep losing money or start fixing the root causes?</p>
           </div>
+          <div id="unlock-pricing-box" class="unlock-pricing-box">
+            <div class="unlock-pricing-title">Premium pricing preview</div>
+            <div class="unlock-pricing-lines">
+              <div class="unlock-pricing-line"><span>Base price</span><strong id="unlock-base-price">€0.00</strong></div>
+              <div class="unlock-pricing-line"><span>Data volume add-on</span><strong id="unlock-variable-price">€0.00</strong></div>
+              <div class="unlock-pricing-line total"><span>Estimated monthly Premium price</span><strong id="unlock-final-price">€0.00</strong></div>
+              <div class="unlock-pricing-line total annual"><span>Annual fixed plan</span><strong id="unlock-annual-price">€0.00</strong></div>
+            </div>
+          </div>
           <button id="upgrade-button" type="button" class="primary-button">Upgrade to Premium</button>
         </div>
         <div class="unlock-grid">
@@ -208,6 +215,36 @@
             <div class="stat-helper">12 months projection</div>
           </div>
         </div>
+        <section class="subscription-breakdown-grid">
+          <div class="subscription-breakdown-card">
+            <div class="panel-header compact">
+              <h4>Pricing breakdown</h4>
+              <span class="muted">Current record volume</span>
+            </div>
+            <div class="breakdown-lines">
+              <div class="breakdown-line"><span>Base price</span><strong id="subscription-breakdown-base">€0.00</strong></div>
+              <div class="breakdown-line"><span>Data volume add-on</span><strong id="subscription-breakdown-variable">€0.00</strong></div>
+              <div class="breakdown-line total"><span>Estimated Premium / month</span><strong id="subscription-breakdown-final">€0.00</strong></div>
+            </div>
+          </div>
+          <div class="subscription-breakdown-card">
+            <div class="panel-header compact">
+              <h4>Billing options</h4>
+              <span class="muted">Choose flexibility or price protection</span>
+            </div>
+            <div class="billing-option-grid">
+              <div class="billing-option">
+                <div class="billing-option-label">Monthly billing</div>
+                <div id="subscription-monthly-note" class="billing-option-copy"></div>
+              </div>
+              <div class="billing-option featured">
+                <div class="billing-option-label">Annual fixed plan</div>
+                <div class="billing-option-price" id="subscription-annual-fixed">€0.00</div>
+                <div id="subscription-annual-note" class="billing-option-copy"></div>
+              </div>
+            </div>
+          </div>
+        </section>
         <div class="subscription-cta-row">
           <button id="subscription-cta" type="button" class="primary-button">Upgrade to Premium</button>
         </div>
