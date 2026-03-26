@@ -90,6 +90,25 @@ class IssueCostConfig(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class IssueImpactConfig(Base):
+    __tablename__ = "issue_impact_config"
+
+    code: Mapped[str] = mapped_column(String(80), primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), default="")
+    minutes_per_occurrence: Mapped[float] = mapped_column(Float, default=5.0)
+    probability: Mapped[float] = mapped_column(Float, default=0.2)
+    frequency_per_year: Mapped[float] = mapped_column(Float, default=12.0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class ImpactSettingsConfig(Base):
+    __tablename__ = "impact_settings_config"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value_number: Mapped[float] = mapped_column(Float, default=0.0)
+    title: Mapped[str] = mapped_column(String(255), default="")
+
+
 class LicensePricingConfig(Base):
     __tablename__ = "license_pricing_config"
 
@@ -99,22 +118,3 @@ class LicensePricingConfig(Base):
     included_records: Mapped[int] = mapped_column(Integer, default=0)
     additional_price_per_1000_records: Mapped[float] = mapped_column(Float, default=0.0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-
-
-class IssueImpactConfig(Base):
-    __tablename__ = "issue_impact_config"
-
-    code: Mapped[str] = mapped_column(String(80), primary_key=True)
-    title: Mapped[str] = mapped_column(String(255), default="")
-    minutes_per_occurrence: Mapped[float] = mapped_column(Float, default=5.0)
-    probability: Mapped[float] = mapped_column(Float, default=0.2)
-    frequency_per_year: Mapped[float] = mapped_column(Float, default=12.0)
-    category: Mapped[str] = mapped_column(String(40), default="general")
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-
-
-class ImpactSettingsConfig(Base):
-    __tablename__ = "impact_settings_config"
-
-    key: Mapped[str] = mapped_column(String(80), primary_key=True)
-    decimal_value: Mapped[float] = mapped_column(Float, default=0.0)

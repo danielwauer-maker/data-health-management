@@ -11,12 +11,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.models import Scan, ScanIssueRecord, Tenant
-from app.services.impact_service import (
-    calculate_issue_impact,
-    get_hourly_rate,
-    get_issue_impact_definition_map,
-    get_potential_saving_factor,
-)
+from app.services.impact_service import calculate_issue_impacts, get_potential_saving_factor
 from app.services.pricing_service import calculate_monthly_price, get_license_pricing
 
 router = APIRouter(tags=["scans"])
@@ -123,41 +118,26 @@ def _load_tenant_for_sync(db, tenant_id: str, api_token: str) -> Tenant:
     return tenant
 
 
-def _calculate_commercials(payload: ScanSyncPayload, db) -> tuple[int, float, float, float, float]:
+def _calculate_commercials(payload: ScanSyncPayload, db) -> tuple[int, float, float, float, float, list[dict[str, object]]]:
     pricing = get_license_pricing(db, "premium")
-    impact_definition_map = get_issue_impact_definition_map(db)
-    hourly_rate_eur = get_hourly_rate(db)
-    potential_saving_factor = get_potential_saving_factor(db)
-
     total_records = _safe_int(payload.data_profile.total_records)
 
-    estimated_loss = round(
-        sum(
-            calculate_issue_impact(
-                issue.code,
-                _safe_int(issue.affected_count),
-                impact_definition_map,
-                hourly_rate_eur,
-            )
-            for issue in payload.issues
-        ),
-        2,
-    )
+    recalculated_issues = calculate_issue_impacts(db, payload.issues)
+    estimated_loss = round(sum(float(issue["estimated_impact_eur"]) for issue in recalculated_issues), 2)
 
-    if estimated_loss <= 0:
-        estimated_loss = round(_safe_float(payload.estimated_loss_eur), 2)
+    supplied_loss = _safe_float(payload.estimated_loss_eur)
+    if supplied_loss > 0 and not recalculated_issues:
+        estimated_loss = supplied_loss
+
+    potential_saving = round(estimated_loss * get_potential_saving_factor(db), 2)
 
     premium_price = _safe_float(payload.estimated_premium_price_monthly)
     if premium_price <= 0:
         premium_price = round(calculate_monthly_price(total_records, pricing), 2)
 
-    potential_saving = round(estimated_loss * potential_saving_factor, 2)
-    if potential_saving <= 0:
-        potential_saving = round(_safe_float(payload.potential_saving_eur), 2)
-
     roi = round(potential_saving - (premium_price * 12), 2)
 
-    return total_records, estimated_loss, potential_saving, premium_price, roi
+    return total_records, estimated_loss, potential_saving, premium_price, roi, recalculated_issues
 
 
 @router.post("/scan/sync")
@@ -170,7 +150,7 @@ def sync_scan(
 
     with SessionLocal() as db:
         tenant = _load_tenant_for_sync(db, payload.tenant_id, x_api_token or "")
-        total_records, estimated_loss, potential_saving, premium_price, roi = _calculate_commercials(payload, db)
+        total_records, estimated_loss, potential_saving, premium_price, roi, recalculated_issues = _calculate_commercials(payload, db)
 
         existing_scan = db.scalar(select(Scan).where(Scan.scan_id == payload.scan_id))
 
@@ -231,27 +211,17 @@ def sync_scan(
 
         tenant.last_seen_at_utc = datetime.now(timezone.utc)
 
-        impact_definition_map = get_issue_impact_definition_map(db)
-        hourly_rate_eur = get_hourly_rate(db)
-        for issue in payload.issues:
+        for issue in recalculated_issues:
             db.add(
                 ScanIssueRecord(
                     scan_id=payload.scan_id,
-                    code=issue.code,
-                    title=issue.title,
-                    severity=(issue.severity or "low").strip().lower(),
-                    affected_count=_safe_int(issue.affected_count),
-                    premium_only=bool(issue.premium_only),
-                    recommendation_preview=issue.recommendation_preview,
-                    estimated_impact_eur=round(
-                        calculate_issue_impact(
-                            issue.code,
-                            _safe_int(issue.affected_count),
-                            impact_definition_map,
-                            hourly_rate_eur,
-                        ),
-                        2,
-                    ),
+                    code=str(issue["code"]),
+                    title=str(issue["title"]),
+                    severity=str(issue["severity"]),
+                    affected_count=_safe_int(issue["affected_count"]),
+                    premium_only=bool(issue["premium_only"]),
+                    recommendation_preview=issue["recommendation_preview"],
+                    estimated_impact_eur=_safe_float(issue["estimated_impact_eur"]),
                 )
             )
 
@@ -269,6 +239,7 @@ def sync_scan(
                 "estimated_premium_price_monthly": premium_price,
                 "roi_eur": roi,
             },
+            "issues": recalculated_issues,
         }
     )
 
@@ -281,57 +252,44 @@ def reconcile_scans(
 ):
     _validate_sync_headers(payload.tenant_id, x_tenant_id, x_api_token)
 
-    normalized_scan_ids = sorted({scan_id.strip() for scan_id in payload.scan_ids if scan_id and scan_id.strip()})
+    keep_ids = {scan_id.strip() for scan_id in payload.scan_ids if scan_id and scan_id.strip()}
 
     with SessionLocal() as db:
-        tenant = _load_tenant_for_sync(db, payload.tenant_id, x_api_token or "")
+        _load_tenant_for_sync(db, payload.tenant_id, x_api_token or "")
 
-        tenant_scans = db.scalars(
-            select(Scan)
-            .where(Scan.tenant_id == tenant.tenant_id)
-            .order_by(Scan.generated_at_utc.desc(), Scan.id.desc())
-        ).all()
+        scans = db.scalars(select(Scan).where(Scan.tenant_id == payload.tenant_id)).all()
+        deleted_ids: list[str] = []
 
-        deleted_scan_ids: list[str] = []
-
-        for scan in tenant_scans:
-            if scan.scan_id not in normalized_scan_ids:
+        for scan in scans:
+            if scan.scan_id not in keep_ids:
+                deleted_ids.append(scan.scan_id)
                 db.query(ScanIssueRecord).filter(ScanIssueRecord.scan_id == scan.scan_id).delete()
-                deleted_scan_ids.append(scan.scan_id)
                 db.delete(scan)
 
-        tenant.last_seen_at_utc = datetime.now(timezone.utc)
         db.commit()
 
     return JSONResponse(
         content={
             "status": "ok",
             "tenant_id": payload.tenant_id,
-            "kept_scan_ids": normalized_scan_ids,
-            "deleted_scan_ids": deleted_scan_ids,
-            "deleted_count": len(deleted_scan_ids),
+            "deleted_scan_ids": deleted_ids,
+            "kept_scan_ids": sorted(keep_ids),
         }
     )
 
 
-@router.delete("/scan/{scan_id}")
+@router.delete("/scan/{tenant_id}/{scan_id}")
 def delete_scan(
+    tenant_id: str,
     scan_id: str,
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
     x_api_token: str | None = Header(default=None, alias="X-Api-Token"),
 ):
-    if not x_tenant_id or not x_api_token:
-        raise HTTPException(status_code=401, detail="Missing tenant authentication headers.")
+    _validate_sync_headers(tenant_id, x_tenant_id, x_api_token)
 
     with SessionLocal() as db:
-        tenant = _load_tenant_for_sync(db, x_tenant_id, x_api_token)
-
-        scan = db.scalar(
-            select(Scan).where(
-                Scan.scan_id == scan_id,
-                Scan.tenant_id == tenant.tenant_id,
-            )
-        )
+        _load_tenant_for_sync(db, tenant_id, x_api_token or "")
+        scan = db.scalar(select(Scan).where(Scan.tenant_id == tenant_id, Scan.scan_id == scan_id))
 
         if scan is None:
             return JSONResponse(content={"status": "not_found", "scan_id": scan_id})

@@ -296,6 +296,11 @@ codeunit 53100 "DH API Client"
     end;
 
     procedure SyncScanToBackend(var Setup: Record "DH Setup"; RequestText: Text)
+    begin
+        SyncScanToBackendAndGetResponse(Setup, RequestText);
+    end;
+
+    procedure SyncScanToBackendAndGetResponse(var Setup: Record "DH Setup"; RequestText: Text): Text
     var
         Client: HttpClient;
         Content: HttpContent;
@@ -322,6 +327,8 @@ codeunit 53100 "DH API Client"
 
         if not Response.IsSuccessStatusCode() then
             Error('Scan sync failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
+
+        exit(ResponseText);
     end;
 
     procedure DeleteScanFromBackend(var Setup: Record "DH Setup"; ScanId: Code[50])

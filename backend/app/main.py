@@ -23,13 +23,8 @@ from app.schemas.scan import (
     ScanSummary,
     ScanTrendResponse,
 )
-from app.services.impact_service import (
-    calculate_issue_impact,
-    ensure_default_impact_profiles,
-    get_hourly_rate,
-    get_issue_impact_definition_map,
-    get_potential_saving_factor,
-)
+from app.services.cost_service import ensure_default_issue_costs
+from app.services.impact_service import ensure_default_impact_config
 from app.services.pricing_service import calculate_monthly_price, ensure_default_license_pricing, get_license_pricing
 from app.services.scoring_service import calculate_quick_scan_result
 
@@ -60,13 +55,8 @@ def ensure_runtime_schema() -> None:
         "ALTER TABLE issue_cost_config ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT ''",
         "ALTER TABLE license_pricing_config ADD COLUMN IF NOT EXISTS display_name VARCHAR(80) DEFAULT ''",
         "ALTER TABLE license_pricing_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT ''",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS minutes_per_occurrence DOUBLE PRECISION DEFAULT 5",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS probability DOUBLE PRECISION DEFAULT 0.2",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS frequency_per_year DOUBLE PRECISION DEFAULT 12",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS category VARCHAR(40) DEFAULT 'general'",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
-        "ALTER TABLE impact_settings_config ADD COLUMN IF NOT EXISTS decimal_value DOUBLE PRECISION DEFAULT 0",
+        "CREATE TABLE IF NOT EXISTS issue_impact_config (code VARCHAR(80) PRIMARY KEY, title VARCHAR(255) DEFAULT '', minutes_per_occurrence DOUBLE PRECISION DEFAULT 5, probability DOUBLE PRECISION DEFAULT 0.2, frequency_per_year DOUBLE PRECISION DEFAULT 12, is_active BOOLEAN DEFAULT TRUE)",
+        "CREATE TABLE IF NOT EXISTS impact_settings_config (key VARCHAR(80) PRIMARY KEY, value_number DOUBLE PRECISION DEFAULT 0, title VARCHAR(255) DEFAULT '')",
     ]
     with engine.begin() as connection:
         for statement in statements:
@@ -82,7 +72,8 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_runtime_schema()
     with SessionLocal() as db:
-        ensure_default_impact_profiles(db)
+        ensure_default_issue_costs(db)
+        ensure_default_impact_config(db)
         ensure_default_license_pricing(db)
     yield
 
@@ -143,6 +134,8 @@ def register_tenant(payload: TenantRegisterRequest) -> TenantRegisterResponse:
 
 @app.post("/scan/quick", response_model=QuickScanResponse)
 def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
+    from app.services.impact_service import calculate_issue_impacts, get_potential_saving_factor
+
     with SessionLocal() as db:
         tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == payload.tenant_id))
         if tenant is None:
@@ -151,36 +144,15 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
         data_score, checks_count, issues_count, summary, issues = calculate_quick_scan_result(payload.metrics)
         scan_id = (payload.bc_run_id or "").strip() or f"scan_{uuid4().hex[:12]}"
         generated_at_utc = datetime.now(timezone.utc)
-        impact_definition_map = get_issue_impact_definition_map(db)
-        hourly_rate_eur = get_hourly_rate(db)
-        potential_saving_factor = get_potential_saving_factor(db)
         total_records = int(payload.data_profile.total_records or 0)
-        estimated_loss_eur = 0.0
 
-        enriched_issues: list[ScanIssue] = []
-        for issue in issues:
-            impact = calculate_issue_impact(
-                issue.code,
-                issue.affected_count,
-                impact_definition_map,
-                hourly_rate_eur,
-            )
-            estimated_loss_eur += impact
-            enriched_issues.append(
-                ScanIssue(
-                    code=issue.code,
-                    title=issue.title,
-                    severity=issue.severity,
-                    affected_count=issue.affected_count,
-                    premium_only=issue.premium_only,
-                    recommendation_preview=issue.recommendation_preview,
-                    estimated_impact_eur=impact,
-                )
-            )
+        enriched_issue_dicts = calculate_issue_impacts(db, issues)
+        estimated_loss_eur = round(sum(float(issue["estimated_impact_eur"]) for issue in enriched_issue_dicts), 2)
+        enriched_issues = [ScanIssue(**issue_dict) for issue_dict in enriched_issue_dicts]
 
         pricing = get_license_pricing(db, "premium")
         estimated_premium_price_monthly = calculate_monthly_price(total_records, pricing)
-        potential_saving_eur = round(estimated_loss_eur * potential_saving_factor, 2)
+        potential_saving_eur = round(estimated_loss_eur * get_potential_saving_factor(db), 2)
         roi_eur = round(potential_saving_eur - (estimated_premium_price_monthly * 12), 2)
 
         existing_scan = db.scalar(select(Scan).where(Scan.scan_id == scan_id))

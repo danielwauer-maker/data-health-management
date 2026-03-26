@@ -15,6 +15,7 @@ codeunit 53128 "DH Deep Scan Runner"
         Setup: Record "DH Setup";
         ApiClient: Codeunit "DH API Client";
         RequestText: Text;
+        SyncResponseText: Text;
     begin
         DeepScanRun.LockTable();
         if not DeepScanRun.Get(DeepScanRun."Entry No.") then
@@ -49,7 +50,8 @@ codeunit 53128 "DH Deep Scan Runner"
 
         if Setup.Get('SETUP') then begin
             RequestText := BuildSyncPayload(Setup, DeepScanRun);
-            ApiClient.SyncScanToBackend(Setup, RequestText);
+            SyncResponseText := ApiClient.SyncScanToBackendAndGetResponse(Setup, RequestText);
+            ApplySyncCommercials(DeepScanRun, SyncResponseText);
         end;
     end;
 
@@ -889,6 +891,82 @@ codeunit 53128 "DH Deep Scan Runner"
         ScanHeader.Modify(true);
     end;
 
+    local procedure ApplySyncCommercials(var DeepScanRun: Record "DH Deep Scan Run"; SyncResponseText: Text)
+    var
+        JsonObj: JsonObject;
+        CommercialsToken: JsonToken;
+        CommercialsObj: JsonObject;
+        Token: JsonToken;
+        ScanHeader: Record "DH Scan Header";
+    begin
+        if SyncResponseText = '' then
+            exit;
+
+        if not JsonObj.ReadFrom(SyncResponseText) then
+            exit;
+
+        if not JsonObj.Get('commercials', CommercialsToken) then
+            exit;
+
+        CommercialsObj := CommercialsToken.AsObject();
+
+        if CommercialsObj.Get('estimated_loss_eur', Token) then
+            DeepScanRun."Estimated Loss (EUR)" := ReadJsonDecimal(Token);
+
+        if CommercialsObj.Get('potential_saving_eur', Token) then
+            DeepScanRun."Potential Saving (EUR)" := ReadJsonDecimal(Token);
+
+        DeepScanRun.Modify(true);
+
+        ScanHeader.Reset();
+        ScanHeader.SetRange("Scan Type", ScanHeader."Scan Type"::Deep);
+        ScanHeader.SetRange("Run ID", DeepScanRun."Run ID");
+        if not ScanHeader.FindFirst() then begin
+            ScanHeader.Reset();
+            ScanHeader.SetRange("Scan Type", ScanHeader."Scan Type"::Deep);
+            ScanHeader.SetRange("Backend Scan Id", DeepScanRun."Run ID");
+            if not ScanHeader.FindFirst() then
+                exit;
+        end;
+
+        if CommercialsObj.Get('total_records', Token) then
+            ScanHeader."Total Records" := Token.AsValue().AsInteger();
+
+        ScanHeader."Estimated Loss (EUR)" := DeepScanRun."Estimated Loss (EUR)";
+        ScanHeader."Potential Saving (EUR)" := DeepScanRun."Potential Saving (EUR)";
+        ScanHeader."Est. Loss" := DeepScanRun."Estimated Loss (EUR)";
+        ScanHeader."Potential Saving" := DeepScanRun."Potential Saving (EUR)";
+
+        if CommercialsObj.Get('estimated_premium_price_monthly', Token) then
+            ScanHeader."Est. Premium Price" := ReadJsonDecimal(Token);
+
+        if CommercialsObj.Get('roi_eur', Token) then
+            ScanHeader."ROI" := ReadJsonDecimal(Token);
+
+        ScanHeader.Modify(true);
+    end;
+
+    local procedure ReadJsonDecimal(Token: JsonToken): Decimal
+    var
+        ValueText: Text;
+        ValueDecimal: Decimal;
+    begin
+        if IsJsonNull(Token) then
+            exit(0);
+
+        ValueText := Token.AsValue().AsText();
+        Evaluate(ValueDecimal, ValueText);
+        exit(ValueDecimal);
+    end;
+
+    local procedure IsJsonNull(Token: JsonToken): Boolean
+    var
+        JsonValueText: Text;
+    begin
+        JsonValueText := LowerCase(Format(Token));
+        exit((JsonValueText = 'null') or (JsonValueText = '<null>'));
+    end;
+
     local procedure BuildSyncPayload(var Setup: Record "DH Setup"; var DeepScanRun: Record "DH Deep Scan Run"): Text
     var
         Finding: Record "DH Deep Scan Finding";
@@ -963,6 +1041,7 @@ codeunit 53128 "DH Deep Scan Runner"
     local procedure RecalculateCostSummary(var DeepScanRun: Record "DH Deep Scan Run")
     var
         Finding: Record "DH Deep Scan Finding";
+        CostMgt: Codeunit "DH Cost Mgt.";
         EstimatedLoss: Decimal;
     begin
         EstimatedLoss := 0;
@@ -974,7 +1053,7 @@ codeunit 53128 "DH Deep Scan Runner"
             until Finding.Next() = 0;
 
         DeepScanRun."Estimated Loss (EUR)" := Round(EstimatedLoss, 0.01, '=');
-        DeepScanRun."Potential Saving (EUR)" := Round(EstimatedLoss, 0.01, '=');
+        DeepScanRun."Potential Saving (EUR)" := CostMgt.CalculatePotentialSaving(EstimatedLoss);
     end;
 
     local procedure FindingExists(DeepScanEntryNo: Integer; IssueCode: Code[50]; ValueMarker: Text): Boolean
