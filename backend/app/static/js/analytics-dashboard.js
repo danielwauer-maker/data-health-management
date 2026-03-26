@@ -30,12 +30,27 @@ function setText(id, value) {
   if (el) el.textContent = value;
 }
 
+function setHtml(id, value) {
+  const el = byId(id);
+  if (el) el.innerHTML = value;
+}
+
+function scoreBand(score) {
+  const safeScore = Math.max(0, Math.min(100, Number(score || 0)));
+  if (safeScore <= 60) return 'critical';
+  if (safeScore <= 75) return 'warning';
+  if (safeScore <= 85) return 'moderate';
+  if (safeScore <= 95) return 'good';
+  return 'excellent';
+}
+
+
 function renderGauge(score) {
   const host = byId('gauge-meter');
   if (!host) return;
 
   const safeScore = Math.max(0, Math.min(100, Number(score || 0)));
-  const severityClass = safeScore < 60 ? 'low' : safeScore < 85 ? 'medium' : 'high';
+  const severityClass = scoreBand(safeScore);
   const radius = 74;
   const circumference = Math.PI * radius;
   const progress = circumference * (safeScore / 100);
@@ -50,6 +65,18 @@ function renderGauge(score) {
       <text x="110" y="106" text-anchor="middle" class="gauge-caption">Data Health Score</text>
     </svg>
   `;
+}
+
+function renderHeroPoints(items) {
+  const host = byId('hero-points');
+  if (!host) return;
+  if (!Array.isArray(items) || items.length === 0) {
+    host.innerHTML = '';
+    host.classList.add('hidden');
+    return;
+  }
+  host.classList.remove('hidden');
+  host.innerHTML = items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
 }
 
 function renderProfileCards(items) {
@@ -315,7 +342,12 @@ async function loadDashboard(scanId = null) {
     setText('hero-eyebrow', data?.hero?.eyebrow || 'Insight is free. Action is Premium.');
     setText('hero-prefix', data?.hero?.headline_prefix || 'Your data health is');
     setText('hero-highlight', data?.hero?.headline_highlight || 'critical');
-    setText('hero-suffix', data?.hero?.headline_suffix || 'and costing money.');
+    setText('hero-suffix', data?.hero?.headline_suffix || '');
+    renderHeroPoints(data?.hero?.points || []);
+    const heroHighlight = byId('hero-highlight');
+    if (heroHighlight) {
+      heroHighlight.className = `hero-highlight ${scoreBand(data?.kpis?.health_score)}`;
+    }
 
     setText('kpi-score', formatNumber(data?.kpis?.health_score));
     setText('kpi-records', formatNumber(data?.kpis?.total_records));

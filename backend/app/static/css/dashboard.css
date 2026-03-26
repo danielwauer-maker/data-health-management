@@ -137,6 +137,20 @@ button { font: inherit; }
 .hero-highlight {
   color: var(--red);
 }
+.hero-highlight.critical { color: #ef4444; }
+.hero-highlight.warning { color: #f97316; }
+.hero-highlight.moderate { color: #eab308; }
+.hero-highlight.good { color: #3b82f6; }
+.hero-highlight.excellent { color: #22c55e; }
+
+.hero-points {
+  margin: 14px 0 0;
+  padding-left: 22px;
+  color: #4c566d;
+  font-size: 18px;
+  line-height: 1.55;
+}
+.hero-points li + li { margin-top: 4px; }
 
 .stats-grid {
   display: grid;
@@ -209,8 +223,8 @@ button { font: inherit; }
 .gauge-progress.critical { stroke: #ef4444; }
 .gauge-progress.warning { stroke: #f97316; }
 .gauge-progress.moderate { stroke: #eab308; }
-.gauge-progress.good { stroke: #22c55e; }
-.gauge-progress.excellent { stroke: #3b82f6; }
+.gauge-progress.good { stroke: #3b82f6; }
+.gauge-progress.excellent { stroke: #22c55e; }
 .gauge-score { font-size: 30px; font-weight: 800; fill: var(--text); }
 .gauge-caption { font-size: 12px; fill: var(--muted); }
 

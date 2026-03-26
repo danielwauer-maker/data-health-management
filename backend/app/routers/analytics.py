@@ -288,7 +288,12 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
             "eyebrow": "Insight is free. Action is Premium.",
             "headline_prefix": "Your data health is",
             "headline_highlight": "critical",
-            "headline_suffix": "and requires immediate attention.",
+            "headline_suffix": "",
+            "points": [
+                "Massive data problems",
+                "High financial impact",
+                "Immediate action required",
+            ],
         },
         "kpis": {
             "health_score": 0,
@@ -328,35 +333,56 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
     }
 
 
-def _hero_copy_for_score(score: int) -> dict[str, str]:
+def _hero_copy_for_score(score: int) -> dict[str, Any]:
     if score <= 60:
         return {
             "headline_prefix": "Your data health is",
             "headline_highlight": "critical",
-            "headline_suffix": "and costing money.",
+            "headline_suffix": "",
+            "points": [
+                "Massive data problems",
+                "High financial impact",
+                "Immediate action required",
+            ],
         }
     if score <= 75:
         return {
-            "headline_prefix": "Your data health needs",
-            "headline_highlight": "attention",
-            "headline_suffix": "before process friction gets worse.",
+            "headline_prefix": "Your data health is",
+            "headline_highlight": "warning",
+            "headline_suffix": "",
+            "points": [
+                "Significant quality problems",
+                "Noticeable impact on processes",
+            ],
         }
     if score <= 85:
         return {
-            "headline_prefix": "Your data health score is",
+            "headline_prefix": "Your data health is",
             "headline_highlight": "moderate",
-            "headline_suffix": "with meaningful room for improvement.",
+            "headline_suffix": "",
+            "points": [
+                "Average data quality",
+                "Optimization is advisable",
+            ],
         }
     if score <= 95:
         return {
-            "headline_prefix": "Your data health score is",
+            "headline_prefix": "Your data health is",
             "headline_highlight": "good",
-            "headline_suffix": "with a few improvement opportunities left.",
+            "headline_suffix": "",
+            "points": [
+                "Good data quality",
+                "Only minor problems exist",
+            ],
         }
     return {
-        "headline_prefix": "Your data health score is",
+        "headline_prefix": "Your data health is",
         "headline_highlight": "excellent",
-        "headline_suffix": "with very low operational risk.",
+        "headline_suffix": "",
+        "points": [
+            "Very high data quality",
+            "Hardly any risks or losses",
+        ],
     }
 
 
