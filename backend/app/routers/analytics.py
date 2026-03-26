@@ -224,7 +224,7 @@ def _scan_mode_label(scan_type: str | None, fallback: str | None) -> str:
     normalized = (scan_type or fallback or "").strip().lower()
     if normalized in {"deep", "premium_deep"}:
         return "Premium DeepScan"
-    return "Kostenloser QuickScan"
+    return "Free QuickScan"
 
 
 def _build_profile_cards(scan: Scan) -> list[dict[str, Any]]:
@@ -288,7 +288,7 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
             "eyebrow": "Insight is free. Action is Premium.",
             "headline_prefix": "Your data health is",
             "headline_highlight": "critical",
-            "headline_suffix": "and costing money.",
+            "headline_suffix": "and requires immediate attention.",
         },
         "kpis": {
             "health_score": 0,
@@ -325,6 +325,38 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
             "cta_label": "Upgrade to Premium",
             "plan_note": "Insight is free. Action is Premium.",
         },
+    }
+
+
+def _hero_copy_for_score(score: int) -> dict[str, str]:
+    if score <= 60:
+        return {
+            "headline_prefix": "Your data health is",
+            "headline_highlight": "critical",
+            "headline_suffix": "and costing money.",
+        }
+    if score <= 75:
+        return {
+            "headline_prefix": "Your data health needs",
+            "headline_highlight": "attention",
+            "headline_suffix": "before process friction gets worse.",
+        }
+    if score <= 85:
+        return {
+            "headline_prefix": "Your data health score is",
+            "headline_highlight": "moderate",
+            "headline_suffix": "with meaningful room for improvement.",
+        }
+    if score <= 95:
+        return {
+            "headline_prefix": "Your data health score is",
+            "headline_highlight": "good",
+            "headline_suffix": "with a few improvement opportunities left.",
+        }
+    return {
+        "headline_prefix": "Your data health score is",
+        "headline_highlight": "excellent",
+        "headline_suffix": "with very low operational risk.",
     }
 
 
@@ -414,9 +446,7 @@ def _build_dashboard_payload(
         },
         "hero": {
             "eyebrow": "Insight is free. Action is Premium.",
-            "headline_prefix": "Your data health is",
-            "headline_highlight": "critical" if _safe_int(active_scan.data_score) < 60 else "visible",
-            "headline_suffix": "and costing money.",
+            **_hero_copy_for_score(_safe_int(active_scan.data_score)),
         },
         "kpis": {
             "health_score": _safe_int(active_scan.data_score),

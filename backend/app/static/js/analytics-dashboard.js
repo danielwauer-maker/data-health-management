@@ -5,11 +5,11 @@ function byId(id) {
 }
 
 function formatNumber(value) {
-  return new Intl.NumberFormat('de-DE').format(Number(value || 0));
+  return new Intl.NumberFormat('en-US').format(Number(value || 0));
 }
 
 function formatCurrency(value) {
-  return new Intl.NumberFormat('de-DE', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'EUR',
     maximumFractionDigits: 2,
@@ -47,7 +47,7 @@ function renderGauge(score) {
       <path d="M 36 110 A 74 74 0 0 1 184 110" class="gauge-progress ${severityClass}"
             style="stroke-dasharray:${circumference};stroke-dashoffset:${dashOffset}"></path>
       <text x="110" y="88" text-anchor="middle" class="gauge-score">${formatNumber(safeScore)}</text>
-      <text x="110" y="106" text-anchor="middle" class="gauge-caption">Data Gauge Meter</text>
+      <text x="110" y="106" text-anchor="middle" class="gauge-caption">Data Health Score</text>
     </svg>
   `;
 }
@@ -58,7 +58,7 @@ function renderProfileCards(items) {
   host.innerHTML = '';
 
   if (!Array.isArray(items) || items.length === 0) {
-    host.innerHTML = '<div class="empty-state">Noch keine Profilwerte vorhanden.</div>';
+    host.innerHTML = '<div class="empty-state">No profile values available yet.</div>';
     return;
   }
 
@@ -79,7 +79,7 @@ function renderIssueGroups(items) {
   host.innerHTML = '';
 
   if (!Array.isArray(items) || items.length === 0) {
-    host.innerHTML = '<div class="empty-state">Für diesen Scan wurden keine Findings gruppiert.</div>';
+    host.innerHTML = '<div class="empty-state">No grouped findings are available for this scan.</div>';
     return;
   }
 
@@ -106,7 +106,7 @@ function renderTrend(containerId, items, asCurrency = false) {
   host.innerHTML = '';
 
   if (!Array.isArray(items) || items.length === 0) {
-    host.innerHTML = '<div class="empty-state">Noch keine Trenddaten vorhanden.</div>';
+    host.innerHTML = '<div class="empty-state">No trend data available yet.</div>';
     return;
   }
 
@@ -170,7 +170,7 @@ function renderRecentScans(items) {
   if (!host) return;
 
   if (!Array.isArray(items) || items.length === 0) {
-    host.innerHTML = '<tr><td colspan="5" class="table-empty">Noch keine Scans vorhanden.</td></tr>';
+    host.innerHTML = '<tr><td colspan="5" class="table-empty">No scans available yet.</td></tr>';
     return;
   }
 
@@ -190,7 +190,7 @@ function renderFindings(items, isPremium) {
   if (!host) return;
 
   if (!Array.isArray(items) || items.length === 0) {
-    host.innerHTML = '<tr><td colspan="6" class="table-empty">Für diesen Scan gibt es keine Findings.</td></tr>';
+    host.innerHTML = '<tr><td colspan="6" class="table-empty">No findings are available for this scan.</td></tr>';
     return;
   }
 
@@ -199,10 +199,7 @@ function renderFindings(items, isPremium) {
     const accessLabel = isPremium ? 'Open in BC' : 'Premium';
     return `
       <tr>
-        <td>
-          <strong>${escapeHtml(item?.title)}</strong><br>
-          <span class="muted">${escapeHtml(item?.code)}</span>
-        </td>
+        <td><strong>${escapeHtml(item?.title)}</strong></td>
         <td>${escapeHtml(item?.group)}</td>
         <td><span class="severity severity-${escapeHtml(item?.severity)}">${escapeHtml(String(item?.severity || '').toUpperCase())}</span></td>
         <td>${formatNumber(item?.count)}</td>
@@ -219,7 +216,7 @@ function renderPremiumPreview(items) {
   host.innerHTML = '';
 
   if (!Array.isArray(items) || items.length === 0) {
-    host.innerHTML = '<div class="empty-state">Premium preview wird nach dem nächsten Scan angezeigt.</div>';
+    host.innerHTML = '<div class="empty-state">The Premium preview will appear after the next scan.</div>';
     return;
   }
 
@@ -305,7 +302,7 @@ async function loadDashboard(scanId = null) {
   try {
     const response = await fetch(url.toString());
     if (!response.ok) {
-      setText('page-subtitle', 'Dashboard konnte nicht geladen werden.');
+      setText('page-subtitle', 'The dashboard could not be loaded.');
       return;
     }
 
@@ -314,7 +311,7 @@ async function loadDashboard(scanId = null) {
 
     setText('page-title', data?.title || 'BCSentinel Analytics');
     setText('page-subtitle', data?.subtitle || '');
-    setText('last-updated', `Letzte Aktualisierung: ${data?.last_updated || '—'}`);
+    setText('last-updated', `Last updated: ${data?.last_updated || '—'}`);
     setText('hero-eyebrow', data?.hero?.eyebrow || 'Insight is free. Action is Premium.');
     setText('hero-prefix', data?.hero?.headline_prefix || 'Your data health is');
     setText('hero-highlight', data?.hero?.headline_highlight || 'critical');
@@ -341,7 +338,7 @@ async function loadDashboard(scanId = null) {
     applyPlanState(data?.current_plan, data?.visibility);
   } catch (error) {
     console.error('loadDashboard failed:', error);
-    setText('page-subtitle', 'Dashboard konnte nicht geladen werden.');
+    setText('page-subtitle', 'The dashboard could not be loaded.');
   }
 }
 

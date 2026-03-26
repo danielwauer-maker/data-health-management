@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,17 +9,18 @@
 <body data-token="{{ token }}" class="dashboard-body">
   <main class="page-shell">
     <header class="topbar">
-      <div>
-        <h1 id="page-title">BCSentinel Analytics</h1>
+      <div class="topbar-left">
+        <div class="title-row">
+          <h1 id="page-title">BCSentinel Analytics</h1>
+          </div>
         <p id="page-subtitle" class="page-subtitle">Loading...</p>
       </div>
       <div class="topbar-right">
         <nav class="topnav" aria-label="Dashboard sections">
           <button type="button" class="topnav-link is-active" data-tab="overview">Overview</button>
-          <button type="button" class="topnav-link" data-tab="subscription">Abo</button>
+          <button type="button" class="topnav-link" data-tab="subscription">Subscription</button>
         </nav>
-        <span id="current-plan-badge" class="plan-badge">Free</span>
-        <span id="last-updated" class="pill muted-pill">Letzte Aktualisierung: —</span>
+        <span id="last-updated" class="pill muted-pill">Last updated: —</span>
       </div>
     </header>
 
@@ -48,25 +49,25 @@
         </article>
 
         <article class="stat-card panel">
-          <div class="stat-label">Anzahl gescannter Datensätze</div>
+          <div class="stat-label">Scanned records</div>
           <div class="stat-value" id="kpi-records">0</div>
-          <div class="stat-helper">Gesamtvolumen für Pricing &amp; Scopes</div>
+          <div class="stat-helper">Total volume used for pricing and scope</div>
         </article>
 
         <article class="stat-card panel">
-          <div class="stat-label">Anzahl fehlerhafter Datensätze</div>
+          <div class="stat-label">Affected records</div>
           <div class="stat-value" id="kpi-affected-records">0</div>
-          <div class="stat-helper">Datensätze Handlungsempfehlung</div>
+          <div class="stat-helper">Records with action potential</div>
         </article>
 
         <article class="stat-card panel accent-red">
-          <div class="stat-label">Potenzieller Verlust</div>
+          <div class="stat-label">Estimated annual loss</div>
           <div class="stat-value loss-value" id="kpi-loss">0 €</div>
           <div class="stat-helper">Monetarisierter Impact</div>
         </article>
 
         <article class="stat-card panel compact-stat">
-          <div class="stat-label">Different Checks</div>
+          <div class="stat-label">Checks run</div>
           <div class="stat-value" id="kpi-checks">0</div>
           <div class="stat-helper">Depth of this scan</div>
         </article>
@@ -78,7 +79,7 @@
         </article>
 
         <article class="stat-card panel compact-stat">
-          <div class="stat-label">Premium / Monat</div>
+          <div class="stat-label">Premium / month</div>
           <div class="stat-value" id="kpi-price">0 €</div>
           <div class="stat-helper">Current premium price</div>
         </article>
@@ -94,14 +95,14 @@
         <article class="panel" id="profile-grid">
           <div class="panel-header">
             <h3>Data Profile</h3>
-            <span class="muted">relevante Datensätze</span>
+            <span class="muted">Relevant records</span>
           </div>
           <div class="mini-grid" id="profile-cards"></div>
         </article>
 
         <article class="panel" id="issue-group-panel">
           <div class="panel-header">
-            <h3>Issues nach Bereich</h3>
+            <h3>Issues by area</h3>
             <span class="muted">Affected counts</span>
           </div>
           <div id="issue-groups" class="progress-list"></div>
@@ -112,12 +113,12 @@
         <article class="panel" id="scan-table-panel">
           <div class="panel-header">
             <h3>Recent Scans</h3>
-            <span class="muted">Klick lädt den jeweiligen Scan</span>
+            <span class="muted">Click a scan to load it</span>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>Datum</th><th>Typ</th><th>Score</th><th>Issues</th><th>Headline</th></tr>
+                <tr><th>Date</th><th>Type</th><th>Score</th><th>Issues</th><th>Headline</th></tr>
               </thead>
               <tbody id="recent-scans-body"></tbody>
             </table>
@@ -174,7 +175,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Issue</th><th>Bereich</th><th>Severity</th><th>Anzahl</th><th>Impact</th><th>Access</th></tr>
+              <tr><th>Issue</th><th>Area</th><th>Severity</th><th>Count</th><th>Impact</th><th>Access</th></tr>
             </thead>
             <tbody id="findings-body"></tbody>
           </table>
@@ -185,22 +186,22 @@
     <section id="subscription-tab" class="tab-panel hidden">
       <article class="panel subscription-panel">
         <div class="panel-header">
-          <h3>Abo</h3>
+          <h3>Subscription</h3>
           <span id="subscription-plan-badge" class="plan-badge">Free</span>
         </div>
         <div class="subscription-grid">
           <div class="subscription-card">
-            <div class="stat-label">Aktueller Plan</div>
+            <div class="stat-label">Current plan</div>
             <div id="subscription-plan" class="subscription-value">Free</div>
             <div id="subscription-note" class="stat-helper"></div>
           </div>
           <div class="subscription-card">
-            <div class="stat-label">Monatlicher Preis</div>
+            <div class="stat-label">Monthly price</div>
             <div id="subscription-price" class="subscription-value">0 €</div>
             <div class="stat-helper">Current plan price</div>
           </div>
           <div class="subscription-card">
-            <div class="stat-label">Jahreskosten</div>
+            <div class="stat-label">Annual cost</div>
             <div id="subscription-annual" class="subscription-value">0 €</div>
             <div class="stat-helper">12 months projection</div>
           </div>

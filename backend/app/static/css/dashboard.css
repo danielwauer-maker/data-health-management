@@ -43,9 +43,22 @@ button { font: inherit; }
 }
 
 .page-subtitle {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.topbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .topbar-right {
@@ -83,6 +96,7 @@ button { font: inherit; }
 }
 
 .plan-badge {
+  align-self: center;
   background: #f6b089;
   color: #fff;
   padding: 8px 14px;
@@ -192,9 +206,11 @@ button { font: inherit; }
 .gauge-svg { width: 100%; height: auto; display: block; }
 .gauge-track { fill: none; stroke: #edf1f7; stroke-width: 18; stroke-linecap: round; }
 .gauge-progress { fill: none; stroke: var(--primary); stroke-width: 18; stroke-linecap: round; }
-.gauge-progress.low { stroke: var(--red); }
-.gauge-progress.medium { stroke: #f59e0b; }
-.gauge-progress.high { stroke: var(--green); }
+.gauge-progress.critical { stroke: #ef4444; }
+.gauge-progress.warning { stroke: #f97316; }
+.gauge-progress.moderate { stroke: #eab308; }
+.gauge-progress.good { stroke: #22c55e; }
+.gauge-progress.excellent { stroke: #3b82f6; }
 .gauge-score { font-size: 30px; font-weight: 800; fill: var(--text); }
 .gauge-caption { font-size: 12px; fill: var(--muted); }
 
