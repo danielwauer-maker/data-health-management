@@ -402,15 +402,25 @@ def _build_dashboard_payload(
 
     active_scan = _select_active_scan(recent_scans_desc, selected_scan_id)
     issues = _load_scan_issues(active_scan.scan_id)
+
+    
     current_plan = _normalize_plan(getattr(tenant, "current_plan", "free"))
     is_premium = current_plan == "premium"
+
     premium_price_monthly = round(
         max(_safe_float(active_scan.estimated_premium_price_monthly), 149.0),
         2,
     )
-    current_plan_price_monthly = premium_price_monthly if not is_premium else _get_current_plan_price_monthly(tenant, active_scan) or premium_price_monthly
+
+    current_plan_price_monthly = _get_current_plan_price_monthly(tenant, active_scan)
+    if current_plan == "free":
+        current_plan_price_monthly = 0.0
+    elif current_plan_price_monthly <= 0:
+        current_plan_price_monthly = premium_price_monthly
+
     potential_saving_eur = round(_safe_float(active_scan.potential_saving_eur), 2)
-    current_roi = round(potential_saving_eur - (premium_price_monthly * 12), 2)
+    current_roi = round(potential_saving_eur - (current_plan_price_monthly * 12), 2)
+
     affected_records = sum(_safe_int(issue.affected_count) for issue in issues)
 
     issue_groups: dict[str, int] = {}
@@ -475,15 +485,15 @@ def _build_dashboard_payload(
             **_hero_copy_for_score(_safe_int(active_scan.data_score)),
         },
         "kpis": {
-            "health_score": _safe_int(active_scan.data_score),
-            "total_records": _safe_int(active_scan.total_records),
-            "affected_records": affected_records,
-            "estimated_premium_price_monthly": premium_price_monthly,
-            "estimated_loss_eur": round(_safe_float(active_scan.estimated_loss_eur), 2),
-            "potential_saving_eur": potential_saving_eur,
-            "roi_eur": current_roi,
-            "checks_run": _safe_int(active_scan.checks_count),
-            "issues_count": _safe_int(active_scan.issues_count),
+        "health_score": _safe_int(active_scan.data_score),
+        "total_records": _safe_int(active_scan.total_records),
+        "affected_records": affected_records,
+        "estimated_premium_price_monthly": current_plan_price_monthly,
+        "estimated_loss_eur": round(_safe_float(active_scan.estimated_loss_eur), 2),
+        "potential_saving_eur": potential_saving_eur,
+        "roi_eur": current_roi,
+        "checks_run": _safe_int(active_scan.checks_count),
+        "issues_count": _safe_int(active_scan.issues_count),
         },
         "profile_cards": _build_profile_cards(active_scan),
         "recent_scans": recent_scans_payload,
