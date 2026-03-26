@@ -12,8 +12,9 @@
       <div class="brand">BCSentinel</div>
       <div class="nav-section-label">Analytics</div>
       <nav class="nav-list">
-        <a class="nav-item active" href="#">Overview</a>
+        <a class="nav-item active" href="#overview-hero">Overview</a>
         <a class="nav-item" href="#profile-grid">Data Profile</a>
+        <a class="nav-item" href="#trend-panels">Trend</a>
         <a class="nav-item" href="#scan-table">Recent Scans</a>
         <a class="nav-item" href="#findings-table">Top Findings</a>
       </nav>
@@ -25,40 +26,80 @@
           <p id="page-subtitle" class="muted">Loading...</p>
         </div>
         <div class="header-badges">
+          <span id="license-plan-badge" class="pill">Free</span>
           <span id="scan-mode-badge" class="pill">QuickScan</span>
           <span id="last-updated" class="pill muted-pill">Letzte Aktualisierung: —</span>
         </div>
       </header>
 
+      <section class="hero-grid" id="overview-hero">
+        <article class="hero-card hero-main">
+          <div class="hero-eyebrow" id="hero-eyebrow">Insight is free. Action is Premium.</div>
+          <h2 id="hero-title">Your data is costing money.</h2>
+          <p id="hero-subtitle" class="hero-copy"></p>
+          <div class="hero-actions">
+            <button type="button" class="cta-button" id="hero-cta-button">Unlock Premium</button>
+            <div class="cta-meta">
+              <div class="cta-meta-title" id="hero-cta-title"></div>
+              <div class="cta-meta-body" id="hero-cta-body"></div>
+            </div>
+          </div>
+        </article>
+        <article class="hero-card hero-side">
+          <div class="hero-side-title">Sales argument</div>
+          <div class="hero-side-highlight" id="hero-highlight-title"></div>
+          <p class="hero-side-copy" id="hero-highlight-body"></p>
+          <div class="hero-side-price" id="hero-price-hint"></div>
+        </article>
+      </section>
+
       <section class="stats-grid" id="stats-grid">
         <article class="stat-card emphasis">
           <div class="stat-label">Data Health Score</div>
           <div class="stat-value" id="kpi-score">0</div>
-          <div class="stat-helper"></div>
+          <div class="stat-helper">Overall data quality rating</div>
         </article>
         <article class="stat-card">
           <div class="stat-label">Datensätze</div>
           <div class="stat-value" id="kpi-records">0</div>
           <div class="stat-helper">Gesamtvolumen für Pricing &amp; Scopes</div>
         </article>
-        <article class="stat-card accent-blue">
-          <div class="stat-label">Premium / Monat</div>
-          <div class="stat-value" id="kpi-price">0 €</div>
-          <div class="stat-helper">Konfigurierter Zielpreis</div>
-        </article>
         <article class="stat-card accent-red">
           <div class="stat-label">Potenzieller Verlust</div>
           <div class="stat-value" id="kpi-loss">0 €</div>
           <div class="stat-helper">Monetarisierter Impact</div>
         </article>
-        <article class="stat-card accent-green">
-          <div class="stat-label">ROI</div>
+        <article class="stat-card accent-blue" id="price-card">
+          <div class="stat-label" id="price-card-label">Premium / Monat</div>
+          <div class="stat-value" id="kpi-price">0 €</div>
+          <div class="stat-helper" id="price-card-helper">Unlock action, records, and recommendations</div>
+        </article>
+        <article class="stat-card accent-green" id="roi-card">
+          <div class="stat-label" id="roi-card-label">ROI</div>
           <div class="stat-value" id="kpi-roi">0 €</div>
-          <div class="stat-helper">Potenzial minus Jahreskosten</div>
+          <div class="stat-helper" id="roi-card-helper">Potential minus annual cost</div>
+        </article>
+        <article class="stat-card accent-soft">
+          <div class="stat-label">Checks Run</div>
+          <div class="stat-value" id="kpi-checks">0</div>
+          <div class="stat-helper">Breadth of this scan</div>
+        </article>
+        <article class="stat-card accent-soft">
+          <div class="stat-label">Issues Found</div>
+          <div class="stat-value" id="kpi-issues">0</div>
+          <div class="stat-helper">Detected issue types</div>
         </article>
       </section>
 
-      <section class="content-grid">
+      <section class="upgrade-band" id="upgrade-band" hidden>
+        <div>
+          <div class="upgrade-band-title">You can already see the risk. Premium shows the path to fix it.</div>
+          <div class="upgrade-band-copy">Unlock affected records, issue recommendations, prioritization by impact, and direct action in Business Central.</div>
+        </div>
+        <button type="button" class="cta-button alt">Upgrade to Premium</button>
+      </section>
+
+      <section class="content-grid" id="trend-panels">
         <article class="panel panel-large" id="profile-grid">
           <div class="panel-header">
             <h2>Data Profile</h2>
@@ -70,9 +111,25 @@
         <article class="panel">
           <div class="panel-header">
             <h2>Score Trend</h2>
-            <span class="muted"></span>
+            <span class="muted">History of selected scans</span>
           </div>
           <div id="trend-chart" class="trend-chart"></div>
+        </article>
+
+        <article class="panel panel-large">
+          <div class="panel-header">
+            <h2>Loss Trend</h2>
+            <span class="muted">Estimated annual impact</span>
+          </div>
+          <div id="loss-trend-chart" class="trend-chart"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Issues nach Bereich</h2>
+            <span class="muted">Affected counts</span>
+          </div>
+          <div id="issue-groups" class="progress-list"></div>
         </article>
 
         <article class="panel panel-large" id="scan-table">
@@ -90,28 +147,32 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article class="panel premium-teaser-panel" id="benefits-panel">
           <div class="panel-header">
-            <h2>Issues nach Bereich</h2>
-            <span class="muted"></span>
+            <h2>Premium unlocks</h2>
+            <span class="muted">Sales conversion block</span>
           </div>
-          <div id="issue-groups" class="progress-list"></div>
+          <ul class="benefit-list" id="premium-benefits"></ul>
         </article>
+      </section>
 
+      <section class="content-grid findings-grid">
         <article class="panel panel-large" id="findings-table">
           <div class="panel-header">
             <h2>Top Findings</h2>
-            <span class="muted"></span>
+            <span class="muted" id="findings-subtitle">Visible in Free, actionable in Premium</span>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
-                <tr><th>Code</th><th>Titel</th><th>Bereich</th><th>Severity</th><th>Anzahl</th><th>Impact</th></tr>
+                <tr><th>Issue</th><th>Bereich</th><th>Severity</th><th>Anzahl</th><th>Impact</th><th>Access</th></tr>
               </thead>
               <tbody id="findings-body"></tbody>
             </table>
           </div>
         </article>
+
+        <div class="locked-panel-stack" id="locked-panel-stack"></div>
       </section>
     </main>
   </div>

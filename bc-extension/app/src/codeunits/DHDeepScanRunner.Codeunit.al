@@ -35,7 +35,7 @@ codeunit 53128 "DH Deep Scan Runner"
         RunChecks(DeepScanRun, Score, ChecksCount, IssuesCount);
 
         DeepScanRun.Get(DeepScanRun."Entry No.");
-        RecalculateCostSummary(DeepScanRun);
+        ClearDeepScanCommercials(DeepScanRun);
         DeepScanRun."Deep Score" := Score;
         DeepScanRun."Checks Count" := ChecksCount;
         DeepScanRun."Issues Count" := IssuesCount;
@@ -52,6 +52,7 @@ codeunit 53128 "DH Deep Scan Runner"
             RequestText := BuildSyncPayload(Setup, DeepScanRun);
             SyncResponseText := ApiClient.SyncScanToBackendAndGetResponse(Setup, RequestText);
             ApplySyncCommercials(DeepScanRun, SyncResponseText);
+            ApplySyncFindingImpacts(DeepScanRun, SyncResponseText);
         end;
     end;
 
@@ -937,13 +938,75 @@ codeunit 53128 "DH Deep Scan Runner"
         ScanHeader."Est. Loss" := DeepScanRun."Estimated Loss (EUR)";
         ScanHeader."Potential Saving" := DeepScanRun."Potential Saving (EUR)";
 
-        if CommercialsObj.Get('estimated_premium_price_monthly', Token) then
-            ScanHeader."Est. Premium Price" := ReadJsonDecimal(Token);
+        if CommercialsObj.Get('premium_price_per_month', Token) then
+            ScanHeader."Est. Premium Price" := ReadJsonDecimal(Token)
+        else
+            if CommercialsObj.Get('estimated_premium_price_monthly', Token) then
+                ScanHeader."Est. Premium Price" := ReadJsonDecimal(Token);
 
         if CommercialsObj.Get('roi_eur', Token) then
             ScanHeader."ROI" := ReadJsonDecimal(Token);
 
         ScanHeader.Modify(true);
+    end;
+
+    local procedure ApplySyncFindingImpacts(var DeepScanRun: Record "DH Deep Scan Run"; SyncResponseText: Text)
+    var
+        JsonObj: JsonObject;
+        IssuesToken: JsonToken;
+        IssuesArray: JsonArray;
+        IssueToken: JsonToken;
+        IssueObj: JsonObject;
+        Finding: Record "DH Deep Scan Finding";
+        i: Integer;
+        CodeTxt: Text;
+    begin
+        if SyncResponseText = '' then
+            exit;
+
+        if not JsonObj.ReadFrom(SyncResponseText) then
+            exit;
+
+        if not JsonObj.Get('issues', IssuesToken) then
+            exit;
+
+        IssuesArray := IssuesToken.AsArray();
+
+        for i := 0 to IssuesArray.Count() - 1 do begin
+            IssuesArray.Get(i, IssueToken);
+            IssueObj := IssueToken.AsObject();
+            CodeTxt := GetJsonText(IssueObj, 'code');
+
+            Finding.Reset();
+            Finding.SetRange("Deep Scan Entry No.", DeepScanRun."Entry No.");
+            Finding.SetRange("Issue Code", CopyStr(CodeTxt, 1, MaxStrLen(Finding."Issue Code")));
+            if Finding.FindFirst() then begin
+                Finding."Estimated Impact (EUR)" := ReadJsonDecimalFromObject(IssueObj, 'estimated_impact_eur');
+                Finding.Modify(true);
+            end;
+        end;
+    end;
+
+    local procedure GetJsonText(var JsonObj: JsonObject; FieldName: Text): Text
+    var
+        Token: JsonToken;
+    begin
+        if JsonObj.Get(FieldName, Token) then
+            if not IsJsonNull(Token) then
+                exit(Token.AsValue().AsText());
+
+        exit('');
+    end;
+
+    local procedure ReadJsonDecimalFromObject(var JsonObj: JsonObject; FieldName: Text): Decimal
+    var
+        Token: JsonToken;
+    begin
+        if JsonObj.Get(FieldName, Token) then
+            if not IsJsonNull(Token) then
+                exit(ReadJsonDecimal(Token));
+
+        exit(0);
     end;
 
     local procedure ReadJsonDecimal(Token: JsonToken): Decimal
@@ -954,9 +1017,32 @@ codeunit 53128 "DH Deep Scan Runner"
         if IsJsonNull(Token) then
             exit(0);
 
-        ValueText := Token.AsValue().AsText();
+        ValueText := DelChr(Token.AsValue().AsText(), '=', ' ');
+        if ValueText = '' then
+            exit(0);
+
+        if TryEvaluateDecimal(ValueText, ValueDecimal) then
+            exit(ValueDecimal);
+
+        if (StrPos(ValueText, '.') > 0) and (StrPos(ValueText, ',') = 0) then begin
+            ValueText := ConvertStr(ValueText, '.', ',');
+            if TryEvaluateDecimal(ValueText, ValueDecimal) then
+                exit(ValueDecimal);
+        end;
+
+        if (StrPos(ValueText, '.') > 0) and (StrPos(ValueText, ',') > 0) then begin
+            ValueText := DelChr(ValueText, '=', '.');
+            if TryEvaluateDecimal(ValueText, ValueDecimal) then
+                exit(ValueDecimal);
+        end;
+
+        Error('Could not parse decimal value from backend JSON: %1', Token.AsValue().AsText());
+    end;
+
+    [TryFunction]
+    local procedure TryEvaluateDecimal(ValueText: Text; var ValueDecimal: Decimal)
+    begin
         Evaluate(ValueDecimal, ValueText);
-        exit(ValueDecimal);
     end;
 
     local procedure IsJsonNull(Token: JsonToken): Boolean
@@ -991,8 +1077,6 @@ codeunit 53128 "DH Deep Scan Runner"
         Payload.Add('checks_count', DeepScanRun."Checks Count");
         Payload.Add('issues_count', DeepScanRun."Issues Count");
         Payload.Add('premium_available', true);
-        Payload.Add('estimated_loss_eur', DeepScanRun."Estimated Loss (EUR)");
-        Payload.Add('potential_saving_eur', DeepScanRun."Potential Saving (EUR)");
         Payload.Add('data_profile', DataProfilingMgt.BuildDataProfile());
         Payload.Add('headline', DeepScanRun."Headline");
         Payload.Add('rating', DeepScanRun."Rating");
@@ -1008,7 +1092,6 @@ codeunit 53128 "DH Deep Scan Runner"
                 IssueObject.Add('affected_count', Finding."Affected Count");
                 IssueObject.Add('premium_only', Finding."Premium Only");
                 IssueObject.Add('recommendation_preview', Finding."Recommendation Preview");
-                IssueObject.Add('estimated_impact_eur', Finding."Estimated Impact (EUR)");
                 IssuesArray.Add(IssueObject);
             until Finding.Next() = 0;
 
@@ -1020,7 +1103,6 @@ codeunit 53128 "DH Deep Scan Runner"
     local procedure InsertFinding(DeepScanEntryNo: Integer; Category: Code[30]; IssueCode: Code[50]; Title: Text[150]; Severity: Code[20]; AffectedCount: Integer; RecommendationPreview: Text[250])
     var
         Finding: Record "DH Deep Scan Finding";
-        CostMgt: Codeunit "DH Cost Mgt.";
     begin
         Finding.Init();
         Finding."Entry No." := GetNextFindingEntryNo();
@@ -1034,26 +1116,14 @@ codeunit 53128 "DH Deep Scan Runner"
         Finding."Affected Count Sort Value" := -AffectedCount;
         Finding."Recommendation Preview" := CopyStr(RecommendationPreview, 1, MaxStrLen(Finding."Recommendation Preview"));
         Finding."Premium Only" := true;
-        Finding."Estimated Impact (EUR)" := CostMgt.GetIssueImpact(Finding."Issue Code", Finding."Affected Count");
+        Finding."Estimated Impact (EUR)" := 0;
         Finding.Insert(true);
     end;
 
-    local procedure RecalculateCostSummary(var DeepScanRun: Record "DH Deep Scan Run")
-    var
-        Finding: Record "DH Deep Scan Finding";
-        CostMgt: Codeunit "DH Cost Mgt.";
-        EstimatedLoss: Decimal;
+    local procedure ClearDeepScanCommercials(var DeepScanRun: Record "DH Deep Scan Run")
     begin
-        EstimatedLoss := 0;
-
-        Finding.SetRange("Deep Scan Entry No.", DeepScanRun."Entry No.");
-        if Finding.FindSet() then
-            repeat
-                EstimatedLoss += Finding."Estimated Impact (EUR)";
-            until Finding.Next() = 0;
-
-        DeepScanRun."Estimated Loss (EUR)" := Round(EstimatedLoss, 0.01, '=');
-        DeepScanRun."Potential Saving (EUR)" := CostMgt.CalculatePotentialSaving(EstimatedLoss);
+        DeepScanRun."Estimated Loss (EUR)" := 0;
+        DeepScanRun."Potential Saving (EUR)" := 0;
     end;
 
     local procedure FindingExists(DeepScanEntryNo: Integer; IssueCode: Code[50]; ValueMarker: Text): Boolean

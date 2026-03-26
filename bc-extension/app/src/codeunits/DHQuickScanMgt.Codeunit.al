@@ -29,6 +29,7 @@ codeunit 53123 "DH QuickScan Mgt."
             RequestText := BuildSyncPayload(Setup, Header);
             SyncResponseText := ApiClient.SyncScanToBackendAndGetResponse(Setup, RequestText);
             ApplySyncCommercials(Header, SyncResponseText);
+            ApplySyncIssueImpacts(Header, SyncResponseText);
         end;
 
         exit(EntryNo);
@@ -118,10 +119,6 @@ codeunit 53123 "DH QuickScan Mgt."
         Payload.Add('premium_available', Header."Premium Available");
         Payload.Add('headline', Header."Headline");
         Payload.Add('rating', Header."Rating");
-        Payload.Add('estimated_loss_eur', Header."Est. Loss");
-        Payload.Add('potential_saving_eur', Header."Potential Saving");
-        Payload.Add('estimated_premium_price_monthly', Header."Est. Premium Price");
-        Payload.Add('roi_eur', Header."ROI");
         Payload.Add('data_profile', DataProfilingMgt.BuildDataProfile());
 
         Issue.Reset();
@@ -135,7 +132,6 @@ codeunit 53123 "DH QuickScan Mgt."
                 IssueObject.Add('affected_count', Issue."Affected Count");
                 IssueObject.Add('premium_only', Issue."Premium Only");
                 IssueObject.Add('recommendation_preview', Issue."Recommendation Preview");
-                IssueObject.Add('estimated_impact_eur', Issue."Estimated Impact (EUR)");
                 IssuesArray.Add(IssueObject);
             until Issue.Next() = 0;
 
@@ -198,7 +194,6 @@ codeunit 53123 "DH QuickScan Mgt."
         IssueToken: JsonToken;
         IssueObj: JsonObject;
         Issue: Record "DH Scan Issue";
-        CostMgt: Codeunit "DH Cost Mgt.";
         i: Integer;
     begin
         if not JsonObj.Get('issues', IssuesToken) then
@@ -222,10 +217,6 @@ codeunit 53123 "DH QuickScan Mgt."
             Issue."Recommendation Preview" := CopyStr(GetJsonText(IssueObj, 'recommendation_preview'), 1, MaxStrLen(Issue."Recommendation Preview"));
             ReadIssueFieldBool(IssueObj, 'premium_only', Issue."Premium Only");
             Issue."Estimated Impact (EUR)" := ReadJsonDecimalFromObject(IssueObj, 'estimated_impact_eur');
-
-            if Issue."Estimated Impact (EUR)" <= 0 then
-                Issue."Estimated Impact (EUR)" := CostMgt.GetIssueImpact(Issue."Issue Code", Issue."Affected Count");
-
             Issue.Insert(true);
         end;
     end;
@@ -291,13 +282,53 @@ codeunit 53123 "DH QuickScan Mgt."
             Header."Potential Saving (EUR)" := Header."Potential Saving";
         end;
 
-        if CommercialsObj.Get('estimated_premium_price_monthly', Token) then
-            Header."Est. Premium Price" := ReadJsonDecimal(Token);
+        if CommercialsObj.Get('premium_price_per_month', Token) then
+            Header."Est. Premium Price" := ReadJsonDecimal(Token)
+        else
+            if CommercialsObj.Get('estimated_premium_price_monthly', Token) then
+                Header."Est. Premium Price" := ReadJsonDecimal(Token);
 
         if CommercialsObj.Get('roi_eur', Token) then
             Header."ROI" := ReadJsonDecimal(Token);
 
         Header.Modify(true);
+    end;
+
+    local procedure ApplySyncIssueImpacts(var Header: Record "DH Scan Header"; SyncResponseText: Text)
+    var
+        JsonObj: JsonObject;
+        IssuesToken: JsonToken;
+        IssuesArray: JsonArray;
+        IssueToken: JsonToken;
+        IssueObj: JsonObject;
+        Issue: Record "DH Scan Issue";
+        i: Integer;
+        CodeTxt: Text;
+    begin
+        if SyncResponseText = '' then
+            exit;
+
+        if not JsonObj.ReadFrom(SyncResponseText) then
+            exit;
+
+        if not JsonObj.Get('issues', IssuesToken) then
+            exit;
+
+        IssuesArray := IssuesToken.AsArray();
+
+        for i := 0 to IssuesArray.Count() - 1 do begin
+            IssuesArray.Get(i, IssueToken);
+            IssueObj := IssueToken.AsObject();
+            CodeTxt := GetJsonText(IssueObj, 'code');
+
+            Issue.Reset();
+            Issue.SetRange("Scan Entry No.", Header."Entry No.");
+            Issue.SetRange("Issue Code", CopyStr(CodeTxt, 1, MaxStrLen(Issue."Issue Code")));
+            if Issue.FindFirst() then begin
+                Issue."Estimated Impact (EUR)" := ReadJsonDecimalFromObject(IssueObj, 'estimated_impact_eur');
+                Issue.Modify(true);
+            end;
+        end;
     end;
 
     local procedure ReadJsonDecimalFromObject(var JsonObj: JsonObject; FieldName: Text): Decimal
@@ -318,9 +349,33 @@ codeunit 53123 "DH QuickScan Mgt."
     begin
         if IsJsonNull(Token) then
             exit(0);
-        ValueText := Token.AsValue().AsText();
+
+        ValueText := DelChr(Token.AsValue().AsText(), '=', ' ');
+        if ValueText = '' then
+            exit(0);
+
+        if TryEvaluateDecimal(ValueText, ValueDecimal) then
+            exit(ValueDecimal);
+
+        if (StrPos(ValueText, '.') > 0) and (StrPos(ValueText, ',') = 0) then begin
+            ValueText := ConvertStr(ValueText, '.', ',');
+            if TryEvaluateDecimal(ValueText, ValueDecimal) then
+                exit(ValueDecimal);
+        end;
+
+        if (StrPos(ValueText, '.') > 0) and (StrPos(ValueText, ',') > 0) then begin
+            ValueText := DelChr(ValueText, '=', '.');
+            if TryEvaluateDecimal(ValueText, ValueDecimal) then
+                exit(ValueDecimal);
+        end;
+
+        Error('Could not parse decimal value from backend JSON: %1', Token.AsValue().AsText());
+    end;
+
+    [TryFunction]
+    local procedure TryEvaluateDecimal(ValueText: Text; var ValueDecimal: Decimal)
+    begin
         Evaluate(ValueDecimal, ValueText);
-        exit(ValueDecimal);
     end;
 
     local procedure IsJsonNull(Token: JsonToken): Boolean

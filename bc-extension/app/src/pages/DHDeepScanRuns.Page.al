@@ -56,7 +56,7 @@ page 53130 "DH Deep Scan Runs"
                     ApplicationArea = All;
                 }
 
-                field("Est. Loss"; Rec."Est. Loss")
+                field("Est. Loss"; Rec."Estimated Loss (EUR)")
                 {
                     ApplicationArea = All;
                     Caption = 'Loss €';

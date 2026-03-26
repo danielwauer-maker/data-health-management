@@ -56,7 +56,7 @@ page 53124 "DH Dashboard List"
                     Caption = 'Premium €/Month';
                 }
 
-                field("Est. Loss"; Rec."Est. Loss")
+                field("Est. Loss"; Rec."Estimated Loss (EUR)")
                 {
                     ApplicationArea = All;
                     Caption = 'Loss €';

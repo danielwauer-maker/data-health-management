@@ -37,7 +37,7 @@ page 53127 "DH Key Metrics Part"
                     StyleExpr = PremiumPriceStyle;
                 }
 
-                field(EstimatedLossCue; Rec."Est. Loss")
+                field(EstimatedLossCue; Rec."Estimated Loss (EUR)")
                 {
                     ApplicationArea = All;
                     Caption = 'Potenzieller Verlust';
