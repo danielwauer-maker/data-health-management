@@ -345,7 +345,10 @@ codeunit 53100 "DH API Client"
         Headers.Add('X-Tenant-Id', Setup."Tenant ID");
         Headers.Add('X-Api-Token', Setup."API Token");
 
-        if not Client.Delete(BuildUrl(Setup."API Base URL", '/scan/' + Format(ScanId)), Response) then
+        if not Client.Delete(
+            BuildUrl(Setup."API Base URL", '/scan/' + Setup."Tenant ID" + '/' + Format(ScanId)),
+            Response)
+        then
             Error('The backend delete request could not be sent. Please verify the network connection.');
 
         Response.Content.ReadAs(ResponseText);

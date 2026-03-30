@@ -527,3 +527,42 @@ thead th { color: var(--muted); font-weight: 600; }
     grid-template-columns: 1fr;
   }
 }
+
+
+#scan-table-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+#scan-table-panel .table-wrap {
+  flex: 1 1 auto;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.table-pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.pager-button {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.pager-button:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.pager-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
