@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -339,14 +338,6 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
         },
         "profile_cards": [],
         "recent_scans": [],
-        "recent_scans_pagination": {
-            "page": 1,
-            "page_size": 10,
-            "total_items": 0,
-            "total_pages": 1,
-            "has_prev": False,
-            "has_next": False,
-        },
         "score_trend": [],
         "loss_trend": [],
         "issue_groups": [],
@@ -436,8 +427,6 @@ def _build_dashboard_payload(
     tenant: Tenant | None,
     scan_mode: str | None,
     selected_scan_id: str | None,
-    recent_scans_page: int = 1,
-    recent_scans_page_size: int = 10,
 ) -> dict[str, Any]:
     if tenant is None:
         return _build_fallback_payload(company, environment, scan_mode)
@@ -475,15 +464,6 @@ def _build_dashboard_payload(
         group = _issue_group_from_code(issue.code)
         issue_groups[group] = issue_groups.get(group, 0) + _safe_int(issue.affected_count)
 
-    total_recent_scans = len(recent_scans_desc)
-    page_size = max(1, recent_scans_page_size)
-    total_pages = max(1, math.ceil(total_recent_scans / page_size))
-    current_page = min(max(1, recent_scans_page), total_pages)
-
-    start_index = (current_page - 1) * page_size
-    end_index = start_index + page_size
-    visible_recent_scans = recent_scans_desc[start_index:end_index]
-
     recent_scans_payload = [
         {
             "scan_id": scan.scan_id,
@@ -495,7 +475,7 @@ def _build_dashboard_payload(
             "is_selected": scan.scan_id == active_scan.scan_id,
             "is_valid": _is_valid_dashboard_scan(scan),
         }
-        for scan in visible_recent_scans
+        for scan in recent_scans_desc[:10]
     ]
 
     top_findings = [
@@ -553,14 +533,6 @@ def _build_dashboard_payload(
         },
         "profile_cards": _build_profile_cards(active_scan),
         "recent_scans": recent_scans_payload,
-        "recent_scans_pagination": {
-            "page": current_page,
-            "page_size": page_size,
-            "total_items": total_recent_scans,
-            "total_pages": total_pages,
-            "has_prev": current_page > 1,
-            "has_next": current_page < total_pages,
-        },
         "score_trend": _build_trend_points(recent_scans_desc, active_scan.scan_id, "data_score"),
         "loss_trend": _build_trend_points(recent_scans_desc, active_scan.scan_id, "estimated_loss_eur"),
         "issue_groups": [
@@ -621,8 +593,6 @@ def get_analytics_token(
 def get_analytics_data(
     token: str = Query(...),
     scan_id: str | None = Query(default=None),
-    recent_scans_page: int = Query(default=1, ge=1),
-    recent_scans_page_size: int = Query(default=10, ge=1, le=25),
 ):
     payload = verify_token(token)
     if payload is None:
@@ -636,8 +606,6 @@ def get_analytics_data(
             tenant=tenant,
             scan_mode=payload.get("scan_mode"),
             selected_scan_id=scan_id,
-            recent_scans_page=recent_scans_page,
-            recent_scans_page_size=recent_scans_page_size,
         )
     )
 
