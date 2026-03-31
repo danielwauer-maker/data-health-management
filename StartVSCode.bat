@@ -1,1 +1,0 @@
-runas /user:TRDS\d.wauer "C:\Users\Tardis-Admin\AppData\Local\Programs\Microsoft VS Code\Code.exe
