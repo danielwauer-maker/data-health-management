@@ -466,7 +466,7 @@ def _build_dashboard_payload(
         current_plan_price_monthly = premium_price_monthly
 
     potential_saving_eur = round(_safe_float(active_scan.potential_saving_eur), 2)
-    current_roi = round(potential_saving_eur), 2)
+    current_roi = round((potential_saving_eur), 2)
 
     affected_records = sum(_safe_int(issue.affected_count) for issue in issues)
 
