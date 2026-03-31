@@ -127,6 +127,34 @@ def _infer_category(code: str) -> str:
         return "finance"
     return "general"
 
+def clamp_potential_saving_factor(value: float) -> float:
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        value = DEFAULT_POTENTIAL_SAVING_FACTOR
+
+    if value < 0:
+        return 0.0
+    if value > 1:
+        return 1.0
+    return value
+
+
+def normalize_commercials(
+    estimated_loss_eur: float,
+    potential_saving_factor: float,
+    estimated_premium_price_monthly: float,
+) -> tuple[float, float, float]:
+    estimated_loss_eur = max(0.0, round(float(estimated_loss_eur or 0.0), 2))
+    estimated_premium_price_monthly = max(0.0, round(float(estimated_premium_price_monthly or 0.0), 2))
+
+    factor = clamp_potential_saving_factor(potential_saving_factor)
+    potential_saving_eur = round(estimated_loss_eur * factor, 2)
+    potential_saving_eur = min(potential_saving_eur, estimated_loss_eur)
+
+    roi_eur = round(potential_saving_eur - (estimated_premium_price_monthly * 12), 2)
+    return estimated_loss_eur, potential_saving_eur, roi_eur
+
 
 def _fallback_definition(code: str) -> ImpactDefinition:
     normalized = _normalize_code(code)
@@ -187,8 +215,8 @@ def get_hourly_rate_eur(db) -> float:
 def get_potential_saving_factor(db) -> float:
     row = db.get(ImpactSettingsConfig, "potential_saving_factor")
     if row is None:
-        return DEFAULT_POTENTIAL_SAVING_FACTOR
-    return float(row.value_number or DEFAULT_POTENTIAL_SAVING_FACTOR)
+        return clamp_potential_saving_factor(DEFAULT_POTENTIAL_SAVING_FACTOR)
+    return clamp_potential_saving_factor(float(row.value_number or DEFAULT_POTENTIAL_SAVING_FACTOR))
 
 
 def get_impact_definition(db, issue_code: str) -> ImpactDefinition:

@@ -27,6 +27,7 @@ from app.services.cost_service import ensure_default_issue_costs
 from app.services.impact_service import ensure_default_impact_config
 from app.services.pricing_service import calculate_monthly_price, ensure_default_license_pricing, get_license_pricing
 from app.services.scoring_service import calculate_quick_scan_result
+from app.services.impact_service import normalize_commercials
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -163,8 +164,11 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
 
         pricing = get_license_pricing(db, "premium")
         estimated_premium_price_monthly = calculate_monthly_price(total_records, pricing)
-        potential_saving_eur = round(estimated_loss_eur * get_potential_saving_factor(db), 2)
-        roi_eur = round(potential_saving_eur - (estimated_premium_price_monthly * 12), 2)
+        estimated_loss_eur, potential_saving_eur, roi_eur = normalize_commercials(
+        estimated_loss_eur=estimated_loss_eur,
+        potential_saving_factor=get_potential_saving_factor(db),
+        estimated_premium_price_monthly=estimated_premium_price_monthly,
+        )
 
         existing_scan = db.scalar(select(Scan).where(Scan.scan_id == scan_id))
 

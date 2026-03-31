@@ -13,6 +13,7 @@ from app.db import SessionLocal
 from app.models import Scan, ScanIssueRecord, Tenant
 from app.services.impact_service import calculate_issue_impacts, get_potential_saving_factor
 from app.services.pricing_service import calculate_monthly_price, get_license_pricing
+from app.services.impact_service import normalize_commercials
 
 router = APIRouter(tags=["scans"])
 
@@ -129,13 +130,15 @@ def _calculate_commercials(payload: ScanSyncPayload, db) -> tuple[int, float, fl
     if supplied_loss > 0 and not recalculated_issues:
         estimated_loss = supplied_loss
 
-    potential_saving = round(estimated_loss * get_potential_saving_factor(db), 2)
-
     premium_price = _safe_float(payload.estimated_premium_price_monthly)
     if premium_price <= 0:
         premium_price = round(calculate_monthly_price(total_records, pricing), 2)
 
-    roi = round(potential_saving - (premium_price * 12), 2)
+    estimated_loss, potential_saving, roi = normalize_commercials(
+    estimated_loss_eur=estimated_loss,
+    potential_saving_factor=get_potential_saving_factor(db),
+    estimated_premium_price_monthly=premium_price,
+    )
 
     return total_records, estimated_loss, potential_saving, premium_price, roi, recalculated_issues
 
