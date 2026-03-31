@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-import hmac
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.models import Scan, ScanIssueRecord, Tenant
+from app.models import Scan, ScanIssueRecord
+from app.security.tenant import (
+    enforce_tenant_match,
+    load_authenticated_tenant,
+    require_tenant_headers,
+)
 from app.services.impact_service import calculate_scan_commercials
 
 router = APIRouter(tags=["scans"])
@@ -94,29 +98,6 @@ def _normalize_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _validate_sync_headers(
-    payload_tenant_id: str,
-    header_tenant_id: str | None,
-    header_api_token: str | None,
-) -> None:
-    if not header_tenant_id or not header_api_token:
-        raise HTTPException(status_code=401, detail="Missing tenant authentication headers.")
-
-    if payload_tenant_id != header_tenant_id:
-        raise HTTPException(status_code=400, detail="Payload tenant_id does not match X-Tenant-Id header.")
-
-
-def _load_tenant_for_sync(db, tenant_id: str, api_token: str) -> Tenant:
-    tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
-    if tenant is None:
-        raise HTTPException(status_code=404, detail="Tenant not found.")
-
-    if not hmac.compare_digest(tenant.api_token or "", api_token):
-        raise HTTPException(status_code=403, detail="Invalid API token.")
-
-    return tenant
-
-
 def _calculate_commercials(payload: ScanSyncPayload, db) -> tuple[int, float, float, float, float, list[dict[str, object]]]:
     commercials = calculate_scan_commercials(
         db,
@@ -139,13 +120,13 @@ def _calculate_commercials(payload: ScanSyncPayload, db) -> tuple[int, float, fl
 @router.post("/scan/sync")
 def sync_scan(
     payload: ScanSyncPayload,
-    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
-    x_api_token: str | None = Header(default=None, alias="X-Api-Token"),
+    tenant_auth: tuple[str, str] = Depends(require_tenant_headers),
 ):
-    _validate_sync_headers(payload.tenant_id, x_tenant_id, x_api_token)
+    header_tenant_id, header_api_token = tenant_auth
+    enforce_tenant_match(payload.tenant_id, header_tenant_id, "Payload tenant_id")
 
     with SessionLocal() as db:
-        tenant = _load_tenant_for_sync(db, payload.tenant_id, x_api_token or "")
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
         total_records, estimated_loss, potential_saving, premium_price, roi, recalculated_issues = _calculate_commercials(payload, db)
 
         existing_scan = db.scalar(select(Scan).where(Scan.scan_id == payload.scan_id))
@@ -243,15 +224,15 @@ def sync_scan(
 @router.post("/scan/reconcile")
 def reconcile_scans(
     payload: ScanReconcilePayload,
-    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
-    x_api_token: str | None = Header(default=None, alias="X-Api-Token"),
+    tenant_auth: tuple[str, str] = Depends(require_tenant_headers),
 ):
-    _validate_sync_headers(payload.tenant_id, x_tenant_id, x_api_token)
+    header_tenant_id, header_api_token = tenant_auth
+    enforce_tenant_match(payload.tenant_id, header_tenant_id, "Payload tenant_id")
 
     keep_ids = {scan_id.strip() for scan_id in payload.scan_ids if scan_id and scan_id.strip()}
 
     with SessionLocal() as db:
-        _load_tenant_for_sync(db, payload.tenant_id, x_api_token or "")
+        load_authenticated_tenant(db, header_tenant_id, header_api_token)
 
         scans = db.scalars(select(Scan).where(Scan.tenant_id == payload.tenant_id)).all()
         deleted_ids: list[str] = []
@@ -278,13 +259,13 @@ def reconcile_scans(
 def delete_scan(
     tenant_id: str,
     scan_id: str,
-    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
-    x_api_token: str | None = Header(default=None, alias="X-Api-Token"),
+    tenant_auth: tuple[str, str] = Depends(require_tenant_headers),
 ):
-    _validate_sync_headers(tenant_id, x_tenant_id, x_api_token)
+    header_tenant_id, header_api_token = tenant_auth
+    enforce_tenant_match(tenant_id, header_tenant_id, "Path tenant_id")
 
     with SessionLocal() as db:
-        _load_tenant_for_sync(db, tenant_id, x_api_token or "")
+        load_authenticated_tenant(db, header_tenant_id, header_api_token)
         scan = db.scalar(select(Scan).where(Scan.tenant_id == tenant_id, Scan.scan_id == scan_id))
 
         if scan is None:

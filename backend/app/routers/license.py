@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
-
 from app.db import SessionLocal
-from app.models import Tenant
+from app.security.tenant import load_authenticated_tenant, require_tenant_headers
 
 router = APIRouter(tags=["license"])
 
@@ -38,19 +37,12 @@ def build_features(plan: str, license_status: str) -> list[str]:
 
 @router.get("/license/status", response_model=LicenseStatusResponse)
 def get_license_status(
-    x_tenant_id: str = Header(..., alias="X-Tenant-Id"),
-    x_api_token: str = Header(..., alias="X-Api-Token"),
+    tenant_auth: tuple[str, str] = Depends(require_tenant_headers),
 ) -> LicenseStatusResponse:
+    header_tenant_id, header_api_token = tenant_auth
+
     with SessionLocal() as db:
-        tenant = db.scalar(
-            select(Tenant).where(Tenant.tenant_id == x_tenant_id)
-        )
-
-        if tenant is None:
-            raise HTTPException(status_code=404, detail="Tenant not found.")
-
-        if tenant.api_token != x_api_token:
-            raise HTTPException(status_code=401, detail="Invalid API token.")
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
 
         normalized_plan = (tenant.current_plan or "free").lower()
         if normalized_plan not in {"free", "premium"}:

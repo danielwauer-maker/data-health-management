@@ -5,13 +5,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.models import Scan, ScanIssueRecord, Tenant
+from app.security.tenant import (
+    enforce_tenant_match,
+    load_authenticated_tenant,
+    require_tenant_headers,
+)
 from app.security.token import create_token, verify_token
 from app.services.pricing_service import calculate_monthly_price, get_license_pricing
 
@@ -92,20 +97,9 @@ def _issue_recommendation(issue: ScanIssueRecord) -> str:
     return "Review the affected records and resolve the underlying setup issue in Business Central."
 
 
-def _load_tenant(tenant_id: str | None, environment: str | None) -> Tenant | None:
+def _load_tenant_by_id(tenant_id: str) -> Tenant | None:
     with SessionLocal() as db:
-        if tenant_id:
-            tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
-            if tenant is not None:
-                return tenant
-
-        tenants = db.scalars(select(Tenant).order_by(Tenant.created_at_utc.desc())).all()
-        if environment:
-            for tenant in tenants:
-                if tenant.environment_name == environment:
-                    return tenant
-
-        return tenants[0] if tenants else None
+        return db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
 
 
 def _load_recent_scans_desc(tenant_id: str, limit: int = 20) -> list[Scan]:
@@ -271,8 +265,6 @@ def _get_current_plan_price_monthly(tenant: Tenant | None, scan: Scan | None) ->
         return 0.0
 
 
-
-
 def _get_premium_pricing_breakdown(scan: Scan | None) -> dict[str, Any]:
     base_price = 149.0
     step_records = 2000
@@ -305,6 +297,7 @@ def _get_premium_pricing_breakdown(scan: Scan | None) -> dict[str, Any]:
         "monthly_note": "Monthly billing is recalculated from your current scanned records.",
         "annual_note": "Annual billing locks in your current price for 12 months, even if your record volume increases.",
     }
+
 
 def _build_fallback_payload(company: str, environment: str, scan_mode: str | None) -> dict[str, Any]:
     return {
@@ -448,7 +441,7 @@ def _build_dashboard_payload(
 
     active_scan = _select_active_scan(recent_scans_desc, selected_scan_id)
     issues = _load_scan_issues(active_scan.scan_id)
-    
+
     current_plan = _normalize_plan(getattr(tenant, "current_plan", "free"))
     is_premium = current_plan == "premium"
 
@@ -603,18 +596,21 @@ def get_analytics_token(
     environment: str = Query(default="BC Cloud"),
     tenant_id: str | None = Query(default=None),
     scan_mode: str | None = Query(default=None),
+    tenant_auth: tuple[str, str] = Depends(require_tenant_headers),
 ):
-    tenant = _load_tenant(tenant_id=tenant_id, environment=environment)
+    header_tenant_id, header_api_token = tenant_auth
 
-    resolved_tenant_id = tenant.tenant_id if tenant is not None else tenant_id
-    if not resolved_tenant_id:
-        raise HTTPException(status_code=404, detail="Tenant not found.")
+    if tenant_id:
+        enforce_tenant_match(tenant_id, header_tenant_id, "Query tenant_id")
+
+    with SessionLocal() as db:
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
 
     token = create_token(
         {
             "company": company,
             "environment": environment,
-            "tenant_id": resolved_tenant_id,
+            "tenant_id": tenant.tenant_id,
             "scan_mode": scan_mode,
         }
     )
@@ -632,7 +628,14 @@ def get_analytics_data(
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
 
-    tenant = _load_tenant(payload.get("tenant_id"), payload.get("environment"))
+    tenant_id = str(payload.get("tenant_id") or "").strip()
+    if not tenant_id:
+        raise HTTPException(status_code=401, detail="Token payload is missing tenant_id.")
+
+    tenant = _load_tenant_by_id(tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+
     return JSONResponse(
         content=_build_dashboard_payload(
             company=payload.get("company", "BCSentinel"),
@@ -651,6 +654,14 @@ def render_analytics_dashboard(request: Request, token: str = Query(...)):
     payload = verify_token(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
+
+    tenant_id = str(payload.get("tenant_id") or "").strip()
+    if not tenant_id:
+        raise HTTPException(status_code=401, detail="Token payload is missing tenant_id.")
+
+    tenant = _load_tenant_by_id(tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
 
     return TEMPLATES.TemplateResponse(
         name="analytics_embed.html",
