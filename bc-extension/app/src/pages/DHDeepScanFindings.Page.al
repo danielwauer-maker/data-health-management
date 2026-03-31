@@ -1,6 +1,6 @@
 page 53131 "DH Deep Scan Findings"
 {
-    PageType = List;
+    PageType = ListPart;
     SourceTable = "DH Deep Scan Finding";
     ApplicationArea = All;
     UsageCategory = None;
@@ -148,5 +148,16 @@ page 53131 "DH Deep Scan Findings"
                 ShowPremiumDetails := true;
                 AccessText := 'Unlocked';
             end;
+    end;
+
+
+    procedure SetDeepScanEntryNo(DeepScanEntryNo: Integer)
+    begin
+        Rec.Reset();
+        Rec.SetRange("Deep Scan Entry No.", DeepScanEntryNo);
+        EnsureSortFields();
+        Rec.SetCurrentKey("Deep Scan Entry No.", "Severity Sort Order", "Affected Count Sort Value");
+        Rec.Ascending(true);
+        CurrPage.Update(false);
     end;
 }

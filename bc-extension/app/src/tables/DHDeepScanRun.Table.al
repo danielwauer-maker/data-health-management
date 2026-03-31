@@ -80,6 +80,110 @@ table 53128 "DH Deep Scan Run"
             Caption = 'Potential Saving (EUR)';
             DecimalPlaces = 0 : 2;
         }
+        field(19; "Current Module"; Text[50])
+        {
+            Caption = 'Current Module';
+        }
+        field(20; "Progress %"; Integer)
+        {
+            Caption = 'Progress %';
+        }
+        field(21; "Completed Modules"; Integer)
+        {
+            Caption = 'Completed Modules';
+        }
+        field(22; "Total Modules"; Integer)
+        {
+            Caption = 'Total Modules';
+        }
+        field(23; "ETA Text"; Text[100])
+        {
+            Caption = 'ETA';
+        }
+        field(24; "System Progress %"; Integer)
+        {
+            Caption = 'System Progress %';
+        }
+        field(25; "Finance Progress %"; Integer)
+        {
+            Caption = 'Finance Progress %';
+        }
+        field(26; "Sales Progress %"; Integer)
+        {
+            Caption = 'Sales Progress %';
+        }
+        field(27; "Purchasing Progress %"; Integer)
+        {
+            Caption = 'Purchasing Progress %';
+        }
+        field(28; "Inventory Progress %"; Integer)
+        {
+            Caption = 'Inventory Progress %';
+        }
+        field(29; "CRM Progress %"; Integer)
+        {
+            Caption = 'CRM Progress %';
+        }
+        field(30; "Manufacturing Progress %"; Integer)
+        {
+            Caption = 'Manufacturing Progress %';
+        }
+        field(31; "Service Progress %"; Integer)
+        {
+            Caption = 'Service Progress %';
+        }
+        field(32; "Jobs Progress %"; Integer)
+        {
+            Caption = 'Jobs Progress %';
+        }
+        field(33; "HR Progress %"; Integer)
+        {
+            Caption = 'HR Progress %';
+        }
+        field(34; "Affected Records"; Integer)
+        {
+            Caption = 'Affected Records';
+        }
+        field(35; "System Score"; Integer)
+        {
+            Caption = 'System Score';
+        }
+        field(36; "Finance Score"; Integer)
+        {
+            Caption = 'Finance Score';
+        }
+        field(37; "Sales Score"; Integer)
+        {
+            Caption = 'Sales Score';
+        }
+        field(38; "Purchasing Score"; Integer)
+        {
+            Caption = 'Purchasing Score';
+        }
+        field(39; "Inventory Score"; Integer)
+        {
+            Caption = 'Inventory Score';
+        }
+        field(40; "CRM Score"; Integer)
+        {
+            Caption = 'CRM Score';
+        }
+        field(41; "Manufacturing Score"; Integer)
+        {
+            Caption = 'Manufacturing Score';
+        }
+        field(42; "Service Score"; Integer)
+        {
+            Caption = 'Service Score';
+        }
+        field(43; "Jobs Score"; Integer)
+        {
+            Caption = 'Jobs Score';
+        }
+        field(44; "HR Score"; Integer)
+        {
+            Caption = 'HR Score';
+        }
     }
 
     keys

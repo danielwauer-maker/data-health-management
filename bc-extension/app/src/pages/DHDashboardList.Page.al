@@ -5,7 +5,7 @@ page 53124 "DH Dashboard List"
     ApplicationArea = All;
     UsageCategory = Lists;
     Caption = 'BCSentinel Dashboards';
-    CardPageId = "DH Dashboard";
+    CardPageId = "DH Deep Scan Monitor";
     Editable = false;
     InsertAllowed = false;
     DeleteAllowed = false;
@@ -88,7 +88,7 @@ page 53124 "DH Dashboard List"
 
                 trigger OnAction()
                 begin
-                    Page.Run(Page::"DH Dashboard", Rec);
+                    Page.Run(Page::"DH Deep Scan Monitor", Rec);
                 end;
             }
 

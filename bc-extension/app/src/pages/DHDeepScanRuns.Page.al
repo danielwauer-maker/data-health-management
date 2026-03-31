@@ -24,7 +24,7 @@ page 53130 "DH Deep Scan Runs"
 
                     trigger OnDrillDown()
                     begin
-                        OpenDashboard();
+                        OpenMonitorForCurrentScan();
                     end;
                 }
 
@@ -87,13 +87,13 @@ page 53130 "DH Deep Scan Runs"
         {
             action(OpenDashboardAction)
             {
-                Caption = 'Open Dashboard';
+                Caption = 'Open Scan';
                 ApplicationArea = All;
                 Image = Navigate;
 
                 trigger OnAction()
                 begin
-                    OpenDashboard();
+                    OpenMonitorForCurrentScan();
                 end;
             }
 
@@ -111,6 +111,27 @@ page 53130 "DH Deep Scan Runs"
                     DashboardMgt.RefreshDashboardIssueCache(Rec);
                     DashboardIssue.SetRange("Dashboard Scan Entry No.", Rec."Entry No.");
                     Page.Run(Page::"DH Dashboard Issues", DashboardIssue);
+                end;
+            }
+
+            action(OpenMonitor)
+            {
+                Caption = 'Open Deep Scan Monitor';
+                ApplicationArea = All;
+                Image = ViewDetails;
+
+                trigger OnAction()
+                var
+                    DeepScanRun: Record "DH Deep Scan Run";
+                begin
+                    if Rec."Scan Type" <> Rec."Scan Type"::Deep then
+                        Error('The monitor is only available for deep scans.');
+
+                    DeepScanRun.SetRange("Run ID", Rec.GetDisplayRunId());
+                    if not DeepScanRun.FindFirst() then
+                        Error('No deep scan run was found for %1.', Rec.GetDisplayRunId());
+
+                    Page.Run(Page::"DH Deep Scan Monitor", DeepScanRun);
                 end;
             }
 
@@ -198,12 +219,18 @@ page 53130 "DH Deep Scan Runs"
         ScoreStyle: Text[30];
         RunIdStyle: Text[30];
 
-    local procedure OpenDashboard()
+    local procedure OpenMonitorForCurrentScan()
     var
-        DashboardMgt: Codeunit "DH Dashboard Mgt.";
+        DeepScanRun: Record "DH Deep Scan Run";
     begin
-        DashboardMgt.RefreshDashboardIssueCache(Rec);
-        Page.Run(Page::"DH Dashboard", Rec);
+        if Rec."Scan Type" <> Rec."Scan Type"::Deep then
+            Error('The monitor is only available for deep scans.');
+
+        DeepScanRun.SetRange("Run ID", Rec.GetDisplayRunId());
+        if not DeepScanRun.FindFirst() then
+            Error('No deep scan run was found for %1.', Rec.GetDisplayRunId());
+
+        Page.Run(Page::"DH Deep Scan Monitor", DeepScanRun);
     end;
 
     local procedure DeleteLinkedDeepRunIfNeeded()

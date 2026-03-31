@@ -8,7 +8,7 @@ codeunit 53123 "DH QuickScan Mgt."
         EntryNo := RunQuickScan(Setup);
 
         if Header.Get(EntryNo) then
-            Page.Run(Page::"DH Dashboard", Header);
+            Page.Run(Page::"DH Deep Scan Monitor", Header);
     end;
 
     procedure RunQuickScan(var Setup: Record "DH Setup"): Integer

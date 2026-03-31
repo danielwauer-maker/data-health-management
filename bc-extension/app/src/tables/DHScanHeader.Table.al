@@ -80,6 +80,50 @@ table 53120 "DH Scan Header"
         {
             Caption = 'ROI €';
         }
+        field(25; "Affected Records"; Integer)
+        {
+            Caption = 'Affected Records';
+        }
+        field(26; "System Score"; Integer)
+        {
+            Caption = 'System Score';
+        }
+        field(27; "Finance Score"; Integer)
+        {
+            Caption = 'Finance Score';
+        }
+        field(28; "Sales Score"; Integer)
+        {
+            Caption = 'Sales Score';
+        }
+        field(29; "Purchasing Score"; Integer)
+        {
+            Caption = 'Purchasing Score';
+        }
+        field(30; "Inventory Score"; Integer)
+        {
+            Caption = 'Inventory Score';
+        }
+        field(31; "CRM Score"; Integer)
+        {
+            Caption = 'CRM Score';
+        }
+        field(32; "Manufacturing Score"; Integer)
+        {
+            Caption = 'Manufacturing Score';
+        }
+        field(33; "Service Score"; Integer)
+        {
+            Caption = 'Service Score';
+        }
+        field(34; "Jobs Score"; Integer)
+        {
+            Caption = 'Jobs Score';
+        }
+        field(35; "HR Score"; Integer)
+        {
+            Caption = 'HR Score';
+        }
     }
 
     keys

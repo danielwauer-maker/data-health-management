@@ -10,6 +10,43 @@ page 53100 "DH Setup"
     {
         area(Content)
         {
+            group(Overview)
+            {
+                Caption = 'Overview';
+
+                field("Current Plan"; Rec."Current Plan")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
+
+                field("License Status"; Rec."License Status")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
+
+                field("Last Scan Date"; Rec."Last Scan Date")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
+
+                field("Last Score"; Rec."Last Score")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
+
+                field(FeatureAccess; Rec.GetFeatureAccessText())
+                {
+                    ApplicationArea = All;
+                    Caption = 'Feature access';
+                    Editable = false;
+                    ToolTip = 'Shows whether premium actions are unlocked.';
+                }
+            }
+
             group(General)
             {
                 Caption = 'General';
@@ -56,18 +93,6 @@ page 53100 "DH Setup"
             {
                 Caption = 'License';
 
-                field("Current Plan"; Rec."Current Plan")
-                {
-                    ApplicationArea = All;
-                    Editable = false;
-                }
-
-                field("License Status"; Rec."License Status")
-                {
-                    ApplicationArea = All;
-                    Editable = false;
-                }
-
                 field("Last License Check"; Rec."Last License Check")
                 {
                     ApplicationArea = All;
@@ -81,20 +106,81 @@ page 53100 "DH Setup"
                 }
             }
 
+            group("Enabled Scan Modules")
+            {
+                Caption = 'Enabled Scan Modules';
+
+                field("Scan System Module"; Rec."Scan System Module")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Include system and setup checks in the deep scan.';
+                }
+
+                field("Scan Finance Module"; Rec."Scan Finance Module")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Include finance-related checks in the deep scan.';
+                }
+
+                field("Scan Sales Module"; Rec."Scan Sales Module")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Include sales-related checks in the deep scan.';
+                }
+
+                field("Scan Purchasing Module"; Rec."Scan Purchasing Module")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Include purchasing-related checks in the deep scan.';
+                }
+
+                field("Scan Inventory Module"; Rec."Scan Inventory Module")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Include inventory-related checks in the deep scan.';
+                }
+
+                field("Scan CRM Module"; Rec."Scan CRM Module")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Include CRM/contact-related checks in the deep scan.';
+                }
+
+                field("Scan Manufacturing Module"; Rec."Scan Manufacturing Module")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Include manufacturing and production master data checks in the deep scan.';
+                }
+
+                field("Scan Service Module"; Rec."Scan Service Module")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Include service-related checks in the deep scan.';
+                }
+
+                field("Scan Jobs Module"; Rec."Scan Jobs Module")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Include jobs and project-related checks in the deep scan.';
+                }
+
+                field("Scan HR Module"; Rec."Scan HR Module")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Include employee and resource-related checks in the deep scan.';
+                }
+            }
+
             group(Scan)
             {
                 Caption = 'Last Scan';
 
-                field("Last Score"; Rec."Last Score")
+                field("Last Scan Date 2"; Rec."Last Scan Date")
                 {
                     ApplicationArea = All;
+                    Caption = 'Last Scan Date';
                     Editable = false;
-                }
-
-                field("Last Scan Date"; Rec."Last Scan Date")
-                {
-                    ApplicationArea = All;
-                    Editable = false;
+                    Visible = false;
                 }
             }
         }
@@ -129,25 +215,57 @@ page 53100 "DH Setup"
                     ApiClient: Codeunit "DH API Client";
                 begin
                     ApiClient.EnsureTenantRegistered(Rec);
+                    RefreshLicenseSilently();
                     CurrPage.Update(false);
                     Message('BCSentinel tenant registration completed.');
                 end;
             }
 
-            action(RefreshLicense)
+            group(ScanMenu)
             {
-                Caption = 'Refresh BCSentinel License';
-                ApplicationArea = All;
-                Image = Refresh;
+                Caption = 'Scan';
+                Image = Start;
 
-                trigger OnAction()
-                var
-                    ApiClient: Codeunit "DH API Client";
-                begin
-                    ApiClient.RefreshLicenseStatus(Rec);
-                    CurrPage.Update(false);
-                    Message('BCSentinel license status refreshed.');
-                end;
+                action(StartScan)
+                {
+                    Caption = 'Start Scan';
+                    Image = Start;
+                    ApplicationArea = All;
+
+                    trigger OnAction()
+                    var
+                        Setup: Record "DH Setup";
+                        ApiClient: Codeunit "DH API Client";
+                        DeepScanMgt: Codeunit "DH Deep Scan Mgt.";
+                        DeepScanRun: Record "DH Deep Scan Run";
+                        EntryNo: Integer;
+                    begin
+                        EnsureSetupExists();
+                        Setup := Rec;
+                        ApiClient.EnsureReadyForScan(Setup);
+
+                        EntryNo := DeepScanMgt.QueueDeepScan(Setup);
+                        CurrPage.Update(false);
+
+                        if DeepScanRun.Get(EntryNo) then
+                            if Setup.IsPremiumLicenseActive() then
+                                Message('BCSentinel Premium deep scan queued.\Run ID: %1\Status: %2', DeepScanRun."Run ID", Format(DeepScanRun.Status))
+                            else
+                                Message('BCSentinel deep scan queued in Free mode.\Run ID: %1\Status: %2\Premium unlocks recommendations and correction actions.', DeepScanRun."Run ID", Format(DeepScanRun.Status));
+                    end;
+                }
+
+                action(ViewScanHistory)
+                {
+                    Caption = 'Scan History';
+                    Image = List;
+                    ApplicationArea = All;
+
+                    trigger OnAction()
+                    begin
+                        Page.Run(Page::"DH Deep Scan Runs");
+                    end;
+                }
             }
         }
     }
@@ -155,6 +273,8 @@ page 53100 "DH Setup"
     trigger OnOpenPage()
     begin
         EnsureSetupExists();
+        RefreshLicenseSilently();
+        CurrPage.Update(false);
     end;
 
     local procedure EnsureSetupExists()
@@ -167,5 +287,72 @@ page 53100 "DH Setup"
 
         Rec.ApplyDefaults();
         Rec.Modify(true);
+    end;
+
+    local procedure RefreshLicenseSilently()
+    var
+        ApiClient: Codeunit "DH API Client";
+    begin
+        if Rec."Tenant ID" = '' then
+            exit;
+
+        ApiClient.RefreshLicenseStatus(Rec);
+    end;
+
+    local procedure GetTokenUrl(var Setup: Record "DH Setup"): Text
+    begin
+        if Setup."API Base URL" = '' then
+            Error('Please configure the API Base URL first.');
+
+        if Setup."Tenant ID" = '' then
+            Error('Tenant is not registered yet.');
+
+        exit(RemoveTrailingSlash(Setup."API Base URL") + '/analytics/get-token?company=' + EncodeUrlValue(CompanyName()) + '&environment=' + EncodeUrlValue('BC Cloud') + '&tenant_id=' + EncodeUrlValue(Setup."Tenant ID") + '&scan_mode=' + EncodeUrlValue(GetScanMode(Setup)));
+    end;
+
+    local procedure GetScanMode(var Setup: Record "DH Setup"): Text
+    begin
+        if Setup.IsPremiumLicenseActive() then
+            exit('premium_deep');
+        exit('free_deep');
+    end;
+
+    local procedure GetDashboardUrl(var Setup: Record "DH Setup"; Token: Text): Text
+    begin
+        exit(RemoveTrailingSlash(Setup."API Base URL") + '/analytics/embed?token=' + EncodeUrlValue(Token));
+    end;
+
+    local procedure ExtractTokenFromJson(JsonText: Text): Text
+    var
+        JsonObj: JsonObject;
+        JsonToken: JsonToken;
+    begin
+        if not JsonObj.ReadFrom(JsonText) then
+            Error('The token response is not valid JSON.');
+
+        if not JsonObj.Get('token', JsonToken) then
+            Error('The token field is missing in the response.');
+
+        exit(JsonToken.AsValue().AsText());
+    end;
+
+    local procedure RemoveTrailingSlash(Value: Text): Text
+    begin
+        while (StrLen(Value) > 0) and (CopyStr(Value, StrLen(Value), 1) = '/') do
+            Value := CopyStr(Value, 1, StrLen(Value) - 1);
+        exit(Value);
+    end;
+
+    local procedure EncodeUrlValue(Value: Text): Text
+    begin
+        Value := Value.Replace('%', '%25');
+        Value := Value.Replace(' ', '%20');
+        Value := Value.Replace('&', '%26');
+        Value := Value.Replace('?', '%3F');
+        Value := Value.Replace('=', '%3D');
+        Value := Value.Replace('#', '%23');
+        Value := Value.Replace('+', '%2B');
+        Value := Value.Replace('/', '%2F');
+        exit(Value);
     end;
 }

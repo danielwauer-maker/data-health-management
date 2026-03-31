@@ -99,6 +99,76 @@ table 53100 "DH Setup"
             Caption = 'Last Run ID Counter';
             DataClassification = SystemMetadata;
         }
+
+        field(16; "Scan System Module"; Boolean)
+        {
+            Caption = 'Scan System';
+            DataClassification = SystemMetadata;
+            InitValue = true;
+        }
+
+        field(17; "Scan Finance Module"; Boolean)
+        {
+            Caption = 'Scan Finance';
+            DataClassification = SystemMetadata;
+            InitValue = true;
+        }
+
+        field(18; "Scan Sales Module"; Boolean)
+        {
+            Caption = 'Scan Sales';
+            DataClassification = SystemMetadata;
+            InitValue = true;
+        }
+
+        field(19; "Scan Purchasing Module"; Boolean)
+        {
+            Caption = 'Scan Purchasing';
+            DataClassification = SystemMetadata;
+            InitValue = true;
+        }
+
+        field(20; "Scan Inventory Module"; Boolean)
+        {
+            Caption = 'Scan Inventory';
+            DataClassification = SystemMetadata;
+            InitValue = true;
+        }
+
+        field(21; "Scan CRM Module"; Boolean)
+        {
+            Caption = 'Scan CRM';
+            DataClassification = SystemMetadata;
+            InitValue = true;
+        }
+
+        field(22; "Scan Manufacturing Module"; Boolean)
+        {
+            Caption = 'Scan Manufacturing';
+            DataClassification = SystemMetadata;
+            InitValue = true;
+        }
+
+        field(23; "Scan Service Module"; Boolean)
+        {
+            Caption = 'Scan Service';
+            DataClassification = SystemMetadata;
+            InitValue = true;
+        }
+
+        field(24; "Scan Jobs Module"; Boolean)
+        {
+            Caption = 'Scan Jobs';
+            DataClassification = SystemMetadata;
+            InitValue = true;
+        }
+
+        field(25; "Scan HR Module"; Boolean)
+        {
+            Caption = 'Scan HR';
+            DataClassification = SystemMetadata;
+            InitValue = true;
+        }
     }
 
     keys
@@ -126,6 +196,8 @@ table 53100 "DH Setup"
     begin
         if "API Base URL" <> GetFixedApiBaseUrl() then
             "API Base URL" := GetFixedApiBaseUrl();
+
+        EnsureModuleDefaults();
     end;
 
     procedure GetFixedApiBaseUrl(): Text[250]
@@ -152,6 +224,65 @@ table 53100 "DH Setup"
             exit('Premium recommendations and correction actions are available for this tenant.');
 
         exit('This scan already uses the full DeepScan data basis. Upgrade to Premium to unlock recommendations, drilldowns, and correction worklists.');
+    end;
+
+    procedure EnsureModuleDefaults()
+    begin
+        if not HasAnyModuleEnabled() then begin
+            "Scan System Module" := true;
+            "Scan Finance Module" := true;
+            "Scan Sales Module" := true;
+            "Scan Purchasing Module" := true;
+            "Scan Inventory Module" := true;
+            "Scan CRM Module" := true;
+            "Scan Manufacturing Module" := true;
+            "Scan Service Module" := true;
+            "Scan Jobs Module" := true;
+            "Scan HR Module" := true;
+        end;
+    end;
+
+    procedure HasAnyModuleEnabled(): Boolean
+    begin
+        exit(
+          "Scan System Module" or
+          "Scan Finance Module" or
+          "Scan Sales Module" or
+          "Scan Purchasing Module" or
+          "Scan Inventory Module" or
+          "Scan CRM Module" or
+          "Scan Manufacturing Module" or
+          "Scan Service Module" or
+          "Scan Jobs Module" or
+          "Scan HR Module");
+    end;
+
+    procedure GetEnabledDeepScanModuleCount(): Integer
+    var
+        EnabledCount: Integer;
+    begin
+        if "Scan System Module" then
+            EnabledCount += 1;
+        if "Scan Finance Module" then
+            EnabledCount += 1;
+        if "Scan Sales Module" then
+            EnabledCount += 1;
+        if "Scan Purchasing Module" then
+            EnabledCount += 1;
+        if "Scan Inventory Module" then
+            EnabledCount += 1;
+        if "Scan CRM Module" then
+            EnabledCount += 1;
+        if "Scan Manufacturing Module" then
+            EnabledCount += 1;
+        if "Scan Service Module" then
+            EnabledCount += 1;
+        if "Scan Jobs Module" then
+            EnabledCount += 1;
+        if "Scan HR Module" then
+            EnabledCount += 1;
+
+        exit(EnabledCount);
     end;
 
 }

@@ -48,6 +48,14 @@ page 53142 "DH Dashboard KPI Part"
                     StyleExpr = IssuesStyle;
                     ToolTip = 'Anzahl gefundener Probleme.';
                 }
+
+                field("Affected Records"; Rec."Affected Records")
+                {
+                    ApplicationArea = All;
+                    Caption = 'Affected';
+                    StyleExpr = IssuesStyle;
+                    ToolTip = 'Summe aller betroffenen Datensätze über alle Findings.';
+                }
             }
         }
     }
@@ -84,10 +92,10 @@ page 53142 "DH Dashboard KPI Part"
         if Rec."Data Score" >= 61 then
             exit('Ambiguous');
 
-        if Rec."Data Score" > 0 then
+        if Rec."Data Score" >= 1 then
             exit('Unfavorable');
 
-        exit('Standard');
+        exit('Unfavorable');
     end;
 
     local procedure GetEstimatedLossStyle(): Text[30]
@@ -108,9 +116,26 @@ page 53142 "DH Dashboard KPI Part"
 
     local procedure GetIssuesStyle(): Text[30]
     begin
-        if Rec."Issues Count" > 0 then
+        if (Rec."Issues Count" > 0) or (Rec."Affected Records" > 0) then
             exit('Attention');
 
         exit('Standard');
+    end;
+
+
+    procedure SetScanHeaderEntryNo(ScanHeaderEntryNo: Integer)
+    begin
+        if ScanHeaderEntryNo <= 0 then begin
+            Rec.Reset();
+            Rec.SetRange("Entry No.", -1);
+            if Rec.FindFirst() then;
+            CurrPage.Update(false);
+            exit;
+        end;
+
+        Rec.Reset();
+        Rec.SetRange("Entry No.", ScanHeaderEntryNo);
+        if Rec.FindFirst() then;
+        CurrPage.Update(false);
     end;
 }

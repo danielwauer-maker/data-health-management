@@ -6,8 +6,12 @@ codeunit 53124 "DH Deep Scan Mgt."
         RunIdMgt: Codeunit "DH Run ID Mgt.";
         TaskId: Guid;
         EntryNo: Integer;
+        TotalModules: Integer;
     begin
         EnsureDeepScanAllowed(Setup);
+        TotalModules := Setup.GetEnabledDeepScanModuleCount();
+        if TotalModules <= 0 then
+            Error('Please enable at least one scan module on the BCSentinel setup page.');
 
         EntryNo := GetNextRunEntryNo();
 
@@ -19,6 +23,11 @@ codeunit 53124 "DH Deep Scan Mgt."
         DeepScanRun."Requested By" := CopyStr(UserId(), 1, MaxStrLen(DeepScanRun."Requested By"));
         DeepScanRun."Company Name" := CopyStr(CompanyName(), 1, MaxStrLen(DeepScanRun."Company Name"));
         DeepScanRun."Headline" := 'Deep scan queued';
+        DeepScanRun."Current Module" := 'Queued';
+        DeepScanRun."Progress %" := 0;
+        DeepScanRun."Completed Modules" := 0;
+        DeepScanRun."Total Modules" := TotalModules;
+        DeepScanRun."ETA Text" := 'Pending';
         DeepScanRun.Insert(true);
 
         TaskId :=
@@ -34,6 +43,7 @@ codeunit 53124 "DH Deep Scan Mgt."
         DeepScanRun.Modify(true);
 
         Message('Deep scan %1 was queued and scheduled in the background.', DeepScanRun."Run ID");
+        Page.Run(Page::"DH Deep Scan Monitor", DeepScanRun);
 
         exit(EntryNo);
     end;

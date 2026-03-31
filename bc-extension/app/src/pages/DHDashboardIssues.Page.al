@@ -164,4 +164,15 @@ page 53135 "DH Dashboard Issues"
                 AccessText := 'Unlocked';
             end;
     end;
+
+
+    procedure SetDashboardScanEntryNo(DashboardScanEntryNo: Integer)
+    begin
+        Rec.Reset();
+        Rec.SetRange("Dashboard Scan Entry No.", DashboardScanEntryNo);
+        EnsureSortFields();
+        Rec.SetCurrentKey("Dashboard Scan Entry No.", "Severity Sort Order", "Affected Count Sort Value");
+        Rec.Ascending(true);
+        CurrPage.Update(false);
+    end;
 }
