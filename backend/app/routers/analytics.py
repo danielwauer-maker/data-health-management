@@ -97,10 +97,6 @@ def _issue_recommendation(issue: ScanIssueRecord) -> str:
     return "Review the affected records and resolve the underlying setup issue in Business Central."
 
 
-def _load_tenant_by_id(tenant_id: str) -> Tenant | None:
-    with SessionLocal() as db:
-        return db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
-
 
 def _load_recent_scans_desc(tenant_id: str, limit: int = 20) -> list[Scan]:
     with SessionLocal() as db:
@@ -632,7 +628,9 @@ def get_analytics_data(
     if not tenant_id:
         raise HTTPException(status_code=401, detail="Token payload is missing tenant_id.")
 
-    tenant = _load_tenant_by_id(tenant_id)
+    with SessionLocal() as db:
+        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+
     if tenant is None:
         raise HTTPException(status_code=404, detail="Tenant not found.")
 
@@ -659,7 +657,9 @@ def render_analytics_dashboard(request: Request, token: str = Query(...)):
     if not tenant_id:
         raise HTTPException(status_code=401, detail="Token payload is missing tenant_id.")
 
-    tenant = _load_tenant_by_id(tenant_id)
+    with SessionLocal() as db:
+        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+
     if tenant is None:
         raise HTTPException(status_code=404, detail="Tenant not found.")
 
