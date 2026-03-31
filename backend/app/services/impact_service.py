@@ -247,6 +247,55 @@ def calculate_issue_impact(db, issue_code: str, affected_count: int) -> float:
     return round(count * impact_per_record, 2)
 
 
+def calculate_scan_commercials(
+    db,
+    *,
+    issues: Iterable[object],
+    total_records: int,
+    supplied_estimated_loss_eur: float = 0.0,
+    supplied_estimated_premium_price_monthly: float = 0.0,
+    pricing=None,
+) -> dict[str, object]:
+    from app.services.pricing_service import calculate_monthly_price, get_license_pricing
+
+    total_records = max(int(total_records or 0), 0)
+
+    recalculated_issues = calculate_issue_impacts(db, issues)
+    estimated_loss_eur = round(
+        sum(float(issue["estimated_impact_eur"]) for issue in recalculated_issues), 2
+    )
+
+    supplied_estimated_loss_eur = max(float(supplied_estimated_loss_eur or 0.0), 0.0)
+    if supplied_estimated_loss_eur > 0 and not recalculated_issues:
+        estimated_loss_eur = round(supplied_estimated_loss_eur, 2)
+
+    if pricing is None:
+        pricing = get_license_pricing(db, "premium")
+
+    estimated_premium_price_monthly = max(
+        float(supplied_estimated_premium_price_monthly or 0.0), 0.0
+    )
+    if estimated_premium_price_monthly <= 0:
+        estimated_premium_price_monthly = round(
+            calculate_monthly_price(total_records, pricing), 2
+        )
+
+    estimated_loss_eur, potential_saving_eur, roi_eur = normalize_commercials(
+        estimated_loss_eur=estimated_loss_eur,
+        potential_saving_factor=get_potential_saving_factor(db),
+        estimated_premium_price_monthly=estimated_premium_price_monthly,
+    )
+
+    return {
+        "total_records": total_records,
+        "estimated_loss_eur": estimated_loss_eur,
+        "potential_saving_eur": potential_saving_eur,
+        "estimated_premium_price_monthly": estimated_premium_price_monthly,
+        "roi_eur": roi_eur,
+        "issues": recalculated_issues,
+    }
+
+
 def calculate_issue_impacts(db, issues: Iterable[object]) -> list[dict[str, object]]:
     result: list[dict[str, object]] = []
     for issue in issues:

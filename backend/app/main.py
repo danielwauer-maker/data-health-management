@@ -24,10 +24,9 @@ from app.schemas.scan import (
     ScanTrendResponse,
 )
 from app.services.cost_service import ensure_default_issue_costs
-from app.services.impact_service import ensure_default_impact_config
-from app.services.pricing_service import calculate_monthly_price, ensure_default_license_pricing, get_license_pricing
+from app.services.impact_service import calculate_scan_commercials, ensure_default_impact_config
+from app.services.pricing_service import ensure_default_license_pricing
 from app.services.scoring_service import calculate_quick_scan_result
-from app.services.impact_service import normalize_commercials
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -146,8 +145,6 @@ def register_tenant(payload: TenantRegisterRequest) -> TenantRegisterResponse:
 
 @app.post("/scan/quick", response_model=QuickScanResponse)
 def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
-    from app.services.impact_service import calculate_issue_impacts, get_potential_saving_factor
-
     with SessionLocal() as db:
         tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == payload.tenant_id))
         if tenant is None:
@@ -158,17 +155,18 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
         generated_at_utc = datetime.now(timezone.utc)
         total_records = int(payload.data_profile.total_records or 0)
 
-        enriched_issue_dicts = calculate_issue_impacts(db, issues)
-        estimated_loss_eur = round(sum(float(issue["estimated_impact_eur"]) for issue in enriched_issue_dicts), 2)
-        enriched_issues = [ScanIssue(**issue_dict) for issue_dict in enriched_issue_dicts]
-
-        pricing = get_license_pricing(db, "premium")
-        estimated_premium_price_monthly = calculate_monthly_price(total_records, pricing)
-        estimated_loss_eur, potential_saving_eur, roi_eur = normalize_commercials(
-        estimated_loss_eur=estimated_loss_eur,
-        potential_saving_factor=get_potential_saving_factor(db),
-        estimated_premium_price_monthly=estimated_premium_price_monthly,
+        commercials = calculate_scan_commercials(
+            db,
+            issues=issues,
+            total_records=total_records,
         )
+
+        enriched_issue_dicts = commercials["issues"]
+        enriched_issues = [ScanIssue(**issue_dict) for issue_dict in enriched_issue_dicts]
+        estimated_loss_eur = commercials["estimated_loss_eur"]
+        potential_saving_eur = commercials["potential_saving_eur"]
+        estimated_premium_price_monthly = commercials["estimated_premium_price_monthly"]
+        roi_eur = commercials["roi_eur"]
 
         existing_scan = db.scalar(select(Scan).where(Scan.scan_id == scan_id))
 

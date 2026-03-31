@@ -11,9 +11,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.models import Scan, ScanIssueRecord, Tenant
-from app.services.impact_service import calculate_issue_impacts, get_potential_saving_factor
-from app.services.pricing_service import calculate_monthly_price, get_license_pricing
-from app.services.impact_service import normalize_commercials
+from app.services.impact_service import calculate_scan_commercials
 
 router = APIRouter(tags=["scans"])
 
@@ -120,27 +118,22 @@ def _load_tenant_for_sync(db, tenant_id: str, api_token: str) -> Tenant:
 
 
 def _calculate_commercials(payload: ScanSyncPayload, db) -> tuple[int, float, float, float, float, list[dict[str, object]]]:
-    pricing = get_license_pricing(db, "premium")
-    total_records = _safe_int(payload.data_profile.total_records)
-
-    recalculated_issues = calculate_issue_impacts(db, payload.issues)
-    estimated_loss = round(sum(float(issue["estimated_impact_eur"]) for issue in recalculated_issues), 2)
-
-    supplied_loss = _safe_float(payload.estimated_loss_eur)
-    if supplied_loss > 0 and not recalculated_issues:
-        estimated_loss = supplied_loss
-
-    premium_price = _safe_float(payload.estimated_premium_price_monthly)
-    if premium_price <= 0:
-        premium_price = round(calculate_monthly_price(total_records, pricing), 2)
-
-    estimated_loss, potential_saving, roi = normalize_commercials(
-    estimated_loss_eur=estimated_loss,
-    potential_saving_factor=get_potential_saving_factor(db),
-    estimated_premium_price_monthly=premium_price,
+    commercials = calculate_scan_commercials(
+        db,
+        issues=payload.issues,
+        total_records=_safe_int(payload.data_profile.total_records),
+        supplied_estimated_loss_eur=_safe_float(payload.estimated_loss_eur),
+        supplied_estimated_premium_price_monthly=_safe_float(payload.estimated_premium_price_monthly),
     )
 
-    return total_records, estimated_loss, potential_saving, premium_price, roi, recalculated_issues
+    return (
+        int(commercials["total_records"]),
+        float(commercials["estimated_loss_eur"]),
+        float(commercials["potential_saving_eur"]),
+        float(commercials["estimated_premium_price_monthly"]),
+        float(commercials["roi_eur"]),
+        list(commercials["issues"]),
+    )
 
 
 @router.post("/scan/sync")
