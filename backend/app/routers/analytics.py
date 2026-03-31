@@ -605,14 +605,18 @@ def get_analytics_token(
     scan_mode: str | None = Query(default=None),
 ):
     tenant = _load_tenant(tenant_id=tenant_id, environment=environment)
+
+    resolved_tenant_id = tenant.tenant_id if tenant is not None else tenant_id
+    if not resolved_tenant_id:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+
     token = create_token(
         {
             "company": company,
             "environment": environment,
-            "tenant_id": tenant.tenant_id if tenant is not None else tenant_id,
+            "tenant_id": resolved_tenant_id,
             "scan_mode": scan_mode,
-        },
-        expires_minutes=20,
+        }
     )
     return JSONResponse(content={"token": token})
 
