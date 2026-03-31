@@ -1,9 +1,10 @@
+import hmac
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import select, text
@@ -110,6 +111,29 @@ class TenantRegisterRequest(BaseModel):
 class TenantRegisterResponse(BaseModel):
     tenant_id: str
     api_token: str
+
+
+def _validate_history_headers(
+    path_tenant_id: str,
+    header_tenant_id: str | None,
+    header_api_token: str | None,
+) -> None:
+    if not header_tenant_id or not header_api_token:
+        raise HTTPException(status_code=401, detail="Missing tenant authentication headers.")
+
+    if path_tenant_id != header_tenant_id:
+        raise HTTPException(status_code=400, detail="Path tenant_id does not match X-Tenant-Id header.")
+
+
+def _load_tenant_for_history(db, tenant_id: str, api_token: str) -> Tenant:
+    tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+
+    if not hmac.compare_digest(tenant.api_token or "", api_token):
+        raise HTTPException(status_code=403, detail="Invalid API token.")
+
+    return tenant
 
 
 @app.get("/health")
@@ -273,13 +297,17 @@ def quick_scan(payload: QuickScanRequest) -> QuickScanResponse:
 
 
 @app.get("/scan/history/{tenant_id}", response_model=ScanHistoryResponse)
-def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
+def get_scan_history(
+    tenant_id: str,
+    limit: int = 10,
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    x_api_token: str | None = Header(default=None, alias="X-Api-Token"),
+) -> ScanHistoryResponse:
     safe_limit = min(max(limit, 1), 50)
+    _validate_history_headers(tenant_id, x_tenant_id, x_api_token)
 
     with SessionLocal() as db:
-        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
-        if tenant is None:
-            raise HTTPException(status_code=404, detail="Tenant not found.")
+        _load_tenant_for_history(db, tenant_id, x_api_token or "")
 
         scans = db.scalars(
             select(Scan)
@@ -353,11 +381,15 @@ def get_scan_history(tenant_id: str, limit: int = 10) -> ScanHistoryResponse:
 
 
 @app.get("/scan/trend/{tenant_id}", response_model=ScanTrendResponse)
-def get_scan_trend(tenant_id: str) -> ScanTrendResponse:
+def get_scan_trend(
+    tenant_id: str,
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    x_api_token: str | None = Header(default=None, alias="X-Api-Token"),
+) -> ScanTrendResponse:
+    _validate_history_headers(tenant_id, x_tenant_id, x_api_token)
+
     with SessionLocal() as db:
-        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
-        if tenant is None:
-            raise HTTPException(status_code=404, detail="Tenant not found.")
+        _load_tenant_for_history(db, tenant_id, x_api_token or "")
 
         scans = db.scalars(
             select(Scan)
