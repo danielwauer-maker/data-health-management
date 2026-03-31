@@ -18,14 +18,19 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy on server
-  	run: |
-    	  ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
-            cd /home/daniel/data-health-management || exit 1
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -e
+            cd /home/daniel/data-health-management
+            echo "Current dir:"
             pwd
+            echo "Files:"
             ls -la
-            git pull origin main || exit 1
-            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build || exit 1
+            echo "Pulling latest code..."
+            git pull origin main
+            echo "Starting docker compose..."
+            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
           EOF
