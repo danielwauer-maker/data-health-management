@@ -1257,7 +1257,7 @@ codeunit 53128 "DH Deep Scan Runner"
     end;
 
 
-        local procedure RunManufacturingChecks(var DeepScanRun: Record "DH Deep Scan Run"; var Score: Integer; var ChecksCount: Integer; var IssuesCount: Integer)
+    local procedure RunManufacturingChecks(var DeepScanRun: Record "DH Deep Scan Run"; var Score: Integer; var ChecksCount: Integer; var IssuesCount: Integer)
     var
         ProdBOMHeader: Record "Production BOM Header";
         ProdBOMLine: Record "Production BOM Line";
@@ -1564,7 +1564,7 @@ codeunit 53128 "DH Deep Scan Runner"
         AddCountFinding(DeepScanRun, Score, IssuesCount, 'HR', 'RESOURCES_MISSING_BASE_UOM', 'Ressourcen ohne Basiseinheit', 'low', ResourcesMissingBaseUOM, 'Basiseinheiten bei den betroffenen Ressourcen ergänzen.', 2);
     end;
 
-local procedure GetEnabledModuleCount(var Setup: Record "DH Setup"): Integer
+    local procedure GetEnabledModuleCount(var Setup: Record "DH Setup"): Integer
     var
         EnabledCount: Integer;
     begin
@@ -2260,20 +2260,15 @@ local procedure GetEnabledModuleCount(var Setup: Record "DH Setup"): Integer
         if ValueText = '' then
             exit(0);
 
-        if TryEvaluateDecimal(ValueText, ValueDecimal) then
+        // JSON uses invariant number formatting:
+        // decimal separator = "."
+        // no locale-dependent parsing here
+        if Evaluate(ValueDecimal, ValueText, 9) then
             exit(ValueDecimal);
 
-        if (StrPos(ValueText, '.') > 0) and (StrPos(ValueText, ',') = 0) then begin
-            ValueText := ConvertStr(ValueText, '.', ',');
-            if TryEvaluateDecimal(ValueText, ValueDecimal) then
-                exit(ValueDecimal);
-        end;
-
-        if (StrPos(ValueText, '.') > 0) and (StrPos(ValueText, ',') > 0) then begin
-            ValueText := DelChr(ValueText, '=', '.');
-            if TryEvaluateDecimal(ValueText, ValueDecimal) then
-                exit(ValueDecimal);
-        end;
+        // Fallback for already localized values, just in case
+        if TryEvaluateDecimal(ValueText, ValueDecimal) then
+            exit(ValueDecimal);
 
         Error('Could not parse decimal value from backend JSON: %1', Token.AsValue().AsText());
     end;
