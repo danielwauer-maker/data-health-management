@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import select, text
 
+from app.core.settings import validate_settings
 from app.db import Base, SessionLocal, engine, wait_for_database
 from app.models import Scan, ScanIssueRecord, Tenant
 from app.routers.admin import router as admin_router
@@ -25,7 +26,10 @@ from app.schemas.scan import (
     ScanTrendResponse,
 )
 from app.services.cost_service import ensure_default_issue_costs
-from app.services.impact_service import calculate_scan_commercials, ensure_default_impact_config
+from app.services.impact_service import (
+    calculate_scan_commercials,
+    ensure_default_impact_config,
+)
 from app.services.pricing_service import ensure_default_license_pricing
 from app.services.scoring_service import calculate_quick_scan_result
 
@@ -80,13 +84,16 @@ def ensure_runtime_schema() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_settings()
     wait_for_database()
     Base.metadata.create_all(bind=engine)
     ensure_runtime_schema()
+
     with SessionLocal() as db:
         ensure_default_issue_costs(db)
         ensure_default_impact_config(db)
         ensure_default_license_pricing(db)
+
     yield
 
 
@@ -95,6 +102,7 @@ app = FastAPI(
     version="0.6.0",
     lifespan=lifespan,
 )
+
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 app.include_router(admin_router)
@@ -122,7 +130,10 @@ def _validate_history_headers(
         raise HTTPException(status_code=401, detail="Missing tenant authentication headers.")
 
     if path_tenant_id != header_tenant_id:
-        raise HTTPException(status_code=400, detail="Path tenant_id does not match X-Tenant-Id header.")
+        raise HTTPException(
+            status_code=400,
+            detail="Path tenant_id does not match X-Tenant-Id header.",
+        )
 
 
 def _load_tenant_for_history(db, tenant_id: str, api_token: str) -> Tenant:

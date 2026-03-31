@@ -1,15 +1,10 @@
-import os
 import time
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg://dhm:dhm@postgres:5432/dhm",
-)
+from app.core.settings import settings
 
 
 class Base(DeclarativeBase):
@@ -17,7 +12,7 @@ class Base(DeclarativeBase):
 
 
 engine = create_engine(
-    DATABASE_URL,
+    settings.DATABASE_URL,
     future=True,
     pool_pre_ping=True,
 )
@@ -41,7 +36,8 @@ def wait_for_database(max_attempts: int = 30, delay_seconds: int = 2) -> None:
         except OperationalError as exc:
             last_error = exc
             print(
-                f"Database not ready yet (attempt {attempt}/{max_attempts}). Retrying in {delay_seconds}s..."
+                f"Database not ready yet (attempt {attempt}/{max_attempts}). "
+                f"Retrying in {delay_seconds}s..."
             )
             time.sleep(delay_seconds)
 

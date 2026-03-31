@@ -1,13 +1,18 @@
+version: "3.9"
+
 services:
   backend:
     build: ./backend
     container_name: dhm-backend
     restart: unless-stopped
-    environment:
-      DATABASE_URL: postgresql+psycopg://dhm:${POSTGRES_PASSWORD}@postgres:5432/dhm
+
+    env_file:
+      - .env.prod
+
     depends_on:
       postgres:
         condition: service_healthy
+
     expose:
       - "8000"
 
@@ -15,14 +20,15 @@ services:
     image: postgres:15
     container_name: dhm-postgres
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: dhm
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: dhm
+
+    env_file:
+      - .env.prod
+
     volumes:
       - dhm_postgres_data:/var/lib/postgresql/data
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dhm -d dhm"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10

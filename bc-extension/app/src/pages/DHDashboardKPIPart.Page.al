@@ -20,7 +20,7 @@ page 53142 "DH Dashboard KPI Part"
                 field("Data Score"; Rec."Data Score")
                 {
                     ApplicationArea = All;
-                    Caption = 'Data Score';
+                    Caption = 'Data Health Score';
                     StyleExpr = DataScoreStyle;
                     ToolTip = 'Bewertung der Datenqualität.';
                 }
@@ -44,18 +44,18 @@ page 53142 "DH Dashboard KPI Part"
                 field("Issues Count"; Rec."Issues Count")
                 {
                     ApplicationArea = All;
-                    Caption = 'Issues';
+                    Caption = 'Different Issues';
                     StyleExpr = IssuesStyle;
                     ToolTip = 'Anzahl gefundener Probleme.';
                 }
 
-                field("Affected Records"; Rec."Affected Records")
+                /*field("Affected Records"; Rec."Affected Records")
                 {
                     ApplicationArea = All;
                     Caption = 'Affected';
                     StyleExpr = IssuesStyle;
                     ToolTip = 'Summe aller betroffenen Datensätze über alle Findings.';
-                }
+                }*/
             }
         }
     }

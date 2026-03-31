@@ -3,25 +3,20 @@ import hashlib
 import base64
 import json
 from datetime import datetime, timedelta, timezone
+from jose import jwt
+from app.core.settings import settings
 
-SECRET_KEY = "SUPER_SECRET_CHANGE_ME"
+ALGORITHM = "HS256"
 
 
-def create_token(payload: dict, expires_minutes: int = 5) -> str:
-    data = payload.copy()
-    data["exp"] = (
-        datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
-    ).timestamp()
+def create_token(data: dict):
+    to_encode = data.copy()
 
-    json_data = json.dumps(data, separators=(",", ":")).encode()
-    signature = hmac.new(
-        SECRET_KEY.encode(),
-        json_data,
-        hashlib.sha256
-    ).digest()
+    expire = datetime.utcnow() + timedelta(minutes=settings.TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
 
-    token = base64.urlsafe_b64encode(json_data + b"." + signature).decode()
-    return token
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 
 def verify_token(token: str) -> dict | None:

@@ -1,19 +1,39 @@
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
-# Env files
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Env / Secrets
 .env
 .env.*
-.env.prod
+!.env.example
 
-# Docker
+# Logs
 *.log
 
-# VSCode
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# IDE
 .vscode/
+.idea/
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Local runtime / misc
+*.sqlite3
