@@ -18,6 +18,7 @@ from app.security.tenant import (
     require_tenant_headers,
 )
 from app.security.token import create_token, verify_token
+from app.services.impact_service import normalize_stored_commercials
 from app.services.pricing_service import calculate_monthly_price, get_license_pricing
 
 router = APIRouter(tags=["analytics"])
@@ -454,8 +455,12 @@ def _build_dashboard_payload(
     elif current_plan_price_monthly <= 0:
         current_plan_price_monthly = premium_price_monthly
 
-    potential_saving_eur = round(_safe_float(active_scan.potential_saving_eur), 2)
-    current_roi = round((potential_saving_eur), 2)
+    normalized_commercials = normalize_stored_commercials(
+        total_records=_safe_int(active_scan.total_records),
+        estimated_loss_eur=_safe_float(active_scan.estimated_loss_eur),
+        potential_saving_eur=_safe_float(active_scan.potential_saving_eur),
+        estimated_premium_price_monthly=premium_price_monthly,
+    )
 
     affected_records = sum(_safe_int(issue.affected_count) for issue in issues)
 
@@ -533,10 +538,12 @@ def _build_dashboard_payload(
             "health_score": _safe_int(active_scan.data_score),
             "total_records": _safe_int(active_scan.total_records),
             "affected_records": affected_records,
-            "estimated_premium_price_monthly": current_plan_price_monthly,
-            "estimated_loss_eur": round(_safe_float(active_scan.estimated_loss_eur), 2),
-            "potential_saving_eur": potential_saving_eur,
-            "roi_eur": current_roi,
+            "estimated_premium_price_monthly": float(
+                normalized_commercials["estimated_premium_price_monthly"]
+            ),
+            "estimated_loss_eur": float(normalized_commercials["estimated_loss_eur"]),
+            "potential_saving_eur": float(normalized_commercials["potential_saving_eur"]),
+            "roi_eur": float(normalized_commercials["roi_eur"]),
             "checks_run": _safe_int(active_scan.checks_count),
             "issues_count": _safe_int(active_scan.issues_count),
         },

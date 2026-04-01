@@ -15,7 +15,11 @@ from app.security.tenant import (
     load_authenticated_tenant,
     require_tenant_headers,
 )
-from app.services.impact_service import calculate_scan_commercials
+from app.services.impact_service import (
+    apply_commercials_to_scan,
+    calculate_scan_commercials,
+    normalize_stored_commercials,
+)
 
 router = APIRouter(tags=["scans"])
 
@@ -98,7 +102,7 @@ def _normalize_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _calculate_commercials(payload: ScanSyncPayload, db) -> tuple[int, float, float, float, float, list[dict[str, object]]]:
+def _calculate_commercials(payload: ScanSyncPayload, db) -> dict[str, object]:
     commercials = calculate_scan_commercials(
         db,
         issues=payload.issues,
@@ -107,14 +111,14 @@ def _calculate_commercials(payload: ScanSyncPayload, db) -> tuple[int, float, fl
         supplied_estimated_premium_price_monthly=_safe_float(payload.estimated_premium_price_monthly),
     )
 
-    return (
-        int(commercials["total_records"]),
-        float(commercials["estimated_loss_eur"]),
-        float(commercials["potential_saving_eur"]),
-        float(commercials["estimated_premium_price_monthly"]),
-        float(commercials["roi_eur"]),
-        list(commercials["issues"]),
-    )
+    return {
+        "total_records": int(commercials["total_records"]),
+        "estimated_loss_eur": float(commercials["estimated_loss_eur"]),
+        "potential_saving_eur": float(commercials["potential_saving_eur"]),
+        "estimated_premium_price_monthly": float(commercials["estimated_premium_price_monthly"]),
+        "roi_eur": float(commercials["roi_eur"]),
+        "issues": list(commercials["issues"]),
+    }
 
 
 @router.post("/scan/sync")
@@ -127,7 +131,8 @@ def sync_scan(
 
     with SessionLocal() as db:
         tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
-        total_records, estimated_loss, potential_saving, premium_price, roi, recalculated_issues = _calculate_commercials(payload, db)
+        commercials = _calculate_commercials(payload, db)
+        recalculated_issues = list(commercials["issues"])
 
         existing_scan = db.scalar(select(Scan).where(Scan.scan_id == payload.scan_id))
 
@@ -166,11 +171,7 @@ def sync_scan(
 
             db.query(ScanIssueRecord).filter(ScanIssueRecord.scan_id == payload.scan_id).delete()
 
-        scan.total_records = total_records
-        scan.estimated_loss_eur = estimated_loss
-        scan.potential_saving_eur = potential_saving
-        scan.estimated_premium_price_monthly = premium_price
-        scan.roi_eur = roi
+        apply_commercials_to_scan(scan, commercials)
 
         scan.customers_count = _safe_int(payload.data_profile.customers)
         scan.vendors_count = _safe_int(payload.data_profile.vendors)
@@ -209,13 +210,12 @@ def sync_scan(
             "status": "ok",
             "scan_id": payload.scan_id,
             "tenant_id": payload.tenant_id,
-            "commercials": {
-                "total_records": total_records,
-                "estimated_loss_eur": estimated_loss,
-                "potential_saving_eur": potential_saving,
-                "estimated_premium_price_monthly": premium_price,
-                "roi_eur": roi,
-            },
+            "commercials": normalize_stored_commercials(
+                total_records=int(commercials["total_records"]),
+                estimated_loss_eur=float(commercials["estimated_loss_eur"]),
+                potential_saving_eur=float(commercials["potential_saving_eur"]),
+                estimated_premium_price_monthly=float(commercials["estimated_premium_price_monthly"]),
+            ),
             "issues": recalculated_issues,
         }
     )

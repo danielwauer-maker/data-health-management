@@ -31,8 +31,10 @@ from app.security.tenant import (
 )
 from app.services.cost_service import ensure_default_issue_costs
 from app.services.impact_service import (
+    apply_commercials_to_scan,
     calculate_scan_commercials,
     ensure_default_impact_config,
+    normalize_stored_commercials,
 )
 from app.services.pricing_service import ensure_default_license_pricing
 from app.services.scoring_service import calculate_quick_scan_result
@@ -182,10 +184,6 @@ def quick_scan(
 
         enriched_issue_dicts = commercials["issues"]
         enriched_issues = [ScanIssue(**issue_dict) for issue_dict in enriched_issue_dicts]
-        estimated_loss_eur = commercials["estimated_loss_eur"]
-        potential_saving_eur = commercials["potential_saving_eur"]
-        estimated_premium_price_monthly = commercials["estimated_premium_price_monthly"]
-        roi_eur = commercials["roi_eur"]
 
         existing_scan = db.scalar(select(Scan).where(Scan.scan_id == scan_id))
 
@@ -207,11 +205,11 @@ def quick_scan(
                 premium_available=True,
                 summary_headline=summary.headline,
                 summary_rating=summary.rating,
-                total_records=total_records,
-                estimated_loss_eur=estimated_loss_eur,
-                potential_saving_eur=potential_saving_eur,
-                estimated_premium_price_monthly=estimated_premium_price_monthly,
-                roi_eur=roi_eur,
+                total_records=int(commercials["total_records"]),
+                estimated_loss_eur=float(commercials["estimated_loss_eur"]),
+                potential_saving_eur=float(commercials["potential_saving_eur"]),
+                estimated_premium_price_monthly=float(commercials["estimated_premium_price_monthly"]),
+                roi_eur=float(commercials["roi_eur"]),
                 customers_count=payload.data_profile.customers,
                 vendors_count=payload.data_profile.vendors,
                 items_count=payload.data_profile.items,
@@ -226,6 +224,7 @@ def quick_scan(
                 value_entries_count=payload.data_profile.value_entries,
                 warehouse_entries_count=payload.data_profile.warehouse_entries,
             )
+            apply_commercials_to_scan(scan, commercials)
             db.add(scan)
         else:
             scan = existing_scan
@@ -237,11 +236,7 @@ def quick_scan(
             scan.premium_available = True
             scan.summary_headline = summary.headline
             scan.summary_rating = summary.rating
-            scan.total_records = total_records
-            scan.estimated_loss_eur = estimated_loss_eur
-            scan.potential_saving_eur = potential_saving_eur
-            scan.estimated_premium_price_monthly = estimated_premium_price_monthly
-            scan.roi_eur = roi_eur
+            apply_commercials_to_scan(scan, commercials)
             scan.customers_count = payload.data_profile.customers
             scan.vendors_count = payload.data_profile.vendors
             scan.items_count = payload.data_profile.items
@@ -275,6 +270,13 @@ def quick_scan(
         tenant.last_seen_at_utc = generated_at_utc
         db.commit()
 
+    normalized_commercials = normalize_stored_commercials(
+        total_records=int(commercials["total_records"]),
+        estimated_loss_eur=float(commercials["estimated_loss_eur"]),
+        potential_saving_eur=float(commercials["potential_saving_eur"]),
+        estimated_premium_price_monthly=float(commercials["estimated_premium_price_monthly"]),
+    )
+
     return QuickScanResponse(
         scan_id=scan_id,
         bc_run_id=payload.bc_run_id,
@@ -287,10 +289,12 @@ def quick_scan(
         summary=summary,
         issues=enriched_issues,
         data_profile=payload.data_profile,
-        estimated_loss_eur=round(estimated_loss_eur, 2),
-        potential_saving_eur=potential_saving_eur,
-        estimated_premium_price_monthly=estimated_premium_price_monthly,
-        roi_eur=roi_eur,
+        estimated_loss_eur=float(normalized_commercials["estimated_loss_eur"]),
+        potential_saving_eur=float(normalized_commercials["potential_saving_eur"]),
+        estimated_premium_price_monthly=float(
+            normalized_commercials["estimated_premium_price_monthly"]
+        ),
+        roi_eur=float(normalized_commercials["roi_eur"]),
     )
 
 
@@ -336,6 +340,15 @@ def get_scan_history(
                 for row in issue_rows
             ]
 
+            normalized_commercials = normalize_stored_commercials(
+                total_records=int(scan.total_records or 0),
+                estimated_loss_eur=float(scan.estimated_loss_eur or 0.0),
+                potential_saving_eur=float(scan.potential_saving_eur or 0.0),
+                estimated_premium_price_monthly=float(
+                    scan.estimated_premium_price_monthly or 0.0
+                ),
+            )
+
             result_scans.append(
                 ScanHistoryEntry(
                     scan_id=scan.scan_id,
@@ -364,14 +377,14 @@ def get_scan_history(
                         "gl_entries": scan.gl_entries_count,
                         "value_entries": scan.value_entries_count,
                         "warehouse_entries": scan.warehouse_entries_count,
-                        "total_records": scan.total_records,
+                        "total_records": int(normalized_commercials["total_records"]),
                     },
-                    estimated_loss_eur=float(scan.estimated_loss_eur or 0.0),
-                    potential_saving_eur=float(scan.potential_saving_eur or 0.0),
+                    estimated_loss_eur=float(normalized_commercials["estimated_loss_eur"]),
+                    potential_saving_eur=float(normalized_commercials["potential_saving_eur"]),
                     estimated_premium_price_monthly=float(
-                        scan.estimated_premium_price_monthly or 0.0
+                        normalized_commercials["estimated_premium_price_monthly"]
                     ),
-                    roi_eur=float(scan.roi_eur or 0.0),
+                    roi_eur=float(normalized_commercials["roi_eur"]),
                 )
             )
 

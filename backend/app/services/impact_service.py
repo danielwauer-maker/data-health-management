@@ -140,20 +140,82 @@ def clamp_potential_saving_factor(value: float) -> float:
     return value
 
 
+def _round_money(value: float) -> float:
+    try:
+        return round(float(value or 0.0), 2)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def normalize_commercial_values(
+    *,
+    estimated_loss_eur: float,
+    estimated_premium_price_monthly: float,
+    potential_saving_eur: float | None = None,
+    potential_saving_factor: float | None = None,
+) -> dict[str, float]:
+    estimated_loss_eur = max(0.0, _round_money(estimated_loss_eur))
+    estimated_premium_price_monthly = max(0.0, _round_money(estimated_premium_price_monthly))
+
+    if potential_saving_eur is None:
+        factor = clamp_potential_saving_factor(
+            DEFAULT_POTENTIAL_SAVING_FACTOR if potential_saving_factor is None else potential_saving_factor
+        )
+        potential_saving_eur = estimated_loss_eur * factor
+
+    potential_saving_eur = max(0.0, _round_money(potential_saving_eur))
+    potential_saving_eur = min(potential_saving_eur, estimated_loss_eur)
+
+    roi_eur = _round_money(potential_saving_eur - (estimated_premium_price_monthly * 12))
+
+    return {
+        "estimated_loss_eur": estimated_loss_eur,
+        "potential_saving_eur": potential_saving_eur,
+        "estimated_premium_price_monthly": estimated_premium_price_monthly,
+        "roi_eur": roi_eur,
+    }
+
+
+def apply_commercials_to_scan(scan: object, commercials: dict[str, object]) -> None:
+    scan.total_records = max(int(commercials.get("total_records", 0) or 0), 0)
+    scan.estimated_loss_eur = _round_money(commercials.get("estimated_loss_eur", 0.0))
+    scan.potential_saving_eur = _round_money(commercials.get("potential_saving_eur", 0.0))
+    scan.estimated_premium_price_monthly = _round_money(
+        commercials.get("estimated_premium_price_monthly", 0.0)
+    )
+    scan.roi_eur = _round_money(commercials.get("roi_eur", 0.0))
+
+
+def normalize_stored_commercials(
+    total_records: int,
+    estimated_loss_eur: float,
+    potential_saving_eur: float,
+    estimated_premium_price_monthly: float,
+) -> dict[str, float | int]:
+    normalized = normalize_commercial_values(
+        estimated_loss_eur=estimated_loss_eur,
+        potential_saving_eur=potential_saving_eur,
+        estimated_premium_price_monthly=estimated_premium_price_monthly,
+    )
+    normalized["total_records"] = max(int(total_records or 0), 0)
+    return normalized
+
+
 def normalize_commercials(
     estimated_loss_eur: float,
     potential_saving_factor: float,
     estimated_premium_price_monthly: float,
 ) -> tuple[float, float, float]:
-    estimated_loss_eur = max(0.0, round(float(estimated_loss_eur or 0.0), 2))
-    estimated_premium_price_monthly = max(0.0, round(float(estimated_premium_price_monthly or 0.0), 2))
-
-    factor = clamp_potential_saving_factor(potential_saving_factor)
-    potential_saving_eur = round(estimated_loss_eur * factor, 2)
-    potential_saving_eur = min(potential_saving_eur, estimated_loss_eur)
-
-    roi_eur = round(potential_saving_eur - (estimated_premium_price_monthly * 12), 2)
-    return estimated_loss_eur, potential_saving_eur, roi_eur
+    normalized = normalize_commercial_values(
+        estimated_loss_eur=estimated_loss_eur,
+        potential_saving_factor=potential_saving_factor,
+        estimated_premium_price_monthly=estimated_premium_price_monthly,
+    )
+    return (
+        normalized["estimated_loss_eur"],
+        normalized["potential_saving_eur"],
+        normalized["roi_eur"],
+    )
 
 
 def _fallback_definition(code: str) -> ImpactDefinition:
@@ -236,15 +298,28 @@ def get_impact_definition(db, issue_code: str) -> ImpactDefinition:
     return _fallback_definition(normalized)
 
 
-def calculate_issue_impact(db, issue_code: str, affected_count: int) -> float:
+def _calculate_issue_impact_amount(
+    definition: ImpactDefinition,
+    affected_count: int,
+    hourly_rate_eur: float,
+) -> float:
     count = max(int(affected_count or 0), 0)
     if count <= 0:
         return 0.0
 
+    impact_per_record = (
+        (definition.minutes_per_occurrence / 60.0)
+        * definition.probability
+        * definition.frequency_per_year
+        * hourly_rate_eur
+    )
+    return _round_money(count * impact_per_record)
+
+
+def calculate_issue_impact(db, issue_code: str, affected_count: int) -> float:
     definition = get_impact_definition(db, issue_code)
     hourly_rate = get_hourly_rate_eur(db)
-    impact_per_record = (definition.minutes_per_occurrence / 60.0) * definition.probability * definition.frequency_per_year * hourly_rate
-    return round(count * impact_per_record, 2)
+    return _calculate_issue_impact_amount(definition, affected_count, hourly_rate)
 
 
 def calculate_scan_commercials(
@@ -280,7 +355,7 @@ def calculate_scan_commercials(
             calculate_monthly_price(total_records, pricing), 2
         )
 
-    estimated_loss_eur, potential_saving_eur, roi_eur = normalize_commercials(
+    normalized = normalize_commercial_values(
         estimated_loss_eur=estimated_loss_eur,
         potential_saving_factor=get_potential_saving_factor(db),
         estimated_premium_price_monthly=estimated_premium_price_monthly,
@@ -288,21 +363,23 @@ def calculate_scan_commercials(
 
     return {
         "total_records": total_records,
-        "estimated_loss_eur": estimated_loss_eur,
-        "potential_saving_eur": potential_saving_eur,
-        "estimated_premium_price_monthly": estimated_premium_price_monthly,
-        "roi_eur": roi_eur,
+        "estimated_loss_eur": normalized["estimated_loss_eur"],
+        "potential_saving_eur": normalized["potential_saving_eur"],
+        "estimated_premium_price_monthly": normalized["estimated_premium_price_monthly"],
+        "roi_eur": normalized["roi_eur"],
         "issues": recalculated_issues,
     }
 
 
 def calculate_issue_impacts(db, issues: Iterable[object]) -> list[dict[str, object]]:
     result: list[dict[str, object]] = []
+    hourly_rate_eur = round(get_hourly_rate_eur(db), 2)
+
     for issue in issues:
         code = _normalize_code(getattr(issue, "code", ""))
         definition = get_impact_definition(db, code)
         affected_count = max(int(getattr(issue, "affected_count", 0) or 0), 0)
-        impact = calculate_issue_impact(db, code, affected_count)
+        impact = _calculate_issue_impact_amount(definition, affected_count, hourly_rate_eur)
         result.append(
             {
                 "code": code,
@@ -315,7 +392,7 @@ def calculate_issue_impacts(db, issues: Iterable[object]) -> list[dict[str, obje
                 "minutes_per_occurrence": round(definition.minutes_per_occurrence, 2),
                 "probability": round(definition.probability, 4),
                 "frequency_per_year": round(definition.frequency_per_year, 2),
-                "hourly_rate_eur": round(get_hourly_rate_eur(db), 2),
+                "hourly_rate_eur": hourly_rate_eur,
             }
         )
     return result
