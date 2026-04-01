@@ -37,3 +37,20 @@ Thumbs.db
 
 # Local runtime / misc
 *.sqlite3
+
+# Local databases
+*.db
+
+# Python caches everywhere
+**/__pycache__/
+
+# BC build/output
+bc-extension/.alpackages/
+bc-extension/.snapshots/
+bc-extension/artifacts/
+bc-extension/*.app
+bc-extension/app/src.zip
+
+# Env templates only
+.env
+.env.prod

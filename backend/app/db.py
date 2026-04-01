@@ -1,10 +1,12 @@
 import time
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.core.settings import settings
+
+REQUIRED_ALEMBIC_REVISION = "0002_commercials_and_pricing"
 
 
 class Base(DeclarativeBase):
@@ -42,3 +44,24 @@ def wait_for_database(max_attempts: int = 30, delay_seconds: int = 2) -> None:
             time.sleep(delay_seconds)
 
     raise RuntimeError("Database did not become ready in time.") from last_error
+
+
+def ensure_schema_is_migrated(required_revision: str = REQUIRED_ALEMBIC_REVISION) -> None:
+    inspector = inspect(engine)
+
+    if "alembic_version" not in inspector.get_table_names():
+        raise RuntimeError(
+            "Database schema is not managed by Alembic yet. "
+            "Run 'alembic upgrade head' for a fresh database or "
+            "'alembic stamp 0002_commercials_and_pricing' once for an existing database "
+            "that already matches the current schema."
+        )
+
+    with engine.connect() as connection:
+        version = connection.execute(text("SELECT version_num FROM alembic_version LIMIT 1")).scalar()
+
+    if version != required_revision:
+        raise RuntimeError(
+            f"Database schema revision mismatch. Expected '{required_revision}', got '{version}'. "
+            "Run the pending Alembic migrations before starting the API."
+        )

@@ -626,7 +626,10 @@ def get_analytics_data(
     scan_id: str | None = Query(default=None),
     recent_scans_page: int = Query(default=1, ge=1),
     recent_scans_page_size: int = Query(default=10, ge=1, le=25),
+    tenant_auth: tuple[str, str] = Depends(require_tenant_headers),
 ):
+    header_tenant_id, header_api_token = tenant_auth
+
     payload = verify_token(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
@@ -635,8 +638,10 @@ def get_analytics_data(
     if not tenant_id:
         raise HTTPException(status_code=401, detail="Token payload is missing tenant_id.")
 
+    enforce_tenant_match(tenant_id, header_tenant_id, "Token tenant_id")
+
     with SessionLocal() as db:
-        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
 
     if tenant is None:
         raise HTTPException(status_code=404, detail="Tenant not found.")
@@ -655,7 +660,13 @@ def get_analytics_data(
 
 
 @router.get("/analytics/embed", response_class=HTMLResponse)
-def render_analytics_dashboard(request: Request, token: str = Query(...)):
+def render_analytics_dashboard(
+    request: Request,
+    token: str = Query(...),
+    tenant_auth: tuple[str, str] = Depends(require_tenant_headers),
+):
+    header_tenant_id, header_api_token = tenant_auth
+
     payload = verify_token(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
@@ -664,8 +675,10 @@ def render_analytics_dashboard(request: Request, token: str = Query(...)):
     if not tenant_id:
         raise HTTPException(status_code=401, detail="Token payload is missing tenant_id.")
 
+    enforce_tenant_match(tenant_id, header_tenant_id, "Token tenant_id")
+
     with SessionLocal() as db:
-        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
 
     if tenant is None:
         raise HTTPException(status_code=404, detail="Tenant not found.")

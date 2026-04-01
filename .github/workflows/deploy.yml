@@ -24,9 +24,20 @@ jobs:
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
             set -e
+
             cd /home/daniel/data-health-management
-            pwd
-            ls -la
+
+            echo "📥 Pull latest code"
             git pull origin main
+
+            echo "🐳 Start database only"
+            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d postgres
+
+            echo "🧱 Run database migrations"
+            docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm backend alembic upgrade head
+
+            echo "🚀 Start full stack"
             docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+
+            echo "✅ Deploy finished"
           EOF

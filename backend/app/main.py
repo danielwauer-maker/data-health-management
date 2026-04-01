@@ -6,10 +6,10 @@ from uuid import uuid4
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sqlalchemy import select, text
+from sqlalchemy import select
 
 from app.core.settings import validate_settings
-from app.db import Base, SessionLocal, engine, wait_for_database
+from app.db import SessionLocal, ensure_schema_is_migrated, wait_for_database
 from app.models import Scan, ScanIssueRecord, Tenant
 from app.routers.admin import router as admin_router
 from app.routers.analytics import router as analytics_router
@@ -42,58 +42,11 @@ from app.services.scoring_service import calculate_quick_scan_result
 BASE_DIR = Path(__file__).resolve().parent
 
 
-def ensure_runtime_schema() -> None:
-    statements = [
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS total_records INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS estimated_loss_eur DOUBLE PRECISION DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS potential_saving_eur DOUBLE PRECISION DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS estimated_premium_price_monthly DOUBLE PRECISION DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS roi_eur DOUBLE PRECISION DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS customers_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS vendors_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS items_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS customer_ledger_entries_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS vendor_ledger_entries_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS item_ledger_entries_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS sales_headers_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS sales_lines_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS purchase_headers_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS purchase_lines_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS gl_entries_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS value_entries_count INTEGER DEFAULT 0",
-        "ALTER TABLE scans ADD COLUMN IF NOT EXISTS warehouse_entries_count INTEGER DEFAULT 0",
-        "ALTER TABLE scan_issues ADD COLUMN IF NOT EXISTS estimated_impact_eur DOUBLE PRECISION DEFAULT 0",
-        "ALTER TABLE issue_cost_config ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT ''",
-        "ALTER TABLE license_pricing_config ADD COLUMN IF NOT EXISTS display_name VARCHAR(80) DEFAULT ''",
-        "ALTER TABLE license_pricing_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
-        "CREATE TABLE IF NOT EXISTS issue_impact_config (code VARCHAR(80) PRIMARY KEY, title VARCHAR(255) DEFAULT '', category VARCHAR(50) DEFAULT 'general', minutes_per_occurrence DOUBLE PRECISION DEFAULT 5, probability DOUBLE PRECISION DEFAULT 0.2, frequency_per_year DOUBLE PRECISION DEFAULT 12, is_active BOOLEAN DEFAULT TRUE)",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS category VARCHAR(50)",
-        "ALTER TABLE issue_impact_config ALTER COLUMN category SET DEFAULT 'general'",
-        "UPDATE issue_impact_config SET category = 'general' WHERE category IS NULL OR TRIM(category) = ''",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT ''",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS minutes_per_occurrence DOUBLE PRECISION DEFAULT 5",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS probability DOUBLE PRECISION DEFAULT 0.2",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS frequency_per_year DOUBLE PRECISION DEFAULT 12",
-        "ALTER TABLE issue_impact_config ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE",
-        "CREATE TABLE IF NOT EXISTS impact_settings_config (key VARCHAR(80) PRIMARY KEY, value_number DOUBLE PRECISION DEFAULT 0, title VARCHAR(255) DEFAULT '')",
-        "ALTER TABLE impact_settings_config ADD COLUMN IF NOT EXISTS value_number DOUBLE PRECISION DEFAULT 0",
-        "ALTER TABLE impact_settings_config ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT ''",
-        "UPDATE impact_settings_config SET value_number = COALESCE(value_number, 0)",
-    ]
-    with engine.begin() as connection:
-        for statement in statements:
-            try:
-                connection.execute(text(statement))
-            except Exception:
-                pass
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     validate_settings()
     wait_for_database()
-    Base.metadata.create_all(bind=engine)
-    ensure_runtime_schema()
+    ensure_schema_is_migrated()
 
     with SessionLocal() as db:
         ensure_default_issue_costs(db)
@@ -105,7 +58,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Data Health Management API",
-    version="0.6.0",
+    version="0.7.0",
     lifespan=lifespan,
 )
 
@@ -205,11 +158,6 @@ def quick_scan(
                 premium_available=True,
                 summary_headline=summary.headline,
                 summary_rating=summary.rating,
-                total_records=int(commercials["total_records"]),
-                estimated_loss_eur=float(commercials["estimated_loss_eur"]),
-                potential_saving_eur=float(commercials["potential_saving_eur"]),
-                estimated_premium_price_monthly=float(commercials["estimated_premium_price_monthly"]),
-                roi_eur=float(commercials["roi_eur"]),
                 customers_count=payload.data_profile.customers,
                 vendors_count=payload.data_profile.vendors,
                 items_count=payload.data_profile.items,
@@ -270,12 +218,12 @@ def quick_scan(
         tenant.last_seen_at_utc = generated_at_utc
         db.commit()
 
-    normalized_commercials = normalize_stored_commercials(
-        total_records=int(commercials["total_records"]),
-        estimated_loss_eur=float(commercials["estimated_loss_eur"]),
-        potential_saving_eur=float(commercials["potential_saving_eur"]),
-        estimated_premium_price_monthly=float(commercials["estimated_premium_price_monthly"]),
-    )
+        normalized_commercials = normalize_stored_commercials(
+            total_records=scan.total_records,
+            estimated_loss_eur=scan.estimated_loss_eur,
+            potential_saving_eur=scan.potential_saving_eur,
+            estimated_premium_price_monthly=scan.estimated_premium_price_monthly,
+        )
 
     return QuickScanResponse(
         scan_id=scan_id,
@@ -291,9 +239,7 @@ def quick_scan(
         data_profile=payload.data_profile,
         estimated_loss_eur=float(normalized_commercials["estimated_loss_eur"]),
         potential_saving_eur=float(normalized_commercials["potential_saving_eur"]),
-        estimated_premium_price_monthly=float(
-            normalized_commercials["estimated_premium_price_monthly"]
-        ),
+        estimated_premium_price_monthly=float(normalized_commercials["estimated_premium_price_monthly"]),
         roi_eur=float(normalized_commercials["roi_eur"]),
     )
 
@@ -341,12 +287,10 @@ def get_scan_history(
             ]
 
             normalized_commercials = normalize_stored_commercials(
-                total_records=int(scan.total_records or 0),
-                estimated_loss_eur=float(scan.estimated_loss_eur or 0.0),
-                potential_saving_eur=float(scan.potential_saving_eur or 0.0),
-                estimated_premium_price_monthly=float(
-                    scan.estimated_premium_price_monthly or 0.0
-                ),
+                total_records=scan.total_records,
+                estimated_loss_eur=scan.estimated_loss_eur,
+                potential_saving_eur=scan.potential_saving_eur,
+                estimated_premium_price_monthly=scan.estimated_premium_price_monthly,
             )
 
             result_scans.append(
@@ -377,7 +321,7 @@ def get_scan_history(
                         "gl_entries": scan.gl_entries_count,
                         "value_entries": scan.value_entries_count,
                         "warehouse_entries": scan.warehouse_entries_count,
-                        "total_records": int(normalized_commercials["total_records"]),
+                        "total_records": scan.total_records,
                     },
                     estimated_loss_eur=float(normalized_commercials["estimated_loss_eur"]),
                     potential_saving_eur=float(normalized_commercials["potential_saving_eur"]),
