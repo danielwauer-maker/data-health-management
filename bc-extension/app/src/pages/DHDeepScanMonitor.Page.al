@@ -563,18 +563,16 @@ page 53158 "DH Deep Scan Monitor"
         if Rec."Run ID" = '' then
             exit;
 
-        ScanHeader.SetRange("Run ID", Rec."Run ID");
-        if not ScanHeader.FindFirst() then
-            exit;
+        ScanDateTimeValue := Rec."Finished At";
+        if ScanDateTimeValue = 0DT then
+            ScanDateTimeValue := Rec."Requested At";
 
-        DashboardScanEntryNo := ScanHeader."Entry No.";
-        ScanDateTimeValue := ScanHeader."Scan DateTime";
-        ScanTypeTxt := Format(ScanHeader."Scan Type");
-        RatingTxt := ScanHeader.Rating;
-        RatingStyle := GetRatingStyle(ScanHeader.Rating);
-        ScannedRecordsValue := ScanHeader."Total Records";
-        EstimatedLossValue := ScanHeader."Estimated Loss (EUR)";
-        PotentialSavingValue := ScanHeader."Potential Saving (EUR)";
+        ScanTypeTxt := 'Deep';
+        RatingTxt := Rec.Rating;
+        RatingStyle := GetRatingStyle(Rec.Rating);
+        ScannedRecordsValue := Rec."Total Records";
+        EstimatedLossValue := Rec."Estimated Loss (EUR)";
+        PotentialSavingValue := Rec."Potential Saving (EUR)";
 
         if EstimatedLossValue < 0 then
             EstimatedLossValue := 0;
@@ -585,23 +583,27 @@ page 53158 "DH Deep Scan Monitor"
         if (EstimatedLossValue > 0) and (PotentialSavingValue > EstimatedLossValue) then
             PotentialSavingValue := EstimatedLossValue;
 
-        if (DeepScoreValue = 0) and (ScanHeader."Data Score" <> 0) then
-            DeepScoreValue := ScanHeader."Data Score";
-        if (ChecksCountValue = 0) and (ScanHeader."Checks Count" <> 0) then
-            ChecksCountValue := ScanHeader."Checks Count";
-        if (IssuesCountValue = 0) and (ScanHeader."Issues Count" <> 0) then
-            IssuesCountValue := ScanHeader."Issues Count";
-        if (AffectedRecordsValue = 0) and (ScanHeader."Affected Records" <> 0) then
-            AffectedRecordsValue := ScanHeader."Affected Records";
+        if (DeepScoreValue = 0) and (Rec."Deep Score" <> 0) then
+            DeepScoreValue := Rec."Deep Score";
+        if (ChecksCountValue = 0) and (Rec."Checks Count" <> 0) then
+            ChecksCountValue := Rec."Checks Count";
+        if (IssuesCountValue = 0) and (Rec."Issues Count" <> 0) then
+            IssuesCountValue := Rec."Issues Count";
+        if (AffectedRecordsValue = 0) and (Rec."Affected Records" <> 0) then
+            AffectedRecordsValue := Rec."Affected Records";
+
+        ScanHeader.SetRange("Run ID", Rec."Run ID");
+        if ScanHeader.FindFirst() then
+            DashboardScanEntryNo := ScanHeader."Entry No.";
     end;
 
     local procedure ApplyIssuePartFilter()
     begin
         if DashboardScanEntryNo <> 0 then begin
-            CurrPage.KpiTiles.Page.SetScanHeaderEntryNo(DashboardScanEntryNo);
+            CurrPage.KpiTiles.Page.SetDeepScanRunEntryNo(Rec."Entry No.");
             CurrPage.Findings.Page.SetDeepScanEntryNo(Rec."Entry No.");
         end else begin
-            CurrPage.KpiTiles.Page.SetScanHeaderEntryNo(-1);
+            CurrPage.KpiTiles.Page.SetDeepScanRunEntryNo(-1);
             CurrPage.Findings.Page.SetDeepScanEntryNo(-1);
         end;
     end;
@@ -769,11 +771,17 @@ page 53158 "DH Deep Scan Monitor"
     var
         Setup: Record "DH Setup";
         Client: HttpClient;
+        Headers: HttpHeaders;
         Response: HttpResponseMessage;
         ResponseText: Text;
         Token: Text;
     begin
         LoadSetupOrError(Setup);
+
+        Headers := Client.DefaultRequestHeaders();
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
 
         if not Client.Get(GetTokenUrl(Setup), Response) then
             Error('The dashboard token service could not be reached.');
@@ -805,6 +813,9 @@ page 53158 "DH Deep Scan Monitor"
 
         if Setup."Tenant ID" = '' then
             Error('Please register the tenant in DH Setup first.');
+
+        if Setup."API Token" = '' then
+            Error('Please register the tenant in DH Setup first so that an API token is stored.');
     end;
 
     local procedure GetTokenUrl(var Setup: Record "DH Setup"): Text

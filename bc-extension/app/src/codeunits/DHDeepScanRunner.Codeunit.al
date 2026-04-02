@@ -2125,6 +2125,9 @@ codeunit 53128 "DH Deep Scan Runner"
         ScanHeader."Potential Saving (EUR)" := DeepScanRun."Potential Saving (EUR)";
         ScanHeader."Est. Loss" := DeepScanRun."Estimated Loss (EUR)";
         ScanHeader."Potential Saving" := DeepScanRun."Potential Saving (EUR)";
+        ScanHeader."Total Records" := DeepScanRun."Total Records";
+        ScanHeader."Est. Premium Price" := DeepScanRun."Est. Premium Price";
+        ScanHeader."ROI" := DeepScanRun."ROI";
         ScanHeader."Headline" := CopyStr(DeepScanRun."Headline", 1, MaxStrLen(ScanHeader."Headline"));
         ScanHeader."Rating" := CopyStr(DeepScanRun."Rating", 1, MaxStrLen(ScanHeader."Rating"));
         ScanHeader."Premium Available" := true;
@@ -2156,6 +2159,18 @@ codeunit 53128 "DH Deep Scan Runner"
         if CommercialsObj.Get('potential_saving_eur', Token) then
             DeepScanRun."Potential Saving (EUR)" := ReadJsonDecimal(Token);
 
+        if CommercialsObj.Get('total_records', Token) then
+            DeepScanRun."Total Records" := Token.AsValue().AsInteger();
+
+        if CommercialsObj.Get('premium_price_per_month', Token) then
+            DeepScanRun."Est. Premium Price" := ReadJsonDecimal(Token)
+        else
+            if CommercialsObj.Get('estimated_premium_price_monthly', Token) then
+                DeepScanRun."Est. Premium Price" := ReadJsonDecimal(Token);
+
+        if CommercialsObj.Get('roi_eur', Token) then
+            DeepScanRun."ROI" := ReadJsonDecimal(Token);
+
         DeepScanRun.Modify(true);
 
         ScanHeader.Reset();
@@ -2169,22 +2184,13 @@ codeunit 53128 "DH Deep Scan Runner"
                 exit;
         end;
 
-        if CommercialsObj.Get('total_records', Token) then
-            ScanHeader."Total Records" := Token.AsValue().AsInteger();
-
+        ScanHeader."Total Records" := DeepScanRun."Total Records";
         ScanHeader."Estimated Loss (EUR)" := DeepScanRun."Estimated Loss (EUR)";
         ScanHeader."Potential Saving (EUR)" := DeepScanRun."Potential Saving (EUR)";
         ScanHeader."Est. Loss" := DeepScanRun."Estimated Loss (EUR)";
         ScanHeader."Potential Saving" := DeepScanRun."Potential Saving (EUR)";
-
-        if CommercialsObj.Get('premium_price_per_month', Token) then
-            ScanHeader."Est. Premium Price" := ReadJsonDecimal(Token)
-        else
-            if CommercialsObj.Get('estimated_premium_price_monthly', Token) then
-                ScanHeader."Est. Premium Price" := ReadJsonDecimal(Token);
-
-        if CommercialsObj.Get('roi_eur', Token) then
-            ScanHeader."ROI" := ReadJsonDecimal(Token);
+        ScanHeader."Est. Premium Price" := DeepScanRun."Est. Premium Price";
+        ScanHeader."ROI" := DeepScanRun."ROI";
 
         ScanHeader.Modify(true);
     end;

@@ -1,7 +1,7 @@
 page 53142 "DH Dashboard KPI Part"
 {
     PageType = CardPart;
-    SourceTable = "DH Scan Header";
+    SourceTable = "DH Deep Scan Run";
     ApplicationArea = All;
     Caption = 'Key Metrics';
     Editable = false;
@@ -17,7 +17,7 @@ page 53142 "DH Dashboard KPI Part"
             {
                 ShowCaption = false;
 
-                field("Data Score"; Rec."Data Score")
+                field("Data Score"; Rec."Deep Score")
                 {
                     ApplicationArea = All;
                     Caption = 'Data Health Score';
@@ -86,13 +86,13 @@ page 53142 "DH Dashboard KPI Part"
 
     local procedure GetDataScoreStyle(): Text[30]
     begin
-        if Rec."Data Score" >= 86 then
+        if Rec."Deep Score" >= 86 then
             exit('Favorable');
 
-        if Rec."Data Score" >= 61 then
+        if Rec."Deep Score" >= 61 then
             exit('Ambiguous');
 
-        if Rec."Data Score" >= 1 then
+        if Rec."Deep Score" >= 1 then
             exit('Unfavorable');
 
         exit('Unfavorable');
@@ -123,9 +123,9 @@ page 53142 "DH Dashboard KPI Part"
     end;
 
 
-    procedure SetScanHeaderEntryNo(ScanHeaderEntryNo: Integer)
+    procedure SetDeepScanRunEntryNo(DeepScanRunEntryNo: Integer)
     begin
-        if ScanHeaderEntryNo <= 0 then begin
+        if DeepScanRunEntryNo <= 0 then begin
             Rec.Reset();
             Rec.SetRange("Entry No.", -1);
             if Rec.FindFirst() then;
@@ -134,7 +134,7 @@ page 53142 "DH Dashboard KPI Part"
         end;
 
         Rec.Reset();
-        Rec.SetRange("Entry No.", ScanHeaderEntryNo);
+        Rec.SetRange("Entry No.", DeepScanRunEntryNo);
         if Rec.FindFirst() then;
         CurrPage.Update(false);
     end;

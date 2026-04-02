@@ -39,11 +39,17 @@ page 53123 "DHM Analytics"
                 var
                     Setup: Record "DH Setup";
                     Client: HttpClient;
+                    Headers: HttpHeaders;
                     Response: HttpResponseMessage;
                     ResponseText: Text;
                     Token: Text;
                 begin
                     LoadSetupOrError(Setup);
+
+                    Headers := Client.DefaultRequestHeaders();
+                    Headers.Clear();
+                    Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+                    Headers.Add('X-Api-Token', Setup."API Token");
 
                     if not Client.Get(GetTokenUrl(Setup), Response) then
                         Error('Der Token-Service konnte nicht erreicht werden.');
@@ -97,6 +103,9 @@ page 53123 "DHM Analytics"
 
         if Setup."Tenant ID" = '' then
             Error('Bitte registrieren Sie zuerst den Tenant im DH Setup.');
+
+        if Setup."API Token" = '' then
+            Error('Bitte registrieren Sie zuerst den Tenant im DH Setup, damit ein API-Token hinterlegt ist.');
     end;
 
     local procedure GetTokenUrl(var Setup: Record "DH Setup"): Text

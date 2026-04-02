@@ -16,6 +16,7 @@ env/
 
 # Env / Secrets
 .env
+.env.prod
 .env.*
 !.env.example
 
@@ -50,7 +51,3 @@ bc-extension/.snapshots/
 bc-extension/artifacts/
 bc-extension/*.app
 bc-extension/app/src.zip
-
-# Env templates only
-.env
-.env.prod

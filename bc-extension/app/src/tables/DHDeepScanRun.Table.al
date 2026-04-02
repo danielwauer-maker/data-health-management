@@ -184,8 +184,22 @@ table 53128 "DH Deep Scan Run"
         {
             Caption = 'HR Score';
         }
-    }
 
+        field(45; "Total Records"; Integer)
+        {
+            Caption = 'Total Records';
+        }
+        field(46; "Est. Premium Price"; Decimal)
+        {
+            Caption = 'Premium €/Month';
+            DecimalPlaces = 0 : 2;
+        }
+        field(47; "ROI"; Decimal)
+        {
+            Caption = 'ROI €';
+            DecimalPlaces = 0 : 2;
+        }
+    }
     keys
     {
         key(PK; "Entry No.")
