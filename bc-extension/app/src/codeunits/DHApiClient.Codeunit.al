@@ -115,7 +115,10 @@ codeunit 53100 "DH API Client"
         EnsureTenantAccessConfigured(Setup);
 
         Headers := Client.DefaultRequestHeaders();
-        Headers.Clear();
+        if Headers.Contains('X-Tenant-Id') then
+            Headers.Remove('X-Tenant-Id');
+        if Headers.Contains('X-Api-Token') then
+            Headers.Remove('X-Api-Token');
         Headers.Add('X-Tenant-Id', Setup."Tenant ID");
         Headers.Add('X-Api-Token', Setup."API Token");
 
@@ -221,7 +224,10 @@ codeunit 53100 "DH API Client"
         Headers.Add('Content-Type', 'application/json');
 
         Headers := Client.DefaultRequestHeaders();
-        Headers.Clear();
+        if Headers.Contains('X-Tenant-Id') then
+            Headers.Remove('X-Tenant-Id');
+        if Headers.Contains('X-Api-Token') then
+            Headers.Remove('X-Api-Token');
         Headers.Add('X-Tenant-Id', Setup."Tenant ID");
         Headers.Add('X-Api-Token', Setup."API Token");
 
@@ -252,7 +258,10 @@ codeunit 53100 "DH API Client"
         Url := BuildUrl(Setup."API Base URL", '/scan/history/' + Setup."Tenant ID" + '?limit=' + Format(Limit));
 
         Headers := Client.DefaultRequestHeaders();
-        Headers.Clear();
+        if Headers.Contains('X-Tenant-Id') then
+            Headers.Remove('X-Tenant-Id');
+        if Headers.Contains('X-Api-Token') then
+            Headers.Remove('X-Api-Token');
         Headers.Add('X-Tenant-Id', Setup."Tenant ID");
         Headers.Add('X-Api-Token', Setup."API Token");
 
@@ -280,7 +289,10 @@ codeunit 53100 "DH API Client"
         Url := BuildUrl(Setup."API Base URL", '/scan/trend/' + Setup."Tenant ID");
 
         Headers := Client.DefaultRequestHeaders();
-        Headers.Clear();
+        if Headers.Contains('X-Tenant-Id') then
+            Headers.Remove('X-Tenant-Id');
+        if Headers.Contains('X-Api-Token') then
+            Headers.Remove('X-Api-Token');
         Headers.Add('X-Tenant-Id', Setup."Tenant ID");
         Headers.Add('X-Api-Token', Setup."API Token");
 
@@ -316,7 +328,10 @@ codeunit 53100 "DH API Client"
         Headers.Add('Content-Type', 'application/json');
 
         Headers := Client.DefaultRequestHeaders();
-        Headers.Clear();
+        if Headers.Contains('X-Tenant-Id') then
+            Headers.Remove('X-Tenant-Id');
+        if Headers.Contains('X-Api-Token') then
+            Headers.Remove('X-Api-Token');
         Headers.Add('X-Tenant-Id', Setup."Tenant ID");
         Headers.Add('X-Api-Token', Setup."API Token");
 
@@ -341,7 +356,10 @@ codeunit 53100 "DH API Client"
         EnsureReadyForScan(Setup);
 
         Headers := Client.DefaultRequestHeaders();
-        Headers.Clear();
+        if Headers.Contains('X-Tenant-Id') then
+            Headers.Remove('X-Tenant-Id');
+        if Headers.Contains('X-Api-Token') then
+            Headers.Remove('X-Api-Token');
         Headers.Add('X-Tenant-Id', Setup."Tenant ID");
         Headers.Add('X-Api-Token', Setup."API Token");
 
@@ -390,7 +408,10 @@ codeunit 53100 "DH API Client"
         Headers.Add('Content-Type', 'application/json');
 
         Headers := Client.DefaultRequestHeaders();
-        Headers.Clear();
+        if Headers.Contains('X-Tenant-Id') then
+            Headers.Remove('X-Tenant-Id');
+        if Headers.Contains('X-Api-Token') then
+            Headers.Remove('X-Api-Token');
         Headers.Add('X-Tenant-Id', Setup."Tenant ID");
         Headers.Add('X-Api-Token', Setup."API Token");
 
@@ -474,7 +495,6 @@ codeunit 53100 "DH API Client"
             Error('The API token is missing. Please register the tenant again.');
     end;
 
-
     procedure GetAnalyticsDashboardToken(var Setup: Record "DH Setup"): Text
     var
         Client: HttpClient;
@@ -495,7 +515,10 @@ codeunit 53100 "DH API Client"
             '&scan_mode=' + EncodeUrlValue(GetAnalyticsScanMode(Setup));
 
         Headers := Client.DefaultRequestHeaders();
-        Headers.Clear();
+        if Headers.Contains('X-Tenant-Id') then
+            Headers.Remove('X-Tenant-Id');
+        if Headers.Contains('X-Api-Token') then
+            Headers.Remove('X-Api-Token');
         Headers.Add('X-Tenant-Id', Setup."Tenant ID");
         Headers.Add('X-Api-Token', Setup."API Token");
 
