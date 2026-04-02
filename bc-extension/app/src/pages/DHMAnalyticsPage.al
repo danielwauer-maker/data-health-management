@@ -38,32 +38,12 @@ page 53123 "DHM Analytics"
                 trigger OnAction()
                 var
                     Setup: Record "DH Setup";
-                    Client: HttpClient;
-                    Headers: HttpHeaders;
-                    Response: HttpResponseMessage;
-                    ResponseText: Text;
+                    ApiClient: Codeunit "DH API Client";
                     Token: Text;
                 begin
                     LoadSetupOrError(Setup);
 
-                    Headers := Client.DefaultRequestHeaders();
-                    Headers.Clear();
-                    Headers.Add('X-Tenant-Id', Setup."Tenant ID");
-                    Headers.Add('X-Api-Token', Setup."API Token");
-
-                    if not Client.Get(GetTokenUrl(Setup), Response) then
-                        Error('Der Token-Service konnte nicht erreicht werden.');
-
-                    if not Response.IsSuccessStatusCode() then begin
-                        Response.Content().ReadAs(ResponseText);
-                        Error(
-                            'Der Token-Service hat einen Fehler zurückgegeben. Status: %1. Antwort: %2',
-                            Response.HttpStatusCode(),
-                            CopyStr(ResponseText, 1, 1024));
-                    end;
-
-                    Response.Content().ReadAs(ResponseText);
-                    Token := ExtractTokenFromJson(ResponseText);
+                    Token := ApiClient.GetAnalyticsDashboardToken(Setup);
 
                     if Token = '' then
                         Error('In der Antwort des Token-Services wurde kein gültiger Token gefunden.');
@@ -107,6 +87,36 @@ page 53123 "DHM Analytics"
         if Setup."API Token" = '' then
             Error('Bitte registrieren Sie zuerst den Tenant im DH Setup, damit ein API-Token hinterlegt ist.');
     end;
+
+    local procedure RequestDashboardToken(var Setup: Record "DH Setup"): Text
+    var
+        Client: HttpClient;
+        Request: HttpRequestMessage;
+        Headers: HttpHeaders;
+        Response: HttpResponseMessage;
+        ResponseText: Text;
+    begin
+        Request.Method := 'GET';
+        Request.SetRequestUri(GetTokenUrl(Setup));
+        Request.GetHeaders(Headers);
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
+
+        if not Client.Send(Request, Response) then
+            Error('Der Token-Service konnte nicht erreicht werden.');
+
+        Response.Content().ReadAs(ResponseText);
+
+        if not Response.IsSuccessStatusCode() then
+            Error(
+                'Der Token-Service hat einen Fehler zurückgegeben. Status: %1. Antwort: %2',
+                Response.HttpStatusCode(),
+                CopyStr(ResponseText, 1, 1024));
+
+        exit(ResponseText);
+    end;
+
 
     local procedure GetTokenUrl(var Setup: Record "DH Setup"): Text
     var

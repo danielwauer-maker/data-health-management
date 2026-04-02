@@ -474,6 +474,72 @@ codeunit 53100 "DH API Client"
             Error('The API token is missing. Please register the tenant again.');
     end;
 
+
+    procedure GetAnalyticsDashboardToken(var Setup: Record "DH Setup"): Text
+    var
+        Client: HttpClient;
+        Response: HttpResponseMessage;
+        ResponseText: Text;
+        Url: Text;
+        Headers: HttpHeaders;
+        JsonResponse: JsonObject;
+        TokenValue: JsonToken;
+    begin
+        EnsureTenantAccessConfigured(Setup);
+
+        Url :=
+            BuildUrl(Setup."API Base URL", '/analytics/get-token') +
+            '?company=' + EncodeUrlValue(CompanyName()) +
+            '&environment=' + EncodeUrlValue('BC Cloud') +
+            '&tenant_id=' + EncodeUrlValue(Setup."Tenant ID") +
+            '&scan_mode=' + EncodeUrlValue(GetAnalyticsScanMode(Setup));
+
+        Headers := Client.DefaultRequestHeaders();
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
+
+        if not Client.Get(Url, Response) then
+            Error('The dashboard token service could not be reached.');
+
+        Response.Content.ReadAs(ResponseText);
+
+        if not Response.IsSuccessStatusCode() then
+            Error(
+                'The dashboard token service returned an error. Status: %1. Response: %2',
+                Response.HttpStatusCode(),
+                ResponseText);
+
+        if not JsonResponse.ReadFrom(ResponseText) then
+            Error('The dashboard token service returned invalid JSON: %1', ResponseText);
+
+        if not JsonResponse.Get('token', TokenValue) then
+            Error('The field "token" is missing in the dashboard token response.');
+
+        exit(TokenValue.AsValue().AsText());
+    end;
+
+    local procedure GetAnalyticsScanMode(var Setup: Record "DH Setup"): Text
+    begin
+        if Setup."Premium Enabled" then
+            exit('premium_deep');
+
+        exit('free_quick');
+    end;
+
+    local procedure EncodeUrlValue(Value: Text): Text
+    begin
+        Value := Value.Replace('%', '%25');
+        Value := Value.Replace(' ', '%20');
+        Value := Value.Replace('&', '%26');
+        Value := Value.Replace('?', '%3F');
+        Value := Value.Replace('=', '%3D');
+        Value := Value.Replace('#', '%23');
+        Value := Value.Replace('+', '%2B');
+        Value := Value.Replace('/', '%2F');
+        exit(Value);
+    end;
+
     local procedure BuildUrl(BaseUrl: Text; RelativePath: Text): Text
     begin
         exit(RemoveTrailingSlash(BaseUrl) + RelativePath);

@@ -770,32 +770,12 @@ page 53158 "DH Deep Scan Monitor"
     local procedure OpenAnalyticsDashboardForCurrentScan()
     var
         Setup: Record "DH Setup";
-        Client: HttpClient;
-        Headers: HttpHeaders;
-        Response: HttpResponseMessage;
-        ResponseText: Text;
+        ApiClient: Codeunit "DH API Client";
         Token: Text;
     begin
         LoadSetupOrError(Setup);
 
-        Headers := Client.DefaultRequestHeaders();
-        Headers.Clear();
-        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
-        Headers.Add('X-Api-Token', Setup."API Token");
-
-        if not Client.Get(GetTokenUrl(Setup), Response) then
-            Error('The dashboard token service could not be reached.');
-
-        if not Response.IsSuccessStatusCode() then begin
-            Response.Content().ReadAs(ResponseText);
-            Error(
-              'The dashboard token service returned an error. Status: %1. Response: %2',
-              Response.HttpStatusCode(),
-              CopyStr(ResponseText, 1, 1024));
-        end;
-
-        Response.Content().ReadAs(ResponseText);
-        Token := ExtractTokenFromJson(ResponseText);
+        Token := ApiClient.GetAnalyticsDashboardToken(Setup);
 
         if Token = '' then
             Error('No valid dashboard token was returned by the token service.');
@@ -817,6 +797,36 @@ page 53158 "DH Deep Scan Monitor"
         if Setup."API Token" = '' then
             Error('Please register the tenant in DH Setup first so that an API token is stored.');
     end;
+
+    local procedure RequestDashboardToken(var Setup: Record "DH Setup"): Text
+    var
+        Client: HttpClient;
+        Request: HttpRequestMessage;
+        Headers: HttpHeaders;
+        Response: HttpResponseMessage;
+        ResponseText: Text;
+    begin
+        Request.Method := 'GET';
+        Request.SetRequestUri(GetTokenUrl(Setup));
+        Request.GetHeaders(Headers);
+        Headers.Clear();
+        Headers.Add('X-Tenant-Id', Setup."Tenant ID");
+        Headers.Add('X-Api-Token', Setup."API Token");
+
+        if not Client.Send(Request, Response) then
+            Error('The dashboard token service could not be reached.');
+
+        Response.Content().ReadAs(ResponseText);
+
+        if not Response.IsSuccessStatusCode() then
+            Error(
+              'The dashboard token service returned an error. Status: %1. Response: %2',
+              Response.HttpStatusCode(),
+              CopyStr(ResponseText, 1, 1024));
+
+        exit(ResponseText);
+    end;
+
 
     local procedure GetTokenUrl(var Setup: Record "DH Setup"): Text
     var
