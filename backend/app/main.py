@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Data Health Management API",
+    title="Data Health Management APIs",
     version="0.7.0",
     lifespan=lifespan,
 )
