@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,11 +39,10 @@ from app.services.impact_service import (
 )
 from app.services.pricing_service import ensure_default_license_pricing
 from app.services.scoring_service import calculate_quick_scan_result
-import os
 from fastapi.responses import RedirectResponse
 
 BASE_DIR = Path(__file__).resolve().parent
-ENVIRONMENT = os.getenv("APP_ENV", "prod")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -85,6 +85,8 @@ class TenantRegisterResponse(BaseModel):
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+ENVIRONMENT = os.getenv("APP_ENV", "prod")
 
 @app.get("/", include_in_schema=False)
 def root():
