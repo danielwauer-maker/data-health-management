@@ -21,6 +21,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
+      # 🚀 PROD DEPLOY
       - name: Deploy to PROD
         if: github.ref == 'refs/heads/main'
         run: |
@@ -29,15 +30,15 @@ jobs:
 
             cd /home/daniel/data-health-management
 
-            echo "📥 Pull latest code (PROD)"
+            echo "📥 Clean sync PROD"
             git fetch origin
-            git checkout main
-            git pull origin main
+            git reset --hard origin/main
+            git clean -fd
 
             echo "🐳 Start database only (PROD)"
             docker compose -f docker-compose.prod.yml --env-file .env.prod up -d postgres
 
-            echo "🧱 Run database migrations (PROD)"
+            echo "🧱 Run migrations (PROD)"
             docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm backend alembic upgrade head
 
             echo "🚀 Start full stack (PROD)"
@@ -46,6 +47,7 @@ jobs:
             echo "✅ PROD deploy finished"
           EOF
 
+      # 🚀 DEV DEPLOY
       - name: Deploy to DEV
         if: github.ref == 'refs/heads/staging'
         run: |
@@ -54,15 +56,15 @@ jobs:
 
             cd /home/daniel/data-health-management-dev
 
-            echo "📥 Pull latest code (DEV)"
+            echo "📥 Clean sync DEV"
             git fetch origin
-            git checkout staging
-            git pull origin staging
+            git reset --hard origin/staging
+            git clean -fd
 
             echo "🐳 Start database only (DEV)"
             docker compose -f docker-compose.dev.yml --env-file .env.dev up -d postgres
 
-            echo "🧱 Run database migrations (DEV)"
+            echo "🧱 Run migrations (DEV)"
             docker compose -f docker-compose.dev.yml --env-file .env.dev run --rm backend alembic upgrade head
 
             echo "🚀 Start full stack (DEV)"
