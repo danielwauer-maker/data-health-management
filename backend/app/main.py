@@ -38,6 +38,8 @@ from app.services.impact_service import (
 )
 from app.services.pricing_service import ensure_default_license_pricing
 from app.services.scoring_service import calculate_quick_scan_result
+import os
+from fastapi.responses import RedirectResponse
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -79,10 +81,24 @@ class TenantRegisterResponse(BaseModel):
     tenant_id: str
     api_token: str
 
+ENVIRONMENT = os.getenv("APP_ENV", "prod")
+
 
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+@app.get("/", include_in_schema=False)
+def root():
+    return {
+        "status": "ok",
+        "service": "BCSentinel API",
+        "environment": ENVIRONMENT,
+        "endpoints": {
+            "health": "/health",
+            "docs": "/docs"
+        }
+    }
 
 
 @app.post("/tenant/register", response_model=TenantRegisterResponse)
