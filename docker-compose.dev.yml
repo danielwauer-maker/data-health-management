@@ -1,0 +1,35 @@
+services:
+  backend:
+    build: ./backend
+    container_name: dhm-backend
+    restart: unless-stopped
+
+    env_file:
+      - .env.prod
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  postgres:
+    image: postgres:15
+    container_name: dhm-postgres
+    restart: unless-stopped
+
+    env_file:
+      - .env.prod
+
+    volumes:
+      - dhm_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  dhm_postgres_data:
