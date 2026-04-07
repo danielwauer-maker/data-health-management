@@ -51,3 +51,4 @@ bc-extension/.snapshots/
 bc-extension/artifacts/
 bc-extension/*.app
 bc-extension/app/src.zip
+*.app

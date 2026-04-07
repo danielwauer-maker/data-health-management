@@ -21,7 +21,6 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      # 🚀 PROD DEPLOY
       - name: Deploy to PROD
         if: github.ref == 'refs/heads/main'
         run: |
@@ -43,11 +42,34 @@ jobs:
 
             echo "🚀 Start full stack (PROD)"
             docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-
-            echo "✅ PROD deploy finished"
           EOF
 
-      # 🚀 DEV DEPLOY
+      - name: Health check PROD
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "🔎 Waiting for PROD backend (local on server)..."
+          for i in {1..20}; do
+            if ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl -fsS http://127.0.0.1:8000/health"; then
+              echo "✅ PROD backend is running locally"
+              break
+            fi
+            echo "⏳ PROD local backend not ready yet... attempt $i/20"
+            sleep 3
+          done
+
+          echo "🌍 Waiting for PROD public endpoint (from server via IPv4 GET)..."
+          for i in {1..20}; do
+            if ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl -4 -fsS https://api.bcsentinel.com/health"; then
+              echo "✅ PROD public health check passed"
+              exit 0
+            fi
+            echo "⏳ PROD public endpoint not ready yet... attempt $i/20"
+            sleep 5
+          done
+
+          echo "❌ PROD health check failed"
+          exit 1
+
       - name: Deploy to DEV
         if: github.ref == 'refs/heads/staging'
         run: |
@@ -69,6 +91,30 @@ jobs:
 
             echo "🚀 Start full stack (DEV)"
             docker compose -f docker-compose.dev.yml --env-file .env.dev up -d --build
-
-            echo "✅ DEV deploy finished"
           EOF
+
+      - name: Health check DEV
+        if: github.ref == 'refs/heads/staging'
+        run: |
+          echo "🔎 Waiting for DEV backend (local on server)..."
+          for i in {1..20}; do
+            if ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl -fsS http://127.0.0.1:8001/health"; then
+              echo "✅ DEV backend is running locally"
+              break
+            fi
+            echo "⏳ DEV local backend not ready yet... attempt $i/20"
+            sleep 3
+          done
+
+          echo "🌍 Waiting for DEV public endpoint (from server via IPv4 GET)..."
+          for i in {1..20}; do
+            if ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "curl -4 -fsS https://dev-api.bcsentinel.com/health"; then
+              echo "✅ DEV public health check passed"
+              exit 0
+            fi
+            echo "⏳ DEV public endpoint not ready yet... attempt $i/20"
+            sleep 5
+          done
+
+          echo "❌ DEV health check failed"
+          exit 1
