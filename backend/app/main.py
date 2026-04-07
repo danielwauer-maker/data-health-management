@@ -42,7 +42,7 @@ import os
 from fastapi.responses import RedirectResponse
 
 BASE_DIR = Path(__file__).resolve().parent
-
+ENVIRONMENT = os.getenv("APP_ENV", "prod")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -80,8 +80,6 @@ class TenantRegisterRequest(BaseModel):
 class TenantRegisterResponse(BaseModel):
     tenant_id: str
     api_token: str
-
-ENVIRONMENT = os.getenv("APP_ENV", "prod")
 
 
 @app.get("/health")
