@@ -21,7 +21,6 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      # 🚀 PROD DEPLOY
       - name: Deploy to PROD
         if: github.ref == 'refs/heads/main'
         run: |
@@ -43,11 +42,23 @@ jobs:
 
             echo "🚀 Start full stack (PROD)"
             docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-
-            echo "✅ PROD deploy finished"
           EOF
 
-      # 🚀 DEV DEPLOY
+      - name: Health check PROD
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "🔎 Waiting for PROD health endpoint..."
+          for i in {1..20}; do
+            if curl -fsS https://api.bcsentinel.com/health; then
+              echo "✅ PROD health check passed"
+              exit 0
+            fi
+            echo "⏳ PROD not ready yet... attempt $i/20"
+            sleep 5
+          done
+          echo "❌ PROD health check failed"
+          exit 1
+
       - name: Deploy to DEV
         if: github.ref == 'refs/heads/staging'
         run: |
@@ -69,6 +80,19 @@ jobs:
 
             echo "🚀 Start full stack (DEV)"
             docker compose -f docker-compose.dev.yml --env-file .env.dev up -d --build
-
-            echo "✅ DEV deploy finished"
           EOF
+
+      - name: Health check DEV
+        if: github.ref == 'refs/heads/staging'
+        run: |
+          echo "🔎 Waiting for DEV health endpoint..."
+          for i in {1..20}; do
+            if curl -fsS https://dev-api.bcsentinel.com/health; then
+              echo "✅ DEV health check passed"
+              exit 0
+            fi
+            echo "⏳ DEV not ready yet... attempt $i/20"
+            sleep 5
+          done
+          echo "❌ DEV health check failed"
+          exit 1
