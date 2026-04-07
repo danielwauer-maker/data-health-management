@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - staging
 
 jobs:
   deploy:
@@ -20,24 +21,52 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy on server
+      - name: Deploy to PROD
+        if: github.ref == 'refs/heads/main'
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
             set -e
 
             cd /home/daniel/data-health-management
 
-            echo "📥 Pull latest code"
+            echo "📥 Pull latest code (PROD)"
+            git fetch origin
+            git checkout main
             git pull origin main
 
-            echo "🐳 Start database only"
+            echo "🐳 Start database only (PROD)"
             docker compose -f docker-compose.prod.yml --env-file .env.prod up -d postgres
 
-            echo "🧱 Run database migrations"
+            echo "🧱 Run database migrations (PROD)"
             docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm backend alembic upgrade head
 
-            echo "🚀 Start full stack"
+            echo "🚀 Start full stack (PROD)"
             docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 
-            echo "✅ Deploy finished"
+            echo "✅ PROD deploy finished"
+          EOF
+
+      - name: Deploy to DEV
+        if: github.ref == 'refs/heads/staging'
+        run: |
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            set -e
+
+            cd /home/daniel/data-health-management-dev
+
+            echo "📥 Pull latest code (DEV)"
+            git fetch origin
+            git checkout staging
+            git pull origin staging
+
+            echo "🐳 Start database only (DEV)"
+            docker compose -f docker-compose.dev.yml --env-file .env.dev up -d postgres
+
+            echo "🧱 Run database migrations (DEV)"
+            docker compose -f docker-compose.dev.yml --env-file .env.dev run --rm backend alembic upgrade head
+
+            echo "🚀 Start full stack (DEV)"
+            docker compose -f docker-compose.dev.yml --env-file .env.dev up -d --build
+
+            echo "✅ DEV deploy finished"
           EOF
