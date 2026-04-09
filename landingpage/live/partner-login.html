@@ -107,17 +107,17 @@
       color: var(--muted);
       font-size: .9rem;
     }
-    .text-link {
-      margin-top: 4px;
-      display: inline-block;
-      color: var(--orange);
+    .forgot-toggle-btn {
+      margin-top: 10px;
+      width: 100%;
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
       font-weight: 700;
-      text-decoration: underline;
-      text-underline-offset: 2px;
       cursor: pointer;
-      background: transparent;
-      border: 0;
-      padding: 0;
+      padding: 0 12px;
     }
     .forgot-wrap {
       display: none;
@@ -170,7 +170,7 @@
         </label>
         <button class="submit" type="submit" data-i18n="login_btn">Log in</button>
       </form>
-      <button id="forgotToggle" class="text-link" type="button" data-i18n="forgot_link">Forgot password?</button>
+      <button id="forgotToggle" class="forgot-toggle-btn" type="button" data-i18n="forgot_link">Forgot password?</button>
       <div id="forgotWrap" class="forgot-wrap">
         <p class="lead" style="margin:0 0 8px;" data-i18n="forgot_sub">Enter your email and we will send a reset link.</p>
         <div class="forgot-row">
@@ -192,7 +192,7 @@
         email_label: "Business-E-Mail",
         password_label: "Passwort",
         login_btn: "Einloggen",
-        forgot_link: "Passwort vergessen?",
+        forgot_link: "Passwort vergessen / Reset-Link anfordern",
         forgot_sub: "Gib deine E-Mail ein, dann senden wir dir einen Reset-Link.",
         forgot_btn: "Reset-Link senden",
         note: "Die tenant-basierte Referral-Zuordnung erfolgt im Backend. Falls noetig, bitte einen Admin um einen Reset-Link.",
@@ -209,7 +209,7 @@
         email_label: "Business email",
         password_label: "Password",
         login_btn: "Log in",
-        forgot_link: "Forgot password?",
+        forgot_link: "Forgot password / request reset link",
         forgot_sub: "Enter your email and we will send a reset link.",
         forgot_btn: "Send reset link",
         note: "Tenant-based referral attribution is handled in the backend. If needed, ask an admin for a password reset link.",
