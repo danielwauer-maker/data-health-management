@@ -75,13 +75,13 @@ Hinweis: Fuer korrekte Tenant-Zuordnung muessen `tenant_id` und `plan_code` in d
 - `partners.password_hash` (optional, PBKDF2-SHA256)
 - `partners.last_login_at_utc` (optional)
 - `partner_applications` (public partner registration intake)
+  - inkl. `mail_status`, `last_mail_error`, `last_mail_sent_at_utc`
 
 ### Neue API Endpunkte (Landingpage Partner-Portal)
 - `POST /api/partners/register`
   - oeffentliche Partner-Registrierung (Firma, Kontakt, E-Mail, Einwilligung)
-  - legt/aktualisiert direkt einen Partner im `partners`-Stamm (E-Mail-basiert)
-  - setzt ein zufaelliges Startpasswort und sendet eine Bestaetigungsmail
-  - schreibt zusaetzlich einen Datensatz in `partner_applications` (Status `accepted`)
+  - schreibt einen Datensatz in `partner_applications` (Status `new`)
+  - sendet optional eine Eingangs-Bestaetigung per E-Mail
 - `POST /api/partners/auth/login`
   - Login per `email + password`
   - liefert `access_token` (Bearer JWT)
@@ -102,6 +102,12 @@ Hinweis: Fuer korrekte Tenant-Zuordnung muessen `tenant_id` und `plan_code` in d
   - liefert Provisionshistorie des Partners
 
 ### Admin UI Erweiterungen (Partner Access)
+- Partner Applications Review-Workflow:
+  - Status: `new`, `reviewed`, `accepted`, `rejected`
+  - bei `accepted`: Partner wird angelegt/aktualisiert und per Set-Password-Link eingeladen
+  - Mailversand-Status und letzte Fehlerursache sichtbar
+  - CSV-Export: `GET /admin/partners/applications.csv`
+  - Filter/Search in Admin (`app_status`, `mail_status`, `company/contact/email`) plus KPI counters
 - Passwort-Generator direkt im Partner-Credentials-Formular.
 - `POST /admin/partners/{partner_id}/reset-link`
   - erzeugt einen Reset-Link fuer `partner-reset-password.html?token=...`

@@ -227,6 +227,9 @@ class PartnerApplication(Base):
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_page: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="new", index=True)
+    mail_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    last_mail_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_mail_sent_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     reviewed_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
 

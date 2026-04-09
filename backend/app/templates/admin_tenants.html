@@ -181,6 +181,89 @@
 
     <section class="panel panel-large">
       <div class="panel-header">
+        <h2>Partner Applications</h2>
+        <span class="muted">oeffentliche Registrierungen mit Review-Workflow</span>
+      </div>
+      <div class="inline-form wrap-gap" style="margin-bottom: 12px;">
+        <span class="pill small-pill">Total: {{ partner_application_stats.total_count }}</span>
+        <span class="pill small-pill">New: {{ partner_application_stats.new_count }}</span>
+        <span class="pill small-pill success-pill">Accepted: {{ partner_application_stats.accepted_count }}</span>
+        <span class="pill small-pill">Mail failed: {{ partner_application_stats.mail_failed_count }}</span>
+      </div>
+      <form method="get" action="/admin/tenants" class="inline-form wrap-gap" style="margin-bottom:12px;">
+        <input type="text" name="app_search" value="{{ app_search or '' }}" placeholder="Search company / contact / email">
+        <select name="app_status">
+          <option value="" {% if not app_status_filter %}selected{% endif %}>All statuses</option>
+          <option value="new" {% if app_status_filter == "new" %}selected{% endif %}>new</option>
+          <option value="reviewed" {% if app_status_filter == "reviewed" %}selected{% endif %}>reviewed</option>
+          <option value="accepted" {% if app_status_filter == "accepted" %}selected{% endif %}>accepted</option>
+          <option value="rejected" {% if app_status_filter == "rejected" %}selected{% endif %}>rejected</option>
+        </select>
+        <select name="mail_status">
+          <option value="" {% if not mail_status_filter %}selected{% endif %}>All mail states</option>
+          <option value="pending" {% if mail_status_filter == "pending" %}selected{% endif %}>pending</option>
+          <option value="sent" {% if mail_status_filter == "sent" %}selected{% endif %}>sent</option>
+          <option value="failed" {% if mail_status_filter == "failed" %}selected{% endif %}>failed</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Filter</button>
+        <a class="btn btn-secondary" href="/admin/tenants">Reset</a>
+      </form>
+      <div class="inline-form wrap-gap" style="margin-bottom: 12px;">
+        <a class="btn btn-secondary" href="/admin/partners/applications.csv">Export CSV</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Created</th>
+              <th>Company</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Country</th>
+              <th>Status</th>
+              <th>Mail</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for app in partner_applications %}
+            <tr>
+              <td>{{ fmt_dt(app.created_at_utc) }}</td>
+              <td>{{ app.company_name }}</td>
+              <td>{{ app.contact_name }}</td>
+              <td>{{ app.contact_email }}</td>
+              <td>{{ app.country or "—" }}</td>
+              <td>{{ app.status }}</td>
+              <td>
+                {{ app.mail_status }}
+                {% if app.last_mail_error %}
+                  <div class="muted" style="max-width:320px; white-space: normal;">{{ app.last_mail_error }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <form method="post" action="/admin/partners/applications/{{ app.id }}/status" class="inline-form wrap-gap">
+                  <select name="status_value">
+                    <option value="new" {% if app.status == "new" %}selected{% endif %}>new</option>
+                    <option value="reviewed" {% if app.status == "reviewed" %}selected{% endif %}>reviewed</option>
+                    <option value="accepted" {% if app.status == "accepted" %}selected{% endif %}>accepted</option>
+                    <option value="rejected" {% if app.status == "rejected" %}selected{% endif %}>rejected</option>
+                  </select>
+                  <input type="number" step="0.01" min="0" max="1" name="default_commission_rate" value="0.30" title="0.30 = 30%">
+                  <button type="submit" class="btn btn-primary">Apply</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+            {% if not partner_applications %}
+            <tr><td colspan="8">Noch keine Partner-Registrierungen vorhanden.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel panel-large">
+      <div class="panel-header">
         <h2>Payout Overview (Approved)</h2>
         <span class="muted">aggregiert je Partner und Waehrung</span>
       </div>

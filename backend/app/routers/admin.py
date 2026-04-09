@@ -1,13 +1,15 @@
 import secrets
+import smtplib
 from io import StringIO
 from pathlib import Path
 import csv
+from email.mime.text import MIMEText
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.core.settings import settings
 from app.db import SessionLocal
@@ -18,6 +20,7 @@ from app.models import (
     IssueCostConfig,
     LicensePricingConfig,
     Partner,
+    PartnerApplication,
     PartnerCommission,
     PartnerReferral,
     Scan,
@@ -42,6 +45,7 @@ ALLOWED_PLANS = {"free", "premium"}
 ALLOWED_LICENSE_STATUSES = {"trial", "active", "expired", "blocked"}
 ALLOWED_COMMISSION_STATUSES = {"pending", "approved", "paid", "rejected"}
 ALLOWED_PARTNER_STATUSES = {"active", "inactive"}
+ALLOWED_PARTNER_APPLICATION_STATUSES = {"new", "reviewed", "accepted", "rejected"}
 
 
 def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
@@ -86,6 +90,72 @@ def _partner_reset_url(request: Request, token: str) -> str:
     else:
         base = str(request.base_url).rstrip("/")
     return f"{base}/partner-reset-password.html?token={token}"
+
+
+def _send_partner_access_invite_email(
+    target_email: str,
+    contact_name: str,
+    reset_url: str,
+) -> tuple[bool, str | None]:
+    host = (settings.SMTP_HOST or "").strip()
+    from_email = (settings.SMTP_FROM_EMAIL or "").strip()
+    if not host or not from_email:
+        return False, "SMTP not configured."
+
+    subject = "Your BCSentinel partner access is ready"
+    display_name = (contact_name or "").strip() or "Partner"
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #1f2a44;">
+        <p>Hello {display_name},</p>
+        <p>your partner application has been approved.</p>
+        <p>Please set your password using this secure link:</p>
+        <p><a href="{reset_url}">{reset_url}</a></p>
+        <p>After setting your password, you can log in to the partner portal.</p>
+      </body>
+    </html>
+    """
+    msg = MIMEText(html_body, "html", "utf-8")
+    msg["Subject"] = subject
+    msg["From"] = (
+        f"{settings.SMTP_FROM_NAME} <{from_email}>"
+        if settings.SMTP_FROM_NAME
+        else from_email
+    )
+    msg["To"] = target_email
+
+    try:
+        with smtplib.SMTP(host, settings.SMTP_PORT, timeout=15) as smtp:
+            if settings.SMTP_USE_TLS:
+                smtp.starttls()
+            username = (settings.SMTP_USERNAME or "").strip()
+            password = settings.SMTP_PASSWORD or ""
+            if username:
+                smtp.login(username, password)
+            smtp.sendmail(from_email, [target_email], msg.as_string())
+        return True, None
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _derive_partner_code_seed(company_name: str, contact_name: str) -> str:
+    raw = f"{company_name} {contact_name}".strip().lower()
+    cleaned = "".join(ch if ch.isalnum() else "-" for ch in raw)
+    compact = "-".join(part for part in cleaned.split("-") if part)
+    return normalize_partner_code(compact[:30] or "partner") or "partner"
+
+
+def _unique_partner_code(db, seed: str) -> str:
+    base = normalize_partner_code(seed) or "partner"
+    if db.scalar(select(Partner).where(Partner.partner_code == base)) is None:
+        return base
+    idx = 2
+    while idx < 1000:
+        candidate = normalize_partner_code(f"{base[:32]}-{idx}") or f"partner-{idx}"
+        if db.scalar(select(Partner).where(Partner.partner_code == candidate)) is None:
+            return candidate
+        idx += 1
+    raise HTTPException(status_code=500, detail="Could not allocate unique partner_code.")
 
 
 def _load_tenant_rows(db):
@@ -184,10 +254,52 @@ def admin_root(_: str = Depends(require_admin)):
 @router.get("/admin/tenants", response_class=HTMLResponse)
 @router.get("/admin/tenants/", response_class=HTMLResponse)
 def admin_tenants(request: Request, _: str = Depends(require_admin)):
+    app_status_filter = (request.query_params.get("app_status") or "").strip().lower()
+    mail_status_filter = (request.query_params.get("mail_status") or "").strip().lower()
+    app_search = (request.query_params.get("app_search") or "").strip()
+
     with SessionLocal() as db:
         ensure_default_issue_costs(db)
         ensure_default_license_pricing(db)
         partners = db.scalars(select(Partner).order_by(Partner.created_at_utc.desc(), Partner.id.desc())).all()
+        app_query = select(PartnerApplication)
+        if app_status_filter:
+            app_query = app_query.where(PartnerApplication.status == app_status_filter)
+        if mail_status_filter:
+            app_query = app_query.where(PartnerApplication.mail_status == mail_status_filter)
+        if app_search:
+            needle = f"%{app_search}%"
+            app_query = app_query.where(
+                or_(
+                    PartnerApplication.company_name.ilike(needle),
+                    PartnerApplication.contact_name.ilike(needle),
+                    PartnerApplication.contact_email.ilike(needle),
+                )
+            )
+        partner_applications = db.scalars(
+            app_query.order_by(PartnerApplication.created_at_utc.desc(), PartnerApplication.id.desc()).limit(300)
+        ).all()
+        app_stats = {
+            "new_count": int(
+                db.scalar(
+                    select(func.count(PartnerApplication.id)).where(PartnerApplication.status == "new")
+                )
+                or 0
+            ),
+            "accepted_count": int(
+                db.scalar(
+                    select(func.count(PartnerApplication.id)).where(PartnerApplication.status == "accepted")
+                )
+                or 0
+            ),
+            "mail_failed_count": int(
+                db.scalar(
+                    select(func.count(PartnerApplication.id)).where(PartnerApplication.mail_status == "failed")
+                )
+                or 0
+            ),
+            "total_count": int(db.scalar(select(func.count(PartnerApplication.id))) or 0),
+        }
         recent_commissions = db.scalars(
             select(PartnerCommission).order_by(PartnerCommission.created_at_utc.desc(), PartnerCommission.id.desc()).limit(50)
         ).all()
@@ -210,6 +322,11 @@ def admin_tenants(request: Request, _: str = Depends(require_admin)):
                     select(LicensePricingConfig).order_by(LicensePricingConfig.plan_code.asc())
                 ).all(),
                 "partners": partners,
+                "partner_applications": partner_applications,
+                "partner_application_stats": app_stats,
+                "app_status_filter": app_status_filter,
+                "mail_status_filter": mail_status_filter,
+                "app_search": app_search,
                 "recent_commissions": recent_commissions,
                 "payout_rows": payout_rows,
                 "audit_events": audit_events,
@@ -812,6 +929,144 @@ def delete_partner(
         db.commit()
 
     return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/admin/partners/applications/{application_id}/status")
+def update_partner_application_status(
+    application_id: int,
+    request: Request,
+    status_value: str = Form(...),
+    default_commission_rate: float = Form(default=0.30),
+    admin_username: str = Depends(require_admin),
+):
+    normalized_status = (status_value or "").strip().lower()
+    if normalized_status not in ALLOWED_PARTNER_APPLICATION_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid application status.")
+
+    with SessionLocal() as db:
+        application = db.scalar(select(PartnerApplication).where(PartnerApplication.id == application_id))
+        if application is None:
+            raise HTTPException(status_code=404, detail="Partner application not found.")
+
+        before_status = application.status
+        application.status = normalized_status
+        application.reviewed_at_utc = utc_now() if normalized_status in {"reviewed", "accepted", "rejected"} else None
+
+        created_or_updated_partner_id: int | None = None
+        invite_sent = False
+        invite_error: str | None = None
+        if normalized_status == "accepted":
+            normalized_email = _normalize_email(application.contact_email)
+            if normalized_email is None:
+                raise HTTPException(status_code=400, detail="Application contact_email is invalid.")
+
+            partner = db.scalar(select(Partner).where(Partner.contact_email == normalized_email))
+            if partner is None:
+                seed = _derive_partner_code_seed(application.company_name, application.contact_name)
+                partner = Partner(
+                    name=(application.company_name or "").strip() or (application.contact_name or "").strip() or "Partner",
+                    partner_code=_unique_partner_code(db, seed),
+                    contact_email=normalized_email,
+                    status="active",
+                    default_commission_rate=float(default_commission_rate),
+                    created_at_utc=utc_now(),
+                    updated_at_utc=utc_now(),
+                )
+                db.add(partner)
+                db.flush()
+            else:
+                partner.name = (application.company_name or "").strip() or partner.name
+                partner.status = "active"
+                partner.default_commission_rate = float(default_commission_rate)
+                partner.updated_at_utc = utc_now()
+
+            created_or_updated_partner_id = int(partner.id)
+            token = create_token(
+                {
+                    "sub": f"partner_reset:{partner.id}",
+                    "scope": "partner_reset",
+                    "partner_id": partner.id,
+                    "partner_code": partner.partner_code,
+                }
+            )
+            reset_url = _partner_reset_url(request, token)
+            invite_sent, invite_error = _send_partner_access_invite_email(
+                target_email=partner.contact_email or "",
+                contact_name=application.contact_name,
+                reset_url=reset_url,
+            )
+            application.mail_status = "sent" if invite_sent else "failed"
+            application.last_mail_error = None if invite_sent else (invite_error or "invite mail delivery failed")
+            application.last_mail_sent_at_utc = utc_now() if invite_sent else None
+
+        log_admin_event(
+            db,
+            admin_username=admin_username,
+            action="partner.application.status.update",
+            target_type="partner_application",
+            target_id=str(application.id),
+            details={
+                "before_status": before_status,
+                "after_status": normalized_status,
+                "partner_id": created_or_updated_partner_id,
+                "invite_sent": invite_sent,
+                "invite_error": invite_error,
+            },
+        )
+        db.commit()
+
+    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/admin/partners/applications.csv")
+def export_partner_applications_csv(_: str = Depends(require_admin)):
+    with SessionLocal() as db:
+        rows = db.scalars(
+            select(PartnerApplication).order_by(PartnerApplication.created_at_utc.desc(), PartnerApplication.id.desc())
+        ).all()
+
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "id",
+            "created_at_utc",
+            "company_name",
+            "contact_name",
+            "contact_email",
+            "phone",
+            "website",
+            "country",
+            "status",
+            "mail_status",
+            "last_mail_error",
+            "source_page",
+        ]
+    )
+    for row in rows:
+        writer.writerow(
+            [
+                row.id,
+                row.created_at_utc.isoformat() if row.created_at_utc else "",
+                row.company_name,
+                row.contact_name,
+                row.contact_email,
+                row.phone or "",
+                row.website or "",
+                row.country or "",
+                row.status,
+                row.mail_status,
+                row.last_mail_error or "",
+                row.source_page or "",
+            ]
+        )
+
+    csv_data = output.getvalue()
+    return Response(
+        content=csv_data,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="partner-applications.csv"'},
+    )
 
 
 @router.post("/admin/tenants/{tenant_id}/referral")
