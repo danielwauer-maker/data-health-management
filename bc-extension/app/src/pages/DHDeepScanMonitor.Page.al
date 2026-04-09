@@ -64,6 +64,7 @@ page 53158 "DH Deep Scan Monitor"
             {
                 ApplicationArea = All;
                 Caption = 'Key Metrics';
+                SubPageLink = "Entry No." = field("Entry No.");
             }
 
             group(OnlineDashboard)
@@ -274,6 +275,7 @@ page 53158 "DH Deep Scan Monitor"
                 ApplicationArea = All;
                 Caption = 'Issues';
                 UpdatePropagation = Both;
+                SubPageLink = "Deep Scan Entry No." = field("Entry No.");
             }
         }
     }
@@ -381,8 +383,6 @@ page 53158 "DH Deep Scan Monitor"
 
     trigger OnAfterGetCurrRecord()
     begin
-        ApplyIssuePartFilter();
-
         if not AutoRefreshStarted then begin
             AutoRefreshStarted := true;
             QueueAutoRefresh();
@@ -419,7 +419,6 @@ page 53158 "DH Deep Scan Monitor"
         RefreshTaskId: Integer;
         RefreshTaskRunning: Boolean;
         AutoRefreshStarted: Boolean;
-        DashboardScanEntryNo: Integer;
         ShowSystem: Boolean;
         ShowFinance: Boolean;
         ShowSales: Boolean;
@@ -511,8 +510,7 @@ page 53158 "DH Deep Scan Monitor"
             Rec := DeepScanRun;
             ReloadDisplayValuesFromRec();
             LoadDashboardValues();
-            ApplyIssuePartFilter();
-            CurrPage.Update(false);
+            CurrPage.Update(true);
         end;
     end;
 
@@ -589,10 +587,7 @@ page 53158 "DH Deep Scan Monitor"
     end;
 
     local procedure LoadDashboardValues()
-    var
-        ScanHeader: Record "DH Scan Header";
     begin
-        DashboardScanEntryNo := 0;
         ScanDateTimeValue := 0DT;
         ScanTypeTxt := '';
         RatingTxt := '';
@@ -632,21 +627,6 @@ page 53158 "DH Deep Scan Monitor"
             IssuesCountValue := Rec."Issues Count";
         if (AffectedRecordsValue = 0) and (Rec."Affected Records" <> 0) then
             AffectedRecordsValue := Rec."Affected Records";
-
-        ScanHeader.SetRange("Run ID", Rec."Run ID");
-        if ScanHeader.FindFirst() then
-            DashboardScanEntryNo := ScanHeader."Entry No.";
-    end;
-
-    local procedure ApplyIssuePartFilter()
-    begin
-        if DashboardScanEntryNo <> 0 then begin
-            CurrPage.KpiTiles.Page.SetDeepScanRunEntryNo(Rec."Entry No.");
-            CurrPage.Findings.Page.SetDeepScanEntryNo(Rec."Entry No.");
-        end else begin
-            CurrPage.KpiTiles.Page.SetDeepScanRunEntryNo(-1);
-            CurrPage.Findings.Page.SetDeepScanEntryNo(-1);
-        end;
     end;
 
     local procedure QueueAutoRefresh()

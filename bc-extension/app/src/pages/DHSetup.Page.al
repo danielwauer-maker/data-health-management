@@ -54,8 +54,8 @@ page 53100 "DH Setup"
                 field("API Base URL"; Rec."API Base URL")
                 {
                     ApplicationArea = All;
-                    Editable = false;
-                    ToolTip = 'Fixed production API URL.';
+                    Editable = true;
+                    ToolTip = 'Base URL of the BCSentinel API. Default is production.';
                 }
 
                 field("Tenant ID"; Rec."Tenant ID")
@@ -204,7 +204,7 @@ page 53100 "DH Setup"
                 end;
             }
 
-            action(RegisterTenant)
+            /*action(RegisterTenant)
             {
                 Caption = 'Register with BCSentinel';
                 ApplicationArea = All;
@@ -215,9 +215,72 @@ page 53100 "DH Setup"
                     ApiClient: Codeunit "DH API Client";
                 begin
                     ApiClient.EnsureTenantRegistered(Rec);
-                    RefreshLicenseSilently();
+                    //RefreshLicenseSilently();
                     CurrPage.Update(false);
                     Message('BCSentinel tenant registration completed.');
+                end;
+            }*/
+
+            action(RegisterTenant)
+            {
+                Caption = 'Register with BCSentinel';
+                ApplicationArea = All;
+                Image = Web;
+
+                trigger OnAction()
+                var
+                    ApiClient: Codeunit "DH API Client";
+                begin
+                    Message('BCSentinel tenant registration started.');
+                    Rec."Tenant ID" := '';
+                    Rec."API Token" := '';
+                    Rec.Registered := false;
+                    Rec."Registration Date" := 0DT;
+                    Rec.Modify(true);
+
+                    ApiClient.RegisterTenant(Rec);
+                    CurrPage.Update(false);
+                    Message('BCSentinel tenant registration completed.');
+                end;
+            }
+
+            action(UpgradeToPremium)
+            {
+                Caption = 'Upgrade to Premium';
+                ApplicationArea = All;
+                Image = Add;
+                ToolTip = 'Open the secure BCSentinel checkout to activate Premium.';
+
+                trigger OnAction()
+                var
+                    ApiClient: Codeunit "DH API Client";
+                begin
+                    if Rec.IsPremiumLicenseActive() then begin
+                        Message('Premium is already active for this tenant.');
+                        exit;
+                    end;
+
+                    ApiClient.OpenPremiumCheckout(Rec);
+                end;
+            }
+
+            action(RefreshLicenseStatus)
+            {
+                Caption = 'Refresh License Status';
+                ApplicationArea = All;
+                Image = Refresh;
+                ToolTip = 'Refresh current plan and license status from BCSentinel.';
+
+                trigger OnAction()
+                var
+                    ApiClient: Codeunit "DH API Client";
+                begin
+                    if Rec."Tenant ID" = '' then
+                        Error('Please register the tenant first.');
+
+                    ApiClient.RefreshLicenseStatus(Rec);
+                    CurrPage.Update(false);
+                    Message('License status refreshed.');
                 end;
             }
 
@@ -273,7 +336,7 @@ page 53100 "DH Setup"
     trigger OnOpenPage()
     begin
         EnsureSetupExists();
-        RefreshLicenseSilently();
+        //RefreshLicenseSilently();
         CurrPage.Update(false);
     end;
 

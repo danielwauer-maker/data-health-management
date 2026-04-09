@@ -24,7 +24,7 @@ table 53100 "DH Setup"
 
             trigger OnValidate()
             begin
-                "API Base URL" := GetFixedApiBaseUrl();
+                "API Base URL" := NormalizeApiBaseUrl("API Base URL");
             end;
         }
 
@@ -194,15 +194,52 @@ table 53100 "DH Setup"
 
     procedure ApplyDefaults()
     begin
-        if "API Base URL" <> GetFixedApiBaseUrl() then
-            "API Base URL" := GetFixedApiBaseUrl();
+        if "API Base URL" = '' then
+            "API Base URL" := GetDefaultApiBaseUrl()
+        else
+            "API Base URL" := NormalizeApiBaseUrl("API Base URL");
 
         EnsureModuleDefaults();
     end;
 
-    procedure GetFixedApiBaseUrl(): Text[250]
+    procedure GetDefaultApiBaseUrl(): Text[250]
     begin
         exit('https://api.bcsentinel.com');
+    end;
+
+    procedure GetFixedApiBaseUrl(): Text[250]
+    begin
+        // Backward-compatible alias used by existing codeunits.
+        exit(GetDefaultApiBaseUrl());
+    end;
+
+    procedure NormalizeApiBaseUrl(Value: Text): Text[250]
+    var
+        NormalizedValue: Text;
+    begin
+        NormalizedValue := DelChr(Value, '<>', ' ');
+
+        if NormalizedValue = '' then
+            exit(GetDefaultApiBaseUrl());
+
+        NormalizedValue := RemoveTrailingSlash(NormalizedValue);
+
+        if StrPos(LowerCase(NormalizedValue), 'http://') <> 1 then
+            if StrPos(LowerCase(NormalizedValue), 'https://') <> 1 then
+                Error('API Base URL must start with http:// or https://');
+
+        if StrLen(NormalizedValue) > MaxStrLen("API Base URL") then
+            Error('API Base URL is too long.');
+
+        exit(CopyStr(NormalizedValue, 1, MaxStrLen("API Base URL")));
+    end;
+
+    local procedure RemoveTrailingSlash(Value: Text): Text
+    begin
+        while (StrLen(Value) > 0) and (CopyStr(Value, StrLen(Value), 1) = '/') do
+            Value := CopyStr(Value, 1, StrLen(Value) - 1);
+
+        exit(Value);
     end;
 
     procedure IsPremiumLicenseActive(): Boolean

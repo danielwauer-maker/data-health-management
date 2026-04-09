@@ -37,11 +37,9 @@ codeunit 53100 "DH API Client"
         if not Setup."Data Processing Consent" then
             Error('Please enable Data Processing Consent first.');
 
-        if Setup.Registered and (Setup."Tenant ID" <> '') and (Setup."API Token" <> '') then
-            exit;
-
-        RegisterTenant(Setup);
-        RefreshLicenseStatus(Setup);
+        // Nur wenn wirklich noch nichts existiert
+        if (Setup."Tenant ID" = '') or (Setup."API Token" = '') then
+            RegisterTenant(Setup);
     end;
 
     procedure RegisterTenant(var Setup: Record "DH Setup")
@@ -471,6 +469,9 @@ codeunit 53100 "DH API Client"
     end;
 
     local procedure EnsureSetupLoaded(var Setup: Record "DH Setup")
+    var
+        OriginalApiBaseUrl: Text[250];
+        NormalizedApiBaseUrl: Text[250];
     begin
         if not Setup.Get('SETUP') then begin
             Setup.Init();
@@ -478,8 +479,10 @@ codeunit 53100 "DH API Client"
             Setup.Insert(true);
         end;
 
-        if Setup."API Base URL" <> Setup.GetFixedApiBaseUrl() then begin
-            Setup."API Base URL" := Setup.GetFixedApiBaseUrl();
+        OriginalApiBaseUrl := Setup."API Base URL";
+        NormalizedApiBaseUrl := Setup.NormalizeApiBaseUrl(OriginalApiBaseUrl);
+        if OriginalApiBaseUrl <> NormalizedApiBaseUrl then begin
+            Setup."API Base URL" := NormalizedApiBaseUrl;
             Setup.Modify(true);
         end;
     end;
@@ -540,6 +543,67 @@ codeunit 53100 "DH API Client"
             Error('The field "token" is missing in the dashboard token response.');
 
         exit(TokenValue.AsValue().AsText());
+    end;
+
+    procedure OpenPremiumCheckout(var Setup: Record "DH Setup")
+    var
+        CheckoutUrl: Text;
+    begin
+        CheckoutUrl := CreatePremiumCheckoutSession(Setup);
+        Hyperlink(CheckoutUrl);
+    end;
+
+    procedure CreatePremiumCheckoutSession(var Setup: Record "DH Setup"): Text
+    var
+        Client: HttpClient;
+        Content: HttpContent;
+        ContentHeaders: HttpHeaders;
+        RequestHeaders: HttpHeaders;
+        Response: HttpResponseMessage;
+        RequestText: Text;
+        ResponseText: Text;
+        JsonRequest: JsonObject;
+        JsonResponse: JsonObject;
+        TokenValue: JsonToken;
+        CheckoutUrl: Text;
+    begin
+        EnsureTenantAccessConfigured(Setup);
+
+        JsonRequest.Add('tenant_id', Setup."Tenant ID");
+        JsonRequest.Add('plan_code', 'premium');
+        JsonRequest.WriteTo(RequestText);
+
+        Content.WriteFrom(RequestText);
+        Content.GetHeaders(ContentHeaders);
+        ContentHeaders.Clear();
+        ContentHeaders.Add('Content-Type', 'application/json');
+
+        RequestHeaders := Client.DefaultRequestHeaders();
+        if RequestHeaders.Contains('X-Tenant-Id') then
+            RequestHeaders.Remove('X-Tenant-Id');
+        if RequestHeaders.Contains('X-Api-Token') then
+            RequestHeaders.Remove('X-Api-Token');
+        RequestHeaders.Add('X-Tenant-Id', Setup."Tenant ID");
+        RequestHeaders.Add('X-Api-Token', Setup."API Token");
+
+        if not Client.Post(BuildUrl(Setup."API Base URL", '/billing/checkout/session'), Content, Response) then
+            Error('The billing checkout request could not be sent. Please verify the network connection.');
+
+        Response.Content.ReadAs(ResponseText);
+        if not Response.IsSuccessStatusCode() then
+            Error('Billing checkout session failed. Status %1 - %2', Response.HttpStatusCode(), ResponseText);
+
+        if not JsonResponse.ReadFrom(ResponseText) then
+            Error('The billing checkout response is not valid JSON: %1', ResponseText);
+
+        if JsonResponse.Get('checkout_url', TokenValue) then
+            if not IsJsonNull(TokenValue) then
+                CheckoutUrl := TokenValue.AsValue().AsText();
+
+        if CheckoutUrl = '' then
+            Error('The billing checkout response does not contain checkout_url.');
+
+        exit(CheckoutUrl);
     end;
 
     local procedure GetAnalyticsScanMode(var Setup: Record "DH Setup"): Text

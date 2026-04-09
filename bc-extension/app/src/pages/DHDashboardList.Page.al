@@ -169,6 +169,30 @@ page 53124 "DH Dashboard List"
                 Image = Setup;
                 RunObject = page "DH Setup";
             }
+
+            action(UpgradeToPremium)
+            {
+                Caption = 'Upgrade to Premium';
+                ApplicationArea = All;
+                Image = Add;
+                ToolTip = 'Open the secure BCSentinel checkout to activate Premium.';
+
+                trigger OnAction()
+                var
+                    Setup: Record "DH Setup";
+                    ApiClient: Codeunit "DH API Client";
+                begin
+                    if not Setup.Get('SETUP') then
+                        Error('Setup not found.');
+
+                    if Setup.IsPremiumLicenseActive() then begin
+                        Message('Premium is already active for this tenant.');
+                        exit;
+                    end;
+
+                    ApiClient.OpenPremiumCheckout(Setup);
+                end;
+            }
         }
 
         area(Promoted)
@@ -185,6 +209,9 @@ page 53124 "DH Dashboard List"
                 {
                 }
                 actionref(ReconcileScanHistory_Promoted; ReconcileScanHistory)
+                {
+                }
+                actionref(UpgradeToPremium_Promoted; UpgradeToPremium)
                 {
                 }
             }

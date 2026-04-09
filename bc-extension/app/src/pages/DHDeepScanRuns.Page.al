@@ -137,15 +137,28 @@ page 53130 "DH Deep Scan Runs"
 
             action(DeleteSelectedScan)
             {
-                Caption = 'Delete Selected Scan';
+                Caption = 'Delete Selected Scan(s)';
                 ApplicationArea = All;
                 Image = Delete;
+                Scope = Repeater;
+
+                trigger OnAction()
+                begin
+                    DeleteSelectedScans();
+                end;
+            }
+
+            action(DeleteCurrentScan)
+            {
+                Caption = 'Delete This Scan';
+                ApplicationArea = All;
+                Image = Delete;
+                Scope = Repeater;
 
                 trigger OnAction()
                 var
                     Setup: Record "DH Setup";
                     ApiClient: Codeunit "DH API Client";
-                    BackendDeleteId: Code[50];
                 begin
                     if Rec."Entry No." = 0 then
                         Error('Please select a scan first.');
@@ -153,16 +166,9 @@ page 53130 "DH Deep Scan Runs"
                     if not Confirm('Do you want to delete scan %1?', false, Rec.GetDisplayRunId()) then
                         exit;
 
-                    BackendDeleteId := GetBackendDeleteId();
-
-                    if Setup.Get('SETUP') then
-                        if (Setup."Tenant ID" <> '') and (Setup."API Token" <> '') and (BackendDeleteId <> '') then
-                            ApiClient.DeleteScanFromBackend(Setup, BackendDeleteId);
-
-                    DeleteLinkedDeepRunIfNeeded();
-
-                    Rec.Delete(true);
+                    DeleteSingleScan(Rec, Setup, ApiClient);
                     CurrPage.Update(false);
+                    Message('Scan deleted.');
                 end;
             }
 
@@ -233,27 +239,74 @@ page 53130 "DH Deep Scan Runs"
         Page.Run(Page::"DH Deep Scan Monitor", DeepScanRun);
     end;
 
-    local procedure DeleteLinkedDeepRunIfNeeded()
+    local procedure DeleteSingleScan(var ScanHeader: Record "DH Scan Header"; var Setup: Record "DH Setup"; var ApiClient: Codeunit "DH API Client")
+    var
+        BackendDeleteId: Code[50];
+    begin
+        BackendDeleteId := GetBackendDeleteIdFor(ScanHeader);
+
+        if Setup.Get('SETUP') then
+            if (Setup."Tenant ID" <> '') and (Setup."API Token" <> '') and (BackendDeleteId <> '') then
+                ApiClient.DeleteScanFromBackend(Setup, BackendDeleteId);
+
+        DeleteLinkedDeepRunIfNeededFor(ScanHeader);
+        ScanHeader.Delete(true);
+    end;
+
+    local procedure DeleteSelectedScans()
+    var
+        Setup: Record "DH Setup";
+        ApiClient: Codeunit "DH API Client";
+        SelectedScans: Record "DH Scan Header";
+        TotalToDelete: Integer;
+        DeletedCount: Integer;
+    begin
+        CurrPage.SetSelectionFilter(SelectedScans);
+        if SelectedScans.IsEmpty() then
+            Error('Please select at least one scan.');
+
+        TotalToDelete := SelectedScans.Count();
+        if TotalToDelete = 1 then begin
+            if not SelectedScans.FindFirst() then
+                exit;
+
+            if not Confirm('Do you want to delete scan %1?', false, SelectedScans.GetDisplayRunId()) then
+                exit;
+        end else
+            if not Confirm('Do you want to delete %1 selected scans?', false, TotalToDelete) then
+                exit;
+
+        if SelectedScans.FindSet() then
+            repeat
+                DeleteSingleScan(SelectedScans, Setup, ApiClient);
+                DeletedCount += 1;
+            until SelectedScans.Next() = 0;
+
+        CurrPage.Update(false);
+        Message('%1 scan(s) deleted.', DeletedCount);
+    end;
+
+    local procedure DeleteLinkedDeepRunIfNeededFor(var ScanHeader: Record "DH Scan Header")
     var
         DeepScanRun: Record "DH Deep Scan Run";
     begin
-        if Rec."Scan Type" <> Rec."Scan Type"::Deep then
+        if ScanHeader."Scan Type" <> ScanHeader."Scan Type"::Deep then
             exit;
 
-        if Rec.GetDisplayRunId() = '' then
+        if ScanHeader.GetDisplayRunId() = '' then
             exit;
 
-        DeepScanRun.SetRange("Run ID", Rec.GetDisplayRunId());
+        DeepScanRun.SetRange("Run ID", ScanHeader.GetDisplayRunId());
         if DeepScanRun.FindFirst() then
             DeepScanRun.Delete(true);
     end;
 
-    local procedure GetBackendDeleteId(): Code[50]
+    local procedure GetBackendDeleteIdFor(var ScanHeader: Record "DH Scan Header"): Code[50]
     begin
-        if Rec."Backend Scan Id" <> '' then
-            exit(Rec."Backend Scan Id");
+        if ScanHeader."Backend Scan Id" <> '' then
+            exit(ScanHeader."Backend Scan Id");
 
-        exit(Rec.GetDisplayRunId());
+        exit(ScanHeader.GetDisplayRunId());
     end;
 
     local procedure GetScoreStyle(): Text
