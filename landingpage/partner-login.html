@@ -107,6 +107,41 @@
       color: var(--muted);
       font-size: .9rem;
     }
+    .forgot-toggle-btn {
+      margin-top: 10px;
+      width: 100%;
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0 12px;
+    }
+    .forgot-wrap {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--line);
+    }
+    .forgot-wrap.show { display: block; }
+    .forgot-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .forgot-btn {
+      min-height: 46px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.05);
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0 12px;
+    }
   </style>
 </head>
 <body>
@@ -135,6 +170,14 @@
         </label>
         <button class="submit" type="submit" data-i18n="login_btn">Log in</button>
       </form>
+      <button id="forgotToggle" class="forgot-toggle-btn" type="button" data-i18n="forgot_link">Forgot password?</button>
+      <div id="forgotWrap" class="forgot-wrap">
+        <p class="lead" style="margin:0 0 8px;" data-i18n="forgot_sub">Enter your email and we will send a reset link.</p>
+        <div class="forgot-row">
+          <input type="email" id="forgotEmail" placeholder="partner@company.com" />
+          <button id="forgotSubmit" class="forgot-btn" type="button" data-i18n="forgot_btn">Send reset link</button>
+        </div>
+      </div>
 
       <div id="status" class="status" role="status" aria-live="polite"></div>
       <p class="notes" data-i18n="note">Tenant-based referral attribution is handled in the backend. This login expects a partner auth endpoint.</p>
@@ -149,8 +192,13 @@
         email_label: "Business-E-Mail",
         password_label: "Passwort",
         login_btn: "Einloggen",
+        forgot_link: "Passwort vergessen / Reset-Link anfordern",
+        forgot_sub: "Gib deine E-Mail ein, dann senden wir dir einen Reset-Link.",
+        forgot_btn: "Reset-Link senden",
         note: "Die tenant-basierte Referral-Zuordnung erfolgt im Backend. Falls noetig, bitte einen Admin um einen Reset-Link.",
         missing: "Bitte E-Mail und Passwort ausfuellen.",
+        forgot_missing: "Bitte eine gueltige E-Mail fuer den Reset eingeben.",
+        forgot_success: "Wenn die E-Mail bekannt ist, wurde ein Reset-Link versendet.",
         failed: "Login fehlgeschlagen. Pruefe Zugangsdaten oder API-Endpunkt.",
         inactive: "Partnerzugang ist aktuell inaktiv. Bitte kontaktiere den Support.",
         success: "Login erfolgreich. Weiterleitung zum Partner-Portal..."
@@ -161,8 +209,13 @@
         email_label: "Business email",
         password_label: "Password",
         login_btn: "Log in",
+        forgot_link: "Forgot password / request reset link",
+        forgot_sub: "Enter your email and we will send a reset link.",
+        forgot_btn: "Send reset link",
         note: "Tenant-based referral attribution is handled in the backend. If needed, ask an admin for a password reset link.",
         missing: "Please enter email and password.",
+        forgot_missing: "Please enter a valid email address for reset.",
+        forgot_success: "If your email exists, a reset link has been sent.",
         failed: "Login failed. Check credentials or API endpoint.",
         inactive: "Partner account is currently inactive. Please contact support.",
         success: "Login successful. Redirecting to partner portal..."
@@ -240,6 +293,33 @@
           return;
         }
         setStatus("error", t("failed"));
+      }
+    });
+
+    document.getElementById("forgotToggle").addEventListener("click", () => {
+      const wrap = document.getElementById("forgotWrap");
+      wrap.classList.toggle("show");
+      const loginEmail = document.getElementById("email").value.trim();
+      if (loginEmail) {
+        document.getElementById("forgotEmail").value = loginEmail;
+      }
+    });
+
+    document.getElementById("forgotSubmit").addEventListener("click", async () => {
+      const email = document.getElementById("forgotEmail").value.trim();
+      if (!email || !email.includes("@")) {
+        setStatus("error", t("forgot_missing"));
+        return;
+      }
+      try {
+        await fetch(API_BASE + "/api/partners/auth/reset/request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+        setStatus("success", t("forgot_success"));
+      } catch (_) {
+        setStatus("success", t("forgot_success"));
       }
     });
 
