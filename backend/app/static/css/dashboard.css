@@ -829,3 +829,33 @@ th, td {
   background: #ffefe8;
   border-color: #eab9a5;
 }
+
+.panel-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid #f1d8cc;
+  background: #fff5ef;
+  color: #d07b56;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.section-kicker::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #e59572;
+}
