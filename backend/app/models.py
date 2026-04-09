@@ -214,6 +214,23 @@ class Partner(Base):
     )
 
 
+class PartnerApplication(Base):
+    __tablename__ = "partner_applications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    company_name: Mapped[str] = mapped_column(String(160))
+    contact_name: Mapped[str] = mapped_column(String(120))
+    contact_email: Mapped[str] = mapped_column(String(255), index=True)
+    phone: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_page: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="new", index=True)
+    created_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    reviewed_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+
+
 class PartnerReferral(Base):
     __tablename__ = "partner_referrals"
 

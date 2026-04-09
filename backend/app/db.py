@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.core.settings import settings
 
-REQUIRED_ALEMBIC_REVISION = "0007_partner_auth_fields"
+REQUIRED_ALEMBIC_REVISION = "0008_partner_applications"
 
 
 class Base(DeclarativeBase):

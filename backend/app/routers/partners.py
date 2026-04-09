@@ -16,7 +16,14 @@ from sqlalchemy import select
 
 from app.core.settings import settings
 from app.db import SessionLocal
-from app.models import Partner, PartnerCommission, PartnerReferral, Subscription, Tenant
+from app.models import (
+    Partner,
+    PartnerApplication,
+    PartnerCommission,
+    PartnerReferral,
+    Subscription,
+    Tenant,
+)
 from app.security.token import create_token, verify_token
 from app.security.token_hash import hash_api_token, verify_api_token
 from app.security.tenant import enforce_tenant_match, load_authenticated_tenant, require_tenant_headers
@@ -134,6 +141,18 @@ class PartnerResetConfirmRequest(BaseModel):
 
 class PartnerResetRequest(BaseModel):
     email: str = Field(min_length=5, max_length=255)
+
+
+class PartnerRegisterRequest(BaseModel):
+    company_name: str = Field(min_length=2, max_length=160)
+    contact_name: str = Field(min_length=2, max_length=120)
+    email: str = Field(min_length=5, max_length=255)
+    phone: str | None = Field(default=None, max_length=60)
+    website: str | None = Field(default=None, max_length=255)
+    country: str | None = Field(default=None, max_length=80)
+    message: str | None = Field(default=None, max_length=2000)
+    source_page: str | None = Field(default=None, max_length=255)
+    consent_privacy: bool = Field(default=False)
 
 
 def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
@@ -413,6 +432,37 @@ def partner_reset_request(payload: PartnerResetRequest, request: Request) -> dic
         reset_url = _build_partner_reset_url(request, token)
         _send_partner_reset_email(target_email=normalized_email, reset_url=reset_url)
         return {"status": "ok"}
+
+
+@router.post("/api/partners/register")
+def partner_register(payload: PartnerRegisterRequest, request: Request) -> dict:
+    _require_rate_limit(request, action="partner_register", max_attempts=4, window_seconds=300)
+
+    if not payload.consent_privacy:
+        raise HTTPException(status_code=400, detail="consent_privacy is required.")
+
+    normalized_email = (payload.email or "").strip().lower()
+    if not normalized_email:
+        raise HTTPException(status_code=400, detail="email is required.")
+
+    with SessionLocal() as db:
+        row = PartnerApplication(
+            company_name=(payload.company_name or "").strip(),
+            contact_name=(payload.contact_name or "").strip(),
+            contact_email=normalized_email,
+            phone=((payload.phone or "").strip() or None),
+            website=((payload.website or "").strip() or None),
+            country=((payload.country or "").strip() or None),
+            message=((payload.message or "").strip() or None),
+            source_page=((payload.source_page or "").strip() or None),
+            status="new",
+            created_at_utc=utc_now(),
+            reviewed_at_utc=None,
+        )
+        db.add(row)
+        db.commit()
+
+    return {"status": "ok", "message": "Partner registration received."}
 
 
 @router.get("/api/partners/me", response_model=PartnerMeResponse)

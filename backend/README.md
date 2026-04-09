@@ -74,8 +74,12 @@ Hinweis: Fuer korrekte Tenant-Zuordnung muessen `tenant_id` und `plan_code` in d
 - `partners.contact_email` (unique, optional)
 - `partners.password_hash` (optional, PBKDF2-SHA256)
 - `partners.last_login_at_utc` (optional)
+- `partner_applications` (public partner registration intake)
 
 ### Neue API Endpunkte (Landingpage Partner-Portal)
+- `POST /api/partners/register`
+  - oeffentliche Partner-Registrierung (Firma, Kontakt, E-Mail, Einwilligung)
+  - legt einen Datensatz in `partner_applications` mit Status `new` an
 - `POST /api/partners/auth/login`
   - Login per `email + password`
   - liefert `access_token` (Bearer JWT)
@@ -106,6 +110,7 @@ Hinweis: Fuer korrekte Tenant-Zuordnung muessen `tenant_id` und `plan_code` in d
   - sonst wird `request.base_url` genutzt
 
 ### Basis Abuse-Protection
+- Partner-Registrierung (`POST /api/partners/register`): max. 4 Versuche pro IP / 5 Minuten.
 - Login (`POST /api/partners/auth/login`): max. 8 Versuche pro IP / 60 Sekunden.
 - Reset-Request (`POST /api/partners/auth/reset/request`): max. 4 Versuche pro IP / 5 Minuten.
 - Reset-Confirm (`POST /api/partners/auth/reset/confirm`): max. 6 Versuche pro IP / 5 Minuten.
