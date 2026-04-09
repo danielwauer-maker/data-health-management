@@ -580,3 +580,252 @@ thead th { color: var(--muted); font-weight: 600; }
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* ---------------------------------------------
+   Landingpage-aligned visual refresh (v2)
+   Stronger, high-visibility overrides
+---------------------------------------------- */
+
+body.dashboard-body {
+  background:
+    radial-gradient(1100px 460px at 8% -8%, rgba(243, 167, 131, 0.17), transparent 60%),
+    radial-gradient(900px 380px at 88% 4%, rgba(59, 130, 246, 0.08), transparent 64%),
+    linear-gradient(180deg, #f8fbff 0%, #eff4fa 100%);
+}
+
+.page-shell {
+  width: min(1740px, calc(100vw - 28px));
+  padding-top: 14px;
+}
+
+#page-title {
+  font-size: clamp(36px, 2.35vw, 48px);
+  line-height: 1.03;
+  letter-spacing: -0.02em;
+  font-weight: 850;
+  color: #0f2340;
+}
+
+.page-subtitle {
+  color: #6b7b92;
+  font-size: 14px;
+}
+
+.hero-block {
+  margin: 8px 0 20px;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid #f3d4c6;
+  border-radius: 999px;
+  background: #fff4ef;
+  color: #da7f57;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.hero-title {
+  margin-top: 12px;
+  font-size: clamp(44px, 4.2vw, 66px);
+  line-height: 1.01;
+  font-weight: 880;
+  color: #13294b;
+}
+
+.hero-highlight {
+  color: #e25e46 !important;
+}
+
+.hero-points {
+  margin-top: 16px;
+  color: #5f6f86;
+  font-size: 17px;
+}
+
+.topnav-link {
+  border: 1px solid transparent;
+  color: #5f6f86;
+  font-weight: 600;
+}
+
+.topnav-link:hover {
+  border-color: #ecd8cf;
+  background: #fff6f2;
+}
+
+.topnav-link.is-active {
+  background: #fff1eb;
+  border-color: #f1ccbd;
+  color: #c55b31;
+}
+
+.plan-badge {
+  box-shadow: 0 6px 16px rgba(234, 123, 79, 0.26);
+}
+
+.panel,
+.stat-card,
+.hero-gauge-card,
+.subscription-card {
+  border: 1px solid #dfe7f2;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 16px 32px rgba(15, 35, 64, 0.07);
+}
+
+.panel {
+  padding: 20px 20px 22px;
+}
+
+.panel-header {
+  margin-bottom: 14px;
+}
+
+.panel-header h3 {
+  font-size: 21px;
+  color: #13294b;
+}
+
+.muted {
+  color: #7b8aa0;
+}
+
+.stats-grid {
+  gap: 16px;
+}
+
+.hero-gauge-card {
+  background: linear-gradient(180deg, #fffdfc 0%, #fff5f0 100%);
+}
+
+.gauge-track {
+  stroke: #ecf1f8;
+}
+
+.gauge-progress {
+  stroke: #ea7b4f;
+}
+
+.gauge-score {
+  fill: #102848;
+}
+
+.stat-value,
+.subscription-value {
+  color: #122a4c;
+}
+
+.score-value,
+.loss-value {
+  color: #e2574c !important;
+}
+
+.roi-value {
+  color: #1ea97f !important;
+}
+
+.accent-red {
+  background: linear-gradient(180deg, #fff8f6 0%, #fff 100%);
+}
+
+.accent-green {
+  background: linear-gradient(180deg, #f2fff9 0%, #fff 100%);
+}
+
+.mini-card {
+  background: #fcfdff;
+  border-color: #e2eaf5;
+}
+
+.mini-card-value {
+  color: #142d4f;
+}
+
+.progress-track {
+  background: #edf2f8;
+}
+
+.progress-fill {
+  background: linear-gradient(90deg, #f2a785, #e97a4f);
+}
+
+.primary-button {
+  background: linear-gradient(135deg, #f3ad8b, #ea7b4f);
+  box-shadow: 0 11px 24px rgba(234, 123, 79, 0.33);
+}
+
+.primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 13px 28px rgba(234, 123, 79, 0.36);
+}
+
+.table-wrap {
+  border-radius: 14px;
+}
+
+table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f8fbff;
+  color: #6d7d93;
+  border-bottom: 1px solid #deE7f2;
+}
+
+th, td {
+  border-bottom-color: #e7edf6;
+}
+
+.scan-row:hover {
+  background: #fff7f3;
+}
+
+.scan-row.is-selected {
+  background: #fff1eb;
+}
+
+.trend-grid-line {
+  stroke: #e5ebf4;
+}
+
+.trend-line {
+  stroke: #ea7b4f;
+}
+
+.trend-area {
+  fill: rgba(234, 123, 79, 0.14);
+}
+
+.trend-point,
+.trend-point.is-selected {
+  fill: #ea7b4f;
+}
+
+.pricing-breakdown-box,
+.subscription-pricing-box,
+.unlock-left,
+.unlock-right,
+.billing-option-card {
+  background: linear-gradient(180deg, #fff 0%, #fff8f5 100%);
+  border-color: #e7d8cf;
+}
+
+.table-pagination {
+  margin-top: 14px;
+}
+
+.pager-button {
+  border-color: #e2c9bd;
+  background: #fff8f4;
+  color: #9e4a27;
+}
+
+.pager-button:hover:not(:disabled) {
+  background: #ffefe8;
+  border-color: #eab9a5;
+}
