@@ -519,7 +519,8 @@ def update_commission_status(
 def create_partner(
     name: str = Form(...),
     partner_code: str = Form(...),
-    contact_email: str = Form(default=""),
+    contact_email: str = Form(...),
+    new_password: str = Form(...),
     default_commission_rate: float = Form(default=0.2),
     status_value: str = Form(default="active"),
     admin_username: str = Depends(require_admin),
@@ -527,6 +528,7 @@ def create_partner(
     normalized_name = (name or "").strip()
     normalized_code = normalize_partner_code(partner_code)
     normalized_email = _normalize_email(contact_email)
+    raw_password = (new_password or "").strip()
     normalized_status = (status_value or "").strip().lower()
     normalized_rate = float(default_commission_rate)
 
@@ -538,20 +540,24 @@ def create_partner(
         raise HTTPException(status_code=400, detail="Invalid partner status.")
     if normalized_rate < 0.0 or normalized_rate > 1.0:
         raise HTTPException(status_code=400, detail="default_commission_rate must be between 0 and 1.")
+    if normalized_email is None:
+        raise HTTPException(status_code=400, detail="contact_email is required.")
+    if len(raw_password) < 8:
+        raise HTTPException(status_code=400, detail="new_password must be at least 8 characters.")
 
     with SessionLocal() as db:
         existing = db.scalar(select(Partner).where(Partner.partner_code == normalized_code))
         if existing is not None:
             raise HTTPException(status_code=409, detail="partner_code already exists.")
-        if normalized_email:
-            existing_email_owner = db.scalar(select(Partner).where(Partner.contact_email == normalized_email))
-            if existing_email_owner is not None:
-                raise HTTPException(status_code=409, detail="contact_email already exists.")
+        existing_email_owner = db.scalar(select(Partner).where(Partner.contact_email == normalized_email))
+        if existing_email_owner is not None:
+            raise HTTPException(status_code=409, detail="contact_email already exists.")
 
         row = Partner(
             name=normalized_name,
             partner_code=normalized_code,
             contact_email=normalized_email,
+            password_hash=hash_api_token(raw_password),
             status=normalized_status,
             default_commission_rate=normalized_rate,
             created_at_utc=utc_now(),

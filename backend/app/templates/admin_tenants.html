@@ -89,12 +89,14 @@
     <section class="content-grid admin-detail-grid">
       <article class="panel">
         <div class="panel-header"><h2>Partners</h2><span class="muted">aktuelle Partnerstammdaten</span></div>
-        <form method="post" action="/admin/partners/create" class="config-list">
+        <form method="post" action="/admin/partners/create" class="config-list credentials-form">
           <div class="config-row">
             <div class="config-title">Neuer Partner</div>
             <input type="text" name="name" placeholder="Name" required>
             <input type="text" name="partner_code" placeholder="Code (z. B. contoso)" required>
-            <input type="email" name="contact_email" placeholder="login@partner.de (optional)">
+            <input type="email" name="contact_email" placeholder="login@partner.de" required>
+            <input type="text" name="new_password" class="new-password-input" placeholder="Passwort (min. 8)" required>
+            <button type="button" class="btn btn-secondary js-generate-password">Generate</button>
             <input type="number" name="default_commission_rate" step="0.01" min="0" max="1" value="0.20" title="0.20 = 20%">
             <select name="status_value">
               <option value="active">active</option>
