@@ -175,7 +175,7 @@ function renderTrend(containerId, items, asCurrency = false) {
   const height = 220;
   const paddingX = 34;
   const paddingTop = 24;
-  const paddingBottom = 38;
+  const paddingBottom = 39;
   const usableWidth = width - paddingX * 2;
   const usableHeight = height - paddingTop - paddingBottom;
   const maxValue = Math.max(...safeItems.map((item) => item.value), 1);
