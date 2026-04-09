@@ -68,6 +68,31 @@ Hinweis: Fuer korrekte Tenant-Zuordnung muessen `tenant_id` und `plan_code` in d
 - `GET /partners/referral/status`
   - liefert den aktuellen Referral-Status des authentifizierten Tenants
 
+## Partner Portal & Auth (v2)
+
+### Datenmodell-Erweiterung
+- `partners.contact_email` (unique, optional)
+- `partners.password_hash` (optional, PBKDF2-SHA256)
+- `partners.last_login_at_utc` (optional)
+
+### Neue API Endpunkte (Landingpage Partner-Portal)
+- `POST /api/partners/auth/login`
+  - Login per `email + password`
+  - liefert `access_token` (Bearer JWT)
+- `POST /api/partners/auth/set-credentials` (Admin Basic-Auth)
+  - setzt/aktualisiert Login-Daten (`partner_code`, `email`, `password`)
+- `GET /api/partners/me` (Bearer)
+  - liefert Partner-Profil fuer das Portal
+- `GET /api/partners/me/referrals` (Bearer)
+  - liefert tenant-basierte Referrals inkl. Lizenz-/Subscription-Status
+- `GET /api/partners/me/commissions` (Bearer)
+  - liefert Provisionshistorie des Partners
+
+### Tenant-Logik im Partner-Portal
+- Referral-Zuordnung bleibt tenant-zentriert (`partner_referrals.tenant_id` unique).
+- Portal-Daten werden pro Partner gefiltert (`partner_id`) und tenantweise angezeigt.
+- Subscription-Status pro Tenant wird aus den neuesten Subscriptions pro `tenant_id` abgeleitet.
+
 ### Provisionserzeugung
 - Bei `invoice.paid` wird nach erfolgreichem Invoice-Upsert automatisch eine Provision erzeugt, falls ein Referral fuer den Tenant existiert.
 - Provisionen sind idempotent auf `provider_invoice_id` (keine doppelten Eintraege pro Rechnung).

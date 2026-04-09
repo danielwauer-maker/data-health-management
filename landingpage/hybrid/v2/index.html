@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BCSentinel Hybrid V2</title>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --panel: #ffffff;
+      --panel-soft: #f2f7ff;
+      --text: #13233f;
+      --muted: #4f6286;
+      --border: #dfe7f2;
+      --primary: #ea7b4f;
+      --primary-strong: #d8673b;
+      --radius: 16px;
+      --shadow: 0 14px 34px rgba(15, 35, 64, 0.08);
+    }
+    html[data-theme="dark"] {
+      --bg: #08111f;
+      --panel: #111f3c;
+      --panel-soft: #0f1c35;
+      --text: #eff4ff;
+      --muted: #acbbd8;
+      --border: rgba(255,255,255,.12);
+      --primary: #ff8f3d;
+      --primary-strong: #ff7b1d;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+    a { color: inherit; text-decoration: none; }
+    .container { width: min(1220px, calc(100% - 32px)); margin: 0 auto; }
+    .topbar {
+      position: sticky; top: 0; z-index: 20;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: blur(8px);
+    }
+    .topbar-inner { min-height: 72px; display: flex; gap: 14px; align-items: center; justify-content: space-between; }
+    .brand { font-weight: 800; letter-spacing: -0.02em; }
+    .nav { display: flex; gap: 12px; flex-wrap: wrap; }
+    .nav a { font-size: 14px; color: var(--muted); }
+    .controls { display: flex; gap: 8px; }
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-strong); border-color: var(--primary-strong); }
+    .hero { padding: 48px 0 24px; }
+    .hero-card { border: 1px solid var(--border); border-radius: 24px; background: linear-gradient(135deg, var(--panel), var(--panel-soft)); padding: 28px; box-shadow: var(--shadow); }
+    .kicker { display: inline-block; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; color: var(--primary); margin-bottom: 8px; }
+    h1 { margin: 0 0 10px; font-size: clamp(2rem, 4vw, 3.4rem); line-height: 1.06; letter-spacing: -0.03em; }
+    .lead { margin: 0; color: var(--muted); max-width: 920px; line-height: 1.6; }
+    .cta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+    .sections { padding: 8px 0 56px; }
+    .section { margin-top: 24px; }
+    .section h2 { margin: 0 0 10px; font-size: 1.35rem; letter-spacing: -0.02em; }
+    .card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 16px; box-shadow: var(--shadow); }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .pill { display: inline-block; font-size: 12px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 8px; color: var(--muted); }
+    .muted { color: var(--muted); }
+    ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+    .figma-id { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: var(--muted); }
+    footer { margin-top: 36px; border-top: 1px solid var(--border); padding: 20px 0 30px; color: var(--muted); font-size: 14px; }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } .nav { display: none; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">BCSentinel Hybrid V2</div>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="#hero">Hero</a>
+        <a href="#story">Story</a>
+        <a href="#trust">Trust</a>
+        <a href="#demo">Demo</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+        <a href="./pricing.html">/pricing</a>
+        <a href="./security.html">/security</a>
+        <a href="./faq.html">/faq</a>
+      </nav>
+      <div class="controls">
+        <button class="btn" data-set-lang="de">DE</button>
+        <button class="btn" data-set-lang="en">EN</button>
+        <button class="btn" data-toggle-theme>Theme</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container sections">
+    <section id="hero" class="hero" data-frame-id="LP-HYBRID-HERO-001">
+      <div class="hero-card">
+        <span class="kicker" data-i18n="hero_kicker">Hybrid V2</span>
+        <h1 data-i18n="hero_title">Sales-ready landing architecture with A/B CTA variants.</h1>
+        <p class="lead" data-i18n="hero_sub">This concrete page combines all 10 concepts into one implementation flow you can rebuild 1:1 in Figma.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" data-i18n="cta_a_primary">Start free scan</button>
+          <button class="btn" data-i18n="cta_a_secondary">View demo</button>
+          <button class="btn btn-primary" data-i18n="cta_b_primary">Calculate ROI now</button>
+          <button class="btn" data-i18n="cta_b_secondary">Talk to expert</button>
+        </div>
+        <div class="figma-id">Figma Frame ID: LP-HYBRID-HERO-001</div>
+      </div>
+    </section>
+
+    <section id="story" class="section" data-frame-id="LP-HYBRID-STORY-002">
+      <h2 data-i18n="story_title">Problem -> Solution Story Block</h2>
+      <div class="grid-2">
+        <article class="card">
+          <span class="pill">Concepts 02 + 08</span>
+          <p class="muted" data-i18n="story_left">Show hidden costs, process friction, and decision risk in a short narrative.</p>
+          <ul>
+            <li data-i18n="story_l1">Pain timeline</li>
+            <li data-i18n="story_l2">Root causes</li>
+            <li data-i18n="story_l3">First quick win</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="pill">Concepts 01 + 05</span>
+          <p class="muted" data-i18n="story_right">Transition directly to measurable value and free-to-premium conversion path.</p>
+          <ul>
+            <li data-i18n="story_r1">ROI framing</li>
+            <li data-i18n="story_r2">Free value proof</li>
+            <li data-i18n="story_r3">Premium unlock hook</li>
+          </ul>
+        </article>
+      </div>
+      <div class="figma-id">Figma Frame ID: LP-HYBRID-STORY-002</div>
+    </section>
+
+    <section id="trust" class="section" data-frame-id="LP-HYBRID-TRUST-003">
+      <h2 data-i18n="trust_title">Trust & Compliance Block</h2>
+      <div class="card">
+        <span class="pill">Concepts 03 + 10</span>
+        <p class="muted" data-i18n="trust_text">Security architecture, GDPR stance, hosting context, and authority proof in one section.</p>
+        <ul>
+          <li data-i18n="trust_l1">Data flow snapshot</li>
+          <li data-i18n="trust_l2">Tenant separation statement</li>
+          <li data-i18n="trust_l3">Auditability and governance</li>
+          <li data-i18n="trust_l4">Thought-leadership evidence</li>
+        </ul>
+      </div>
+      <div class="figma-id">Figma Frame ID: LP-HYBRID-TRUST-003</div>
+    </section>
+
+    <section id="demo" class="section" data-frame-id="LP-HYBRID-DEMO-004">
+      <h2 data-i18n="demo_title">Interactive Demo + Operations Cockpit</h2>
+      <div class="grid-2">
+        <article class="card">
+          <span class="pill">Concept 09</span>
+          <p class="muted" data-i18n="demo_left">Lead with interaction: sample dashboard, findings drilldown, and issue context.</p>
+        </article>
+        <article class="card">
+          <span class="pill">Concept 04 + 07</span>
+          <p class="muted" data-i18n="demo_right">Tie interaction to score benchmark and operational execution path.</p>
+        </article>
+      </div>
+      <div class="figma-id">Figma Frame ID: LP-HYBRID-DEMO-004</div>
+    </section>
+
+    <section id="pricing" class="section" data-frame-id="LP-HYBRID-PRICING-005">
+      <h2 data-i18n="pricing_title">Pricing + Industry Variants</h2>
+      <div class="grid-2">
+        <article class="card">
+          <span class="pill">Concepts 05 + 06</span>
+          <p class="muted" data-i18n="pricing_left">Free vs Premium with industry lens to increase relevance and reduce objections.</p>
+          <div class="cta-row">
+            <button class="btn btn-primary" data-i18n="cta_price_a">Start free</button>
+            <button class="btn" data-i18n="cta_price_b">See premium</button>
+          </div>
+        </article>
+        <article class="card">
+          <span class="pill">Subpages</span>
+          <p class="muted">Link-ready placeholders:</p>
+          <ul>
+            <li><a href="./pricing.html">`/pricing`</a></li>
+            <li><a href="./security.html">`/security`</a></li>
+            <li><a href="./faq.html">`/faq`</a></li>
+          </ul>
+        </article>
+      </div>
+      <div class="figma-id">Figma Frame ID: LP-HYBRID-PRICING-005</div>
+    </section>
+
+    <section id="faq" class="section" data-frame-id="LP-HYBRID-FAQ-006">
+      <h2 data-i18n="faq_title">FAQ + Final Authority CTA</h2>
+      <div class="card">
+        <span class="pill">Concepts 01 + 03 + 10</span>
+        <ul>
+          <li data-i18n="faq_l1">What is scanned in Free?</li>
+          <li data-i18n="faq_l2">What unlocks in Premium?</li>
+          <li data-i18n="faq_l3">How do security and hosting work?</li>
+          <li data-i18n="faq_l4">Which ROI can be expected?</li>
+        </ul>
+        <div class="cta-row">
+          <button class="btn btn-primary" data-i18n="final_cta_a">Start free scan</button>
+          <button class="btn" data-i18n="final_cta_b">Book strategy call</button>
+        </div>
+      </div>
+      <div class="figma-id">Figma Frame ID: LP-HYBRID-FAQ-006</div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container" data-i18n="footer_note">Hybrid V2 wireframe page for direct Figma reconstruction and fast content iteration.</div>
+  </footer>
+
+  <script>
+    (function () {
+      const dict = {
+        de: {
+          hero_kicker: "Hybrid V2",
+          hero_title: "Verkaufsfertige Landing-Architektur mit A/B-CTA-Varianten.",
+          hero_sub: "Diese konkrete Seite kombiniert alle 10 Konzepte zu einem umsetzbaren Flow, den du 1:1 in Figma nachbauen kannst.",
+          cta_a_primary: "Kostenlosen Scan starten",
+          cta_a_secondary: "Demo ansehen",
+          cta_b_primary: "ROI jetzt berechnen",
+          cta_b_secondary: "Mit Expert:in sprechen",
+          story_title: "Problem -> Loesung Story-Block",
+          story_left: "Zeigt versteckte Kosten, Prozessreibung und Entscheidungsrisiko in einer kompakten Story.",
+          story_l1: "Pain Timeline",
+          story_l2: "Root Causes",
+          story_l3: "First Quick Win",
+          story_right: "Leitet direkt in messbaren Mehrwert und Free-to-Premium Conversion ueber.",
+          story_r1: "ROI Framing",
+          story_r2: "Free Value Proof",
+          story_r3: "Premium Unlock Hook",
+          trust_title: "Trust & Compliance Block",
+          trust_text: "Sicherheitsarchitektur, DSGVO-Positionierung, Hosting-Kontext und Authority-Proof in einer Section.",
+          trust_l1: "Data Flow Snapshot",
+          trust_l2: "Tenant Separation Statement",
+          trust_l3: "Auditierbarkeit und Governance",
+          trust_l4: "Thought-Leadership Evidence",
+          demo_title: "Interaktive Demo + Operations Cockpit",
+          demo_left: "Fuehre mit Interaktion: Sample-Dashboard, Findings-Drilldown und Issue-Kontext.",
+          demo_right: "Verbinde Interaktion mit Score-Benchmark und operativem Umsetzungsweg.",
+          pricing_title: "Pricing + Industry Variants",
+          pricing_left: "Free vs Premium mit Branchen-Linse fuer mehr Relevanz und weniger Einwaende.",
+          cta_price_a: "Free starten",
+          cta_price_b: "Premium ansehen",
+          faq_title: "FAQ + Finale Authority-CTA",
+          faq_l1: "Was wird im Free-Plan gescannt?",
+          faq_l2: "Was schaltet Premium frei?",
+          faq_l3: "Wie funktionieren Sicherheit und Hosting?",
+          faq_l4: "Welcher ROI ist realistisch?",
+          final_cta_a: "Kostenlosen Scan starten",
+          final_cta_b: "Strategie-Call buchen",
+          footer_note: "Hybrid V2 Wireframe-Seite fuer direkte Figma-Rekonstruktion und schnelle Content-Iteration."
+        },
+        en: {
+          hero_kicker: "Hybrid V2",
+          hero_title: "Sales-ready landing architecture with A/B CTA variants.",
+          hero_sub: "This concrete page combines all 10 concepts into an implementation flow you can rebuild 1:1 in Figma.",
+          cta_a_primary: "Start free scan",
+          cta_a_secondary: "View demo",
+          cta_b_primary: "Calculate ROI now",
+          cta_b_secondary: "Talk to expert",
+          story_title: "Problem -> Solution Story Block",
+          story_left: "Show hidden costs, process friction, and decision risk in a compact narrative.",
+          story_l1: "Pain timeline",
+          story_l2: "Root causes",
+          story_l3: "First quick win",
+          story_right: "Transition directly into measurable value and free-to-premium conversion.",
+          story_r1: "ROI framing",
+          story_r2: "Free value proof",
+          story_r3: "Premium unlock hook",
+          trust_title: "Trust & Compliance Block",
+          trust_text: "Security architecture, GDPR stance, hosting context, and authority proof in one section.",
+          trust_l1: "Data flow snapshot",
+          trust_l2: "Tenant separation statement",
+          trust_l3: "Auditability and governance",
+          trust_l4: "Thought-leadership evidence",
+          demo_title: "Interactive Demo + Operations Cockpit",
+          demo_left: "Lead with interaction: sample dashboard, findings drilldown, and issue context.",
+          demo_right: "Tie interaction to score benchmark and operational execution path.",
+          pricing_title: "Pricing + Industry Variants",
+          pricing_left: "Free vs Premium with industry lens to increase relevance and reduce objections.",
+          cta_price_a: "Start free",
+          cta_price_b: "See premium",
+          faq_title: "FAQ + Final Authority CTA",
+          faq_l1: "What is scanned in Free?",
+          faq_l2: "What unlocks in Premium?",
+          faq_l3: "How do security and hosting work?",
+          faq_l4: "Which ROI can be expected?",
+          final_cta_a: "Start free scan",
+          final_cta_b: "Book strategy call",
+          footer_note: "Hybrid V2 wireframe page for direct Figma reconstruction and fast content iteration."
+        }
+      };
+
+      const LANG_KEY = "bcsentinel-hybrid-v2-lang";
+      const THEME_KEY = "bcsentinel-hybrid-v2-theme";
+
+      function setLang(lang) {
+        const selected = lang === "en" ? "en" : "de";
+        const t = dict[selected];
+        document.documentElement.lang = selected;
+        localStorage.setItem(LANG_KEY, selected);
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const key = el.getAttribute("data-i18n");
+          if (t[key] !== undefined) el.textContent = t[key];
+        });
+      }
+
+      function setTheme(theme) {
+        const selected = theme === "dark" ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", selected);
+        localStorage.setItem(THEME_KEY, selected);
+      }
+
+      document.addEventListener("click", (event) => {
+        const langBtn = event.target.closest("[data-set-lang]");
+        if (langBtn) setLang(langBtn.getAttribute("data-set-lang"));
+        const themeBtn = event.target.closest("[data-toggle-theme]");
+        if (themeBtn) {
+          const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+          setTheme(current === "dark" ? "light" : "dark");
+        }
+      });
+
+      setLang(localStorage.getItem(LANG_KEY) || "de");
+      setTheme(localStorage.getItem(THEME_KEY) || "light");
+    })();
+  </script>
+</body>
+</html>

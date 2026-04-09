@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Partner Login | BCSentinel</title>
+  <meta name="theme-color" content="#08111f" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #08111f;
+      --card: rgba(14, 26, 51, 0.82);
+      --line: rgba(255,255,255,.1);
+      --text: #eff4ff;
+      --muted: #acbbd8;
+      --orange: #ff8f3d;
+      --shadow: 0 24px 80px rgba(0,0,0,.34);
+      --radius-lg: 22px;
+      --max: 820px;
+    }
+    html[data-theme="light"] {
+      --bg: #f4f8ff;
+      --card: rgba(255,255,255,.95);
+      --line: rgba(12,33,66,.1);
+      --text: #10213d;
+      --muted: #566787;
+      --shadow: 0 24px 70px rgba(21,43,82,.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.55;
+    }
+    a { color: inherit; text-decoration: none; }
+    .container { width: min(calc(100% - 32px), var(--max)); margin: 0 auto; }
+    .topbar {
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .actions { display: flex; gap: 8px; }
+    .btn {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+      border-radius: 999px;
+      min-height: 40px;
+      padding: 0 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .panel {
+      margin: 30px 0 60px;
+      border-radius: var(--radius-lg);
+      background: var(--card);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 26px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      letter-spacing: -.03em;
+    }
+    .lead { margin: 0 0 20px; color: var(--muted); }
+    form { display: grid; gap: 12px; }
+    label { display: grid; gap: 6px; font-size: .92rem; color: var(--muted); }
+    input {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0 12px;
+      background: rgba(255,255,255,.03);
+      color: var(--text);
+      font: inherit;
+    }
+    .submit {
+      margin-top: 8px;
+      border: 1px solid var(--orange);
+      background: linear-gradient(135deg, var(--orange), #ff7618);
+      color: #fff;
+      min-height: 48px;
+      border-radius: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .status {
+      display: none;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: .92rem;
+    }
+    .status.show { display: block; }
+    .status.error { background: rgba(226,87,76,.16); border: 1px solid rgba(226,87,76,.32); }
+    .status.success { background: rgba(20,184,133,.14); border: 1px solid rgba(20,184,133,.3); }
+    .notes {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="container topbar">
+    <a href="index.html"><strong>BCSentinel Partner</strong></a>
+    <div class="actions">
+      <button class="btn" data-set-lang="de">DE</button>
+      <button class="btn" data-set-lang="en">EN</button>
+      <button class="btn" data-toggle-theme>Theme</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="panel">
+      <h1 data-i18n="title">Partner Login</h1>
+      <p class="lead" data-i18n="sub">Log in to view your account, referred tenants, and commission status.</p>
+
+      <form id="loginForm" novalidate>
+        <label>
+          <span data-i18n="email_label">Business email</span>
+          <input type="email" id="email" required placeholder="partner@company.com" />
+        </label>
+        <label>
+          <span data-i18n="password_label">Password</span>
+          <input type="password" id="password" required placeholder="••••••••" />
+        </label>
+        <button class="submit" type="submit" data-i18n="login_btn">Log in</button>
+      </form>
+
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <p class="notes" data-i18n="note">Tenant-based referral attribution is handled in the backend. This login expects a partner auth endpoint.</p>
+    </section>
+  </main>
+
+  <script>
+    const translations = {
+      de: {
+        title: "Partner-Login",
+        sub: "Melde dich an, um deinen Account, geworbene Tenants und den Provisionsstatus zu sehen.",
+        email_label: "Business-E-Mail",
+        password_label: "Passwort",
+        login_btn: "Einloggen",
+        note: "Die tenant-basierte Referral-Zuordnung erfolgt im Backend. Dieser Login erwartet einen Partner-Auth-Endpunkt.",
+        missing: "Bitte E-Mail und Passwort ausfuellen.",
+        failed: "Login fehlgeschlagen. Pruefe Zugangsdaten oder API-Endpunkt.",
+        success: "Login erfolgreich. Weiterleitung zum Partner-Portal..."
+      },
+      en: {
+        title: "Partner Login",
+        sub: "Log in to view your account, referred tenants, and commission status.",
+        email_label: "Business email",
+        password_label: "Password",
+        login_btn: "Log in",
+        note: "Tenant-based referral attribution is handled in the backend. This login expects a partner auth endpoint.",
+        missing: "Please enter email and password.",
+        failed: "Login failed. Check credentials or API endpoint.",
+        success: "Login successful. Redirecting to partner portal..."
+      }
+    };
+
+    const API_BASE = window.location.origin;
+    const TOKEN_KEY = "bcs_partner_token";
+    const LANG_KEY = "bcsentinel-lang";
+    const THEME_KEY = "bcsentinel-theme";
+    const html = document.documentElement;
+
+    function lang() {
+      const saved = localStorage.getItem(LANG_KEY);
+      return saved === "en" ? "en" : "de";
+    }
+    function t(key) { return translations[lang()][key] || key; }
+    function applyI18n() {
+      html.lang = lang();
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const k = el.getAttribute("data-i18n");
+        if (translations[lang()][k]) el.textContent = translations[lang()][k];
+      });
+    }
+    function setTheme(theme) {
+      const selected = theme === "light" ? "light" : "dark";
+      html.setAttribute("data-theme", selected);
+      localStorage.setItem(THEME_KEY, selected);
+    }
+
+    document.addEventListener("click", (event) => {
+      const langBtn = event.target.closest("[data-set-lang]");
+      if (langBtn) {
+        localStorage.setItem(LANG_KEY, langBtn.getAttribute("data-set-lang"));
+        applyI18n();
+      }
+      if (event.target.closest("[data-toggle-theme]")) {
+        const current = html.getAttribute("data-theme") === "light" ? "light" : "dark";
+        setTheme(current === "light" ? "dark" : "light");
+      }
+    });
+
+    function setStatus(type, message) {
+      const box = document.getElementById("status");
+      box.className = "status show " + type;
+      box.textContent = message;
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!email || !password) {
+        setStatus("error", t("missing"));
+        return;
+      }
+
+      try {
+        const res = await fetch(API_BASE + "/api/partners/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+        if (!res.ok) throw new Error("failed");
+        const data = await res.json();
+        if (!data?.access_token) throw new Error("no-token");
+        localStorage.setItem(TOKEN_KEY, data.access_token);
+        setStatus("success", t("success"));
+        setTimeout(() => { window.location.href = "partner-portal.html"; }, 700);
+      } catch (e) {
+        setStatus("error", t("failed"));
+      }
+    });
+
+    setTheme(localStorage.getItem(THEME_KEY) || "dark");
+    applyI18n();
+  </script>
+</body>
+</html>

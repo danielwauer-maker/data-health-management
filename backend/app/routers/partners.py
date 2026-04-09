@@ -4,12 +4,15 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.core.settings import settings
 from app.db import SessionLocal
-from app.models import Partner, PartnerReferral
+from app.models import Partner, PartnerCommission, PartnerReferral, Subscription, Tenant
+from app.security.token import create_token, verify_token
+from app.security.token_hash import hash_api_token, verify_api_token
 from app.security.tenant import enforce_tenant_match, load_authenticated_tenant, require_tenant_headers
 from app.services.billing_service import utc_now
 from app.services.partner_service import (
@@ -20,6 +23,7 @@ from app.services.partner_service import (
 
 router = APIRouter(tags=["partners"])
 security = HTTPBasic()
+partner_bearer = HTTPBearer(auto_error=False)
 
 
 class PartnerCreateRequest(BaseModel):
@@ -57,6 +61,63 @@ class ReferralStatusResponse(BaseModel):
     attribution_source: str | None = None
 
 
+class PartnerLoginRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
+    password: str = Field(min_length=8, max_length=200)
+
+
+class PartnerLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    partner_id: int
+    partner_code: str
+    name: str
+
+
+class PartnerSetCredentialsRequest(BaseModel):
+    partner_code: str = Field(min_length=2, max_length=40)
+    email: str = Field(min_length=5, max_length=255)
+    password: str = Field(min_length=8, max_length=200)
+
+
+class PartnerSetCredentialsResponse(BaseModel):
+    partner_id: int
+    partner_code: str
+    contact_email: str
+
+
+class PartnerMeResponse(BaseModel):
+    id: int
+    name: str
+    partner_code: str
+    contact_email: str | None
+    status: str
+    default_commission_rate: float
+
+
+class PartnerReferralRow(BaseModel):
+    tenant_id: str
+    company_name: str
+    license_plan: str
+    subscription_status: str
+    attributed_at_utc: str
+
+
+class PartnerCommissionRow(BaseModel):
+    id: int
+    tenant_id: str
+    invoice_id: int | None
+    provider_invoice_id: str
+    status: str
+    currency: str
+    base_amount: float
+    commission_rate: float
+    commission_amount: float
+    created_at_utc: str
+    approved_at_utc: str | None
+    paid_at_utc: str | None
+
+
 def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
     expected_username = settings.ADMIN_USERNAME
     expected_password = settings.ADMIN_PASSWORD
@@ -72,6 +133,48 @@ def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
         )
 
     return credentials.username
+
+
+def _format_dt(value) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()
+
+
+def _create_partner_access_token(partner: Partner) -> str:
+    return create_token(
+        {
+            "sub": f"partner:{partner.id}",
+            "partner_id": partner.id,
+            "partner_code": partner.partner_code,
+            "scope": "partner_portal",
+        }
+    )
+
+
+def _load_partner_from_bearer(
+    credentials: HTTPAuthorizationCredentials = Depends(partner_bearer),
+) -> Partner:
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+
+    payload = verify_token(credentials.credentials)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid token.")
+
+    partner_id_raw = payload.get("partner_id")
+    try:
+        partner_id = int(partner_id_raw)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid token payload.") from None
+
+    with SessionLocal() as db:
+        partner = db.scalar(select(Partner).where(Partner.id == partner_id))
+        if partner is None:
+            raise HTTPException(status_code=401, detail="Partner not found.")
+        if (partner.status or "").strip().lower() != "active":
+            raise HTTPException(status_code=403, detail="Partner is not active.")
+        return partner
 
 
 @router.post("/partners", response_model=PartnerCreateResponse)
@@ -104,6 +207,150 @@ def create_partner(payload: PartnerCreateRequest, _: str = Depends(require_admin
             status=partner.status,
             default_commission_rate=float(partner.default_commission_rate),
         )
+
+
+@router.post("/api/partners/auth/login", response_model=PartnerLoginResponse)
+def partner_login(payload: PartnerLoginRequest) -> PartnerLoginResponse:
+    normalized_email = (payload.email or "").strip().lower()
+    if not normalized_email:
+        raise HTTPException(status_code=400, detail="email is required.")
+
+    with SessionLocal() as db:
+        partner = db.scalar(select(Partner).where(Partner.contact_email == normalized_email))
+        if partner is None:
+            raise HTTPException(status_code=401, detail="Invalid credentials.")
+        if (partner.status or "").strip().lower() != "active":
+            raise HTTPException(status_code=403, detail="Partner is not active.")
+        if not verify_api_token(payload.password, partner.password_hash):
+            raise HTTPException(status_code=401, detail="Invalid credentials.")
+
+        partner.last_login_at_utc = utc_now()
+        db.commit()
+        db.refresh(partner)
+
+        token = _create_partner_access_token(partner)
+        return PartnerLoginResponse(
+            access_token=token,
+            partner_id=partner.id,
+            partner_code=partner.partner_code,
+            name=partner.name,
+        )
+
+
+@router.post("/api/partners/auth/set-credentials", response_model=PartnerSetCredentialsResponse)
+def partner_set_credentials(
+    payload: PartnerSetCredentialsRequest,
+    _: str = Depends(require_admin),
+) -> PartnerSetCredentialsResponse:
+    normalized_code = normalize_partner_code(payload.partner_code)
+    normalized_email = (payload.email or "").strip().lower()
+    if not normalized_code:
+        raise HTTPException(status_code=400, detail="partner_code is required.")
+    if not normalized_email:
+        raise HTTPException(status_code=400, detail="email is required.")
+
+    with SessionLocal() as db:
+        partner = get_partner_by_code(db, normalized_code)
+        if partner is None:
+            raise HTTPException(status_code=404, detail="Partner not found.")
+
+        existing_mail_owner = db.scalar(
+            select(Partner).where(Partner.contact_email == normalized_email, Partner.id != partner.id)
+        )
+        if existing_mail_owner is not None:
+            raise HTTPException(status_code=409, detail="email already used by another partner.")
+
+        partner.contact_email = normalized_email
+        partner.password_hash = hash_api_token(payload.password)
+        partner.updated_at_utc = utc_now()
+        db.commit()
+        db.refresh(partner)
+
+        return PartnerSetCredentialsResponse(
+            partner_id=partner.id,
+            partner_code=partner.partner_code,
+            contact_email=partner.contact_email or "",
+        )
+
+
+@router.get("/api/partners/me", response_model=PartnerMeResponse)
+def partner_me(partner: Partner = Depends(_load_partner_from_bearer)) -> PartnerMeResponse:
+    return PartnerMeResponse(
+        id=partner.id,
+        name=partner.name,
+        partner_code=partner.partner_code,
+        contact_email=partner.contact_email,
+        status=partner.status,
+        default_commission_rate=float(partner.default_commission_rate or 0.0),
+    )
+
+
+@router.get("/api/partners/me/referrals", response_model=list[PartnerReferralRow])
+def partner_my_referrals(partner: Partner = Depends(_load_partner_from_bearer)) -> list[PartnerReferralRow]:
+    with SessionLocal() as db:
+        referrals = db.scalars(
+            select(PartnerReferral)
+            .where(PartnerReferral.partner_id == partner.id)
+            .order_by(PartnerReferral.attributed_at_utc.desc(), PartnerReferral.id.desc())
+        ).all()
+        if not referrals:
+            return []
+
+        tenant_ids = [row.tenant_id for row in referrals]
+        tenants = db.scalars(select(Tenant).where(Tenant.tenant_id.in_(tenant_ids))).all()
+        tenant_map = {tenant.tenant_id: tenant for tenant in tenants}
+
+        subs = db.scalars(
+            select(Subscription)
+            .where(Subscription.tenant_id.in_(tenant_ids))
+            .order_by(Subscription.tenant_id.asc(), Subscription.updated_at_utc.desc(), Subscription.id.desc())
+        ).all()
+        latest_sub_map: dict[str, Subscription] = {}
+        for sub in subs:
+            if sub.tenant_id not in latest_sub_map:
+                latest_sub_map[sub.tenant_id] = sub
+
+        rows: list[PartnerReferralRow] = []
+        for row in referrals:
+            tenant = tenant_map.get(row.tenant_id)
+            latest_sub = latest_sub_map.get(row.tenant_id)
+            rows.append(
+                PartnerReferralRow(
+                    tenant_id=row.tenant_id,
+                    company_name=(tenant.environment_name if tenant else "Unknown"),
+                    license_plan=(tenant.current_plan if tenant else "free"),
+                    subscription_status=(latest_sub.status if latest_sub else "none"),
+                    attributed_at_utc=_format_dt(row.attributed_at_utc) or "",
+                )
+            )
+        return rows
+
+
+@router.get("/api/partners/me/commissions", response_model=list[PartnerCommissionRow])
+def partner_my_commissions(partner: Partner = Depends(_load_partner_from_bearer)) -> list[PartnerCommissionRow]:
+    with SessionLocal() as db:
+        commissions = db.scalars(
+            select(PartnerCommission)
+            .where(PartnerCommission.partner_id == partner.id)
+            .order_by(PartnerCommission.created_at_utc.desc(), PartnerCommission.id.desc())
+        ).all()
+        return [
+            PartnerCommissionRow(
+                id=row.id,
+                tenant_id=row.tenant_id,
+                invoice_id=row.invoice_id,
+                provider_invoice_id=row.provider_invoice_id,
+                status=row.status,
+                currency=row.currency,
+                base_amount=float(row.base_amount or 0.0),
+                commission_rate=float(row.commission_rate or 0.0),
+                commission_amount=float(row.commission_amount or 0.0),
+                created_at_utc=_format_dt(row.created_at_utc) or "",
+                approved_at_utc=_format_dt(row.approved_at_utc),
+                paid_at_utc=_format_dt(row.paid_at_utc),
+            )
+            for row in commissions
+        ]
 
 
 @router.post("/partners/referral/attach", response_model=AttachReferralResponse)

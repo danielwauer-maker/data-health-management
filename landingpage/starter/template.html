@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BCSentinel Landing Starter</title>
+  <link rel="stylesheet" href="./theme.css" />
+</head>
+<body>
+  <header class="container">
+    <nav class="card" style="padding:16px; display:flex; gap:12px; align-items:center; justify-content:space-between;">
+      <strong>BCSentinel</strong>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" data-set-lang="de">DE</button>
+        <button class="btn" data-set-lang="en">EN</button>
+        <button class="btn" data-toggle-theme>Theme</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container" style="padding:40px 0;">
+    <section class="card" style="padding:28px;">
+      <p data-i18n="hero_kicker" style="color:var(--muted); margin:0 0 10px;"></p>
+      <h1 data-i18n="hero_title" style="margin:0 0 10px;"></h1>
+      <p data-i18n="hero_sub" style="margin:0 0 20px;"></p>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-primary" data-i18n="cta_primary"></button>
+        <button class="btn" data-i18n="cta_secondary"></button>
+      </div>
+    </section>
+  </main>
+
+  <script src="./theme.js"></script>
+  <script src="./i18n.js"></script>
+  <script>
+    window.BCSentinelTheme.initTheme();
+    window.BCSentinelI18n.initI18n();
+  </script>
+</body>
+</html>

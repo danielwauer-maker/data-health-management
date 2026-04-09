@@ -196,8 +196,11 @@ class Partner(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
     partner_code: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    contact_email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", index=True)
     default_commission_rate: Mapped[float] = mapped_column(Float, default=0.2)
+    last_login_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

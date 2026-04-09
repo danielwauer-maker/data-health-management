@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BCSentinel Hybrid Landing (All Concepts)</title>
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --panel: #ffffff;
+      --panel-soft: #f3f7ff;
+      --text: #13233f;
+      --muted: #516586;
+      --border: #dce6f3;
+      --primary: #ea7b4f;
+      --primary-strong: #d96537;
+      --radius: 16px;
+      --shadow: 0 14px 34px rgba(15, 35, 64, 0.08);
+    }
+
+    html[data-theme="dark"] {
+      --bg: #08111f;
+      --panel: #111f3c;
+      --panel-soft: #0f1b34;
+      --text: #eff4ff;
+      --muted: #a8b8d8;
+      --border: rgba(255, 255, 255, 0.12);
+      --primary: #ff8f3d;
+      --primary-strong: #ff7b1d;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .container { width: min(1200px, calc(100% - 32px)); margin: 0 auto; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: blur(8px);
+    }
+    .topbar-inner {
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .brand { font-weight: 800; letter-spacing: -0.02em; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-primary {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+    }
+    .hero {
+      padding: 46px 0 30px;
+    }
+    .hero-card {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) + 8px);
+      background: linear-gradient(135deg, var(--panel), var(--panel-soft));
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+    .kicker {
+      display: inline-block;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--primary);
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      font-size: clamp(2rem, 4vw, 3.5rem);
+    }
+    .lead { margin: 0; color: var(--muted); max-width: 900px; }
+    .chips {
+      margin-top: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 13px;
+      color: var(--muted);
+      background: var(--panel);
+    }
+    main { padding: 8px 0 56px; }
+    .section-title {
+      margin: 26px 0 12px;
+      font-size: 1.4rem;
+      letter-spacing: -0.02em;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .card {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+    .card p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.96rem;
+    }
+    .card ol {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .blueprint {
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      background: var(--panel-soft);
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+    footer {
+      padding: 20px 0 34px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">BCSentinel Hybrid Landing</div>
+      <div class="controls">
+        <button class="btn" data-set-lang="de">DE</button>
+        <button class="btn" data-set-lang="en">EN</button>
+        <button class="btn" data-toggle-theme>Theme</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <div class="hero-card">
+        <span class="kicker" data-i18n="hero_kicker">Hybrid Blueprint</span>
+        <h1 data-i18n="hero_title">A concrete landing page that combines all 10 concepts.</h1>
+        <p class="lead" data-i18n="hero_sub">Use this page as your implementation bridge: from strategy docs to a clickable structure for Figma and production handoff.</p>
+        <div class="chips">
+          <span class="chip">DE/EN</span>
+          <span class="chip">Dark/Light</span>
+          <span class="chip">Hero + Story + Trust + Demo + Pricing + FAQ</span>
+          <span class="chip">Figma-ready blocks</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main>
+    <div class="container">
+      <h2 class="section-title" data-i18n="concepts_title">All 10 Concepts as Concrete Blocks</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>01 Executive ROI</h3>
+          <p data-i18n="c01_desc">Management-first narrative with direct euro impact and business case framing.</p>
+          <ol>
+            <li>ROI hero</li><li>KPI strip</li><li>Impact proof</li><li>Pricing compare</li><li>Final CTA</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>02 Problem Solution Story</h3>
+          <p data-i18n="c02_desc">From hidden pain to visible control in a clean story arc.</p>
+          <ol>
+            <li>Pain timeline</li><li>Solution reveal</li><li>Product tour</li><li>Proof</li><li>CTA</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>03 Trust Compliance First</h3>
+          <p data-i18n="c03_desc">Security, privacy, and architecture confidence for decision-makers.</p>
+          <ol>
+            <li>Trust hero</li><li>Data flow</li><li>Controls</li><li>SLA</li><li>Security FAQ</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>04 Operations Cockpit</h3>
+          <p data-i18n="c04_desc">Product as command center with drilldown and workflow orientation.</p>
+          <ol>
+            <li>Dashboard hero</li><li>KPI cockpit</li><li>Findings drilldown</li><li>Actions</li><li>Upgrade path</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>05 Freemium Upsell Funnel</h3>
+          <p data-i18n="c05_desc">Conversion-first flow from free value to premium activation.</p>
+          <ol>
+            <li>Free scan CTA</li><li>Free value</li><li>Premium unlock</li><li>Objections</li><li>Sticky CTA</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>06 Industry Variants</h3>
+          <p data-i18n="c06_desc">One product, multiple vertical stories for better relevance.</p>
+          <ol>
+            <li>Industry selector</li><li>Pain by vertical</li><li>Outcome by vertical</li><li>Unified features</li><li>Demo CTA</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>07 Score Benchmark</h3>
+          <p data-i18n="c07_desc">Data Health Score as central metric for orientation and progress.</p>
+          <ol>
+            <li>Score hero</li><li>Benchmarks</li><li>Score drivers</li><li>Actions</li><li>ROI mapping</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>08 Minimal Conversion</h3>
+          <p data-i18n="c08_desc">Reduced complexity for fast scanning and strong CTA focus.</p>
+          <ol>
+            <li>Simple hero</li><li>3 value props</li><li>One visual</li><li>One pricing block</li><li>Short FAQ</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>09 Interactive Demo First</h3>
+          <p data-i18n="c09_desc">Show product interaction early to increase credibility and intent.</p>
+          <ol>
+            <li>Demo hero</li><li>Interactive dashboard</li><li>Findings interaction</li><li>Premium delta</li><li>Pricing</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>10 Authority Thought Leadership</h3>
+          <p data-i18n="c10_desc">Market authority through insights, method transparency, and case studies.</p>
+          <ol>
+            <li>Authority hero</li><li>Research block</li><li>Methodology</li><li>Case studies</li><li>Final CTA</li>
+          </ol>
+        </article>
+      </div>
+
+      <h2 class="section-title" data-i18n="hybrid_title">Final Hybrid Page Flow (Recommended Build Order)</h2>
+      <div class="blueprint" data-i18n="hybrid_flow">
+        1) ROI Hero -> 2) Problem Story -> 3) Trust Layer -> 4) Interactive Demo -> 5) Operations Value ->
+        6) Score Benchmark -> 7) Industry Variants -> 8) Pricing (Free/Premium) -> 9) FAQ -> 10) Authority CTA.
+      </div>
+
+      <h2 class="section-title" data-i18n="figma_title">Figma Hand-off Checklist</h2>
+      <div class="blueprint" data-i18n="figma_checklist">
+        Create pages: Foundations, Components, Sections, Concepts, Hybrid. Build each block as a reusable component
+        with desktop/tablet/mobile variants. Apply color and type tokens first, then map this page section-by-section.
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container" data-i18n="footer_note">
+      Concrete hybrid draft for BCSentinel. Edit content, order, and visuals directly in Figma and feed changes back into code.
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      const dict = {
+        de: {
+          hero_kicker: "Hybrid Blueprint",
+          hero_title: "Eine konkrete Landingpage, die alle 10 Konzepte kombiniert.",
+          hero_sub: "Nutze diese Seite als Bruecke von Strategie-Dokumenten zu klickbarer Struktur fuer Figma und spaeteren Produktions-Handoff.",
+          concepts_title: "Alle 10 Konzepte als konkrete Bloecke",
+          c01_desc: "Management-zentrierte Story mit direktem Euro-Impact und Business-Case-Logik.",
+          c02_desc: "Von verstecktem Problem zu klarer Kontrolle in einem sauberen Storybogen.",
+          c03_desc: "Sicherheit, Datenschutz und Architektur-Vertrauen fuer Entscheider.",
+          c04_desc: "Produkt als Steuerzentrale mit Drilldown und Workflow-Fokus.",
+          c05_desc: "Conversion-Flow von kostenlosem Mehrwert zu Premium-Aktivierung.",
+          c06_desc: "Ein Produkt, mehrere branchenspezifische Nutzenstories.",
+          c07_desc: "Data Health Score als zentrale Metrik fuer Orientierung und Fortschritt.",
+          c08_desc: "Reduzierte Komplexitaet fuer schnelle Entscheidungen und starke CTA-Fuehrung.",
+          c09_desc: "Fruehe Produktinteraktion fuer mehr Glaubwuerdigkeit und Kaufintention.",
+          c10_desc: "Markenautoritaet durch Insights, Methodentransparenz und Fallstudien.",
+          hybrid_title: "Finaler Hybrid-Seitenfluss (empfohlene Build-Reihenfolge)",
+          hybrid_flow: "1) ROI-Hero -> 2) Problem-Story -> 3) Trust-Layer -> 4) Interaktive Demo -> 5) Operations-Mehrwert -> 6) Score-Benchmark -> 7) Industry-Varianten -> 8) Pricing (Free/Premium) -> 9) FAQ -> 10) Authority-CTA.",
+          figma_title: "Figma Hand-off Checkliste",
+          figma_checklist: "Lege Pages an: Foundations, Components, Sections, Concepts, Hybrid. Baue jeden Block als wiederverwendbare Komponente mit Desktop/Tablet/Mobile-Varianten. Erst Tokens setzen, dann diese Seite Section fuer Section nachbauen.",
+          footer_note: "Konkreter Hybrid-Entwurf fuer BCSentinel. Inhalte, Reihenfolge und Visuals direkt in Figma anpassen und danach ins Code-Setup rueckspielen."
+        },
+        en: {
+          hero_kicker: "Hybrid Blueprint",
+          hero_title: "A concrete landing page that combines all 10 concepts.",
+          hero_sub: "Use this page as your bridge from strategy docs to clickable structure for Figma and production handoff.",
+          concepts_title: "All 10 Concepts as Concrete Blocks",
+          c01_desc: "Management-first narrative with direct euro impact and business case framing.",
+          c02_desc: "From hidden pain to visible control in a clean story arc.",
+          c03_desc: "Security, privacy, and architecture confidence for decision-makers.",
+          c04_desc: "Product as command center with drilldown and workflow orientation.",
+          c05_desc: "Conversion-first flow from free value to premium activation.",
+          c06_desc: "One product, multiple vertical stories for better relevance.",
+          c07_desc: "Data Health Score as central metric for orientation and progress.",
+          c08_desc: "Reduced complexity for fast scanning and CTA focus.",
+          c09_desc: "Show product interaction early to increase credibility and intent.",
+          c10_desc: "Market authority through insights, method transparency, and case studies.",
+          hybrid_title: "Final Hybrid Page Flow (Recommended Build Order)",
+          hybrid_flow: "1) ROI Hero -> 2) Problem Story -> 3) Trust Layer -> 4) Interactive Demo -> 5) Operations Value -> 6) Score Benchmark -> 7) Industry Variants -> 8) Pricing (Free/Premium) -> 9) FAQ -> 10) Authority CTA.",
+          figma_title: "Figma Hand-off Checklist",
+          figma_checklist: "Create pages: Foundations, Components, Sections, Concepts, Hybrid. Build each block as reusable component with desktop/tablet/mobile variants. Apply tokens first, then map this page section-by-section.",
+          footer_note: "Concrete hybrid draft for BCSentinel. Edit content, order, and visuals directly in Figma and feed changes back into code."
+        }
+      };
+
+      const THEME_KEY = "bcsentinel-hybrid-theme";
+      const LANG_KEY = "bcsentinel-hybrid-lang";
+
+      function setTheme(theme) {
+        const selected = theme === "dark" ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", selected);
+        localStorage.setItem(THEME_KEY, selected);
+      }
+
+      function setLang(lang) {
+        const selected = lang === "en" ? "en" : "de";
+        const t = dict[selected];
+        document.documentElement.lang = selected;
+        localStorage.setItem(LANG_KEY, selected);
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          const key = el.getAttribute("data-i18n");
+          if (t[key]) el.textContent = t[key];
+        });
+      }
+
+      document.addEventListener("click", (event) => {
+        const langBtn = event.target.closest("[data-set-lang]");
+        if (langBtn) setLang(langBtn.getAttribute("data-set-lang"));
+        const themeBtn = event.target.closest("[data-toggle-theme]");
+        if (themeBtn) {
+          const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+          setTheme(current === "dark" ? "light" : "dark");
+        }
+      });
+
+      setTheme(localStorage.getItem(THEME_KEY) || "light");
+      setLang(localStorage.getItem(LANG_KEY) || "de");
+    })();
+  </script>
+</body>
+</html>
