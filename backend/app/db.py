@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.core.settings import settings
 
-REQUIRED_ALEMBIC_REVISION = "0002_commercials_and_pricing"
+REQUIRED_ALEMBIC_REVISION = "0006_admin_audit_events"
 
 
 class Base(DeclarativeBase):

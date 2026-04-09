@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
 from app.db import SessionLocal
 from app.security.tenant import load_authenticated_tenant, require_tenant_headers
+from app.services.billing_service import resolve_effective_license
 
 router = APIRouter(tags=["license"])
 
@@ -43,16 +43,12 @@ def get_license_status(
 
     with SessionLocal() as db:
         tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
-
-        normalized_plan = (tenant.current_plan or "free").lower()
-        if normalized_plan not in {"free", "premium"}:
-            normalized_plan = "free"
-
-        features = build_features(normalized_plan, tenant.license_status)
+        normalized_plan, normalized_license_status = resolve_effective_license(db, tenant)
+        features = build_features(normalized_plan, normalized_license_status)
 
         return LicenseStatusResponse(
             tenant_id=tenant.tenant_id,
             plan=normalized_plan,
-            license_status=tenant.license_status or "trial",
+            license_status=normalized_license_status,
             features=features,
         )

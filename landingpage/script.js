@@ -143,10 +143,8 @@ const translations = {
     footer_legal: "Impressum",
     footer_privacy: "Datenschutz",
     footer_contact: "Kontakt",
-value_stat_1_label: "Geschätzter Verlust",
-value_stat_1_sub: "Geschätzte finanzielle Auswirkung durch erkannte Datenqualitätsprobleme.",
-value_stat_3_label: "Potenzielle Einsparung",
-value_stat_3_sub: "Realistisches Einsparpotenzial nach Behebung der wichtigsten Probleme."
+    value_stat_1_sub: "Geschätzte finanzielle Auswirkung durch erkannte Datenqualitätsprobleme.",
+    value_stat_3_sub: "Realistisches Einsparpotenzial nach Behebung der wichtigsten Probleme."
   },
 
   en: {
@@ -293,10 +291,8 @@ value_stat_3_sub: "Realistisches Einsparpotenzial nach Behebung der wichtigsten 
     footer_legal: "Legal notice",
     footer_privacy: "Privacy",
     footer_contact: "Contact",
-value_stat_1_label: "Estimated Loss",
-value_stat_1_sub: "Estimated financial impact caused by detected data quality issues.",
-value_stat_3_label: "Potential Saving",
-value_stat_3_sub: "Realistic saving potential after resolving the most important issues first."
+    value_stat_1_sub: "Estimated financial impact caused by detected data quality issues.",
+    value_stat_3_sub: "Realistic saving potential after resolving the most important issues first."
   }
 };
 

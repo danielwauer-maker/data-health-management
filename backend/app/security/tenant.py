@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Tenant
+from app.security.token_hash import hash_api_token, verify_api_token
 
 
 def require_tenant_headers(
@@ -28,8 +29,16 @@ def load_authenticated_tenant(
     if tenant is None:
         raise HTTPException(status_code=404, detail="Tenant not found.")
 
-    if not hmac.compare_digest(tenant.api_token or "", header_api_token):
-        raise HTTPException(status_code=403, detail="Invalid API token.")
+    if tenant.api_token_hash:
+        if not verify_api_token(header_api_token, tenant.api_token_hash):
+            raise HTTPException(status_code=403, detail="Invalid API token.")
+    else:
+        # Legacy fallback for existing tenants created before token hashing.
+        if not hmac.compare_digest(tenant.api_token or "", header_api_token):
+            raise HTTPException(status_code=403, detail="Invalid API token.")
+
+        tenant.api_token_hash = hash_api_token(header_api_token)
+        db.flush()
 
     return tenant
 

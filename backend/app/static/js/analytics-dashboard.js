@@ -345,11 +345,7 @@ function switchTab(tab) {
 }
 
 async function loadDashboard(scanId = null) {
-  const token = document.body?.dataset?.token;
-  if (!token) return;
-
   const url = new URL('/analytics/embed/data', window.location.origin);
-  url.searchParams.set('token', token);
   if (scanId) url.searchParams.set('scan_id', scanId);
 
   try {

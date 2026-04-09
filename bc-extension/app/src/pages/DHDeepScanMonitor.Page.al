@@ -325,6 +325,47 @@ page 53158 "DH Deep Scan Monitor"
                     OpenAnalyticsDashboardForCurrentScan();
                 end;
             }
+
+            action(UpgradeToPremium)
+            {
+                Caption = 'Upgrade to Premium';
+                ApplicationArea = All;
+                Image = Add;
+                ToolTip = 'Open the secure BCSentinel checkout to activate Premium.';
+
+                trigger OnAction()
+                var
+                    Setup: Record "DH Setup";
+                    ApiClient: Codeunit "DH API Client";
+                begin
+                    LoadSetupOrError(Setup);
+
+                    if Setup.IsPremiumLicenseActive() then begin
+                        Message('Premium is already active for this tenant.');
+                        exit;
+                    end;
+
+                    ApiClient.OpenPremiumCheckout(Setup);
+                end;
+            }
+
+            action(RefreshLicenseStatus)
+            {
+                Caption = 'Refresh License Status';
+                ApplicationArea = All;
+                Image = Refresh;
+                ToolTip = 'Refresh current plan and license status from BCSentinel.';
+
+                trigger OnAction()
+                var
+                    Setup: Record "DH Setup";
+                    ApiClient: Codeunit "DH API Client";
+                begin
+                    LoadSetupOrError(Setup);
+                    ApiClient.RefreshLicenseStatus(Setup);
+                    Message('License status refreshed.');
+                end;
+            }
         }
     }
 

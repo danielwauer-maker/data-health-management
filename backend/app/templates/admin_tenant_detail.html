@@ -52,10 +52,10 @@
           </div>
           <div class="inline-form wrap-gap">
             <button type="submit" class="btn btn-primary">Save License</button>
-            <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/delete" class="inline-form" onsubmit="return confirm('Tenant {{ tenant.tenant_id }} wirklich löschen?');">
-              <button type="submit" class="btn btn-danger">Delete Tenant</button>
-            </form>
           </div>
+        </form>
+        <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/delete" class="inline-form" onsubmit="return confirm('Tenant {{ tenant.tenant_id }} wirklich löschen?');">
+          <button type="submit" class="btn btn-danger">Delete Tenant</button>
         </form>
       </article>
 
@@ -78,6 +78,136 @@
               {% endfor %}
               {% if not scans %}
               <tr><td colspan="7">Noch keine Scans vorhanden.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header"><h2>Billing Subscription</h2><span class="muted">aktueller Abostand</span></div>
+        {% if latest_subscription %}
+        <div class="config-list">
+          <div class="config-row no-border"><div class="config-title">Provider</div><div>{{ latest_subscription.provider }}</div></div>
+          <div class="config-row no-border"><div class="config-title">Subscription ID</div><div>{{ latest_subscription.provider_subscription_id }}</div></div>
+          <div class="config-row no-border"><div class="config-title">Status</div><div>{{ latest_subscription.status }}</div></div>
+          <div class="config-row no-border"><div class="config-title">Plan</div><div>{{ latest_subscription.plan_code }}</div></div>
+          <div class="config-row no-border"><div class="config-title">Monthly Amount</div><div>{{ fmt_money(latest_subscription.amount_monthly) }} {{ latest_subscription.currency }}</div></div>
+          <div class="config-row no-border"><div class="config-title">Current Period End</div><div>{{ fmt_dt(latest_subscription.current_period_end_utc) }}</div></div>
+          <div class="config-row no-border"><div class="config-title">Cancel at Period End</div><div>{% if latest_subscription.cancel_at_period_end %}yes{% else %}no{% endif %}</div></div>
+          <div class="config-row no-border"><div class="config-title">Updated At</div><div>{{ fmt_dt(latest_subscription.updated_at_utc) }}</div></div>
+        </div>
+        {% else %}
+        <p class="muted">Noch keine Subscription vorhanden.</p>
+        {% endif %}
+      </article>
+    </section>
+
+    <section class="panel panel-large">
+      <div class="panel-header"><h2>Invoices</h2><span class="muted">letzte 10 Rechnungen</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Created At</th><th>Invoice ID</th><th>Status</th><th>Total</th><th>Paid</th><th>Subscription ID</th><th>Hosted URL</th></tr></thead>
+          <tbody>
+            {% for invoice in invoices %}
+            <tr>
+              <td>{{ fmt_dt(invoice.created_at_utc) }}</td>
+              <td>{{ invoice.provider_invoice_id }}</td>
+              <td>{{ invoice.status }}</td>
+              <td>{{ fmt_money(invoice.amount_total) }} {{ invoice.currency }}</td>
+              <td>{{ fmt_money(invoice.amount_paid) }} {{ invoice.currency }}</td>
+              <td>{{ invoice.provider_subscription_id or '—' }}</td>
+              <td>
+                {% if invoice.hosted_invoice_url %}
+                <a class="tenant-link" href="{{ invoice.hosted_invoice_url }}" target="_blank" rel="noopener">open</a>
+                {% else %}
+                —
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+            {% if not invoices %}
+            <tr><td colspan="7">Noch keine Rechnungen vorhanden.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel panel-large">
+      <div class="panel-header"><h2>Latest Billing Webhook Events</h2><span class="muted">letzte 20 globalen Events</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Received At</th><th>Provider</th><th>Event ID</th><th>Event Type</th><th>Processed At</th></tr></thead>
+          <tbody>
+            {% for event in webhook_events %}
+            <tr>
+              <td>{{ fmt_dt(event.received_at_utc) }}</td>
+              <td>{{ event.provider }}</td>
+              <td>{{ event.event_id }}</td>
+              <td>{{ event.event_type }}</td>
+              <td>{{ fmt_dt(event.processed_at_utc) }}</td>
+            </tr>
+            {% endfor %}
+            {% if not webhook_events %}
+            <tr><td colspan="5">Noch keine Billing Webhook Events vorhanden.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="content-grid admin-detail-grid">
+      <article class="panel">
+        <div class="panel-header"><h2>Partner Referral</h2><span class="muted">Zuordnung fuer diesen Tenant</span></div>
+        <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/referral" class="config-list">
+          <div class="config-row no-border">
+            <div class="config-title">Set Referral</div>
+            <input type="text" name="partner_code" value="{{ partner.partner_code if partner else '' }}" placeholder="partner code (leer = entfernen)">
+            <input type="text" name="attribution_source" value="{{ partner_referral.attribution_source if partner_referral else 'admin' }}" placeholder="source">
+            <button type="submit" class="btn btn-primary">Save Referral</button>
+          </div>
+        </form>
+        {% if partner_referral and partner %}
+        <div class="config-list">
+          <div class="config-row no-border"><div class="config-title">Partner</div><div>{{ partner.name }} ({{ partner.partner_code }})</div></div>
+          <div class="config-row no-border"><div class="config-title">Attribution Source</div><div>{{ partner_referral.attribution_source }}</div></div>
+          <div class="config-row no-border"><div class="config-title">Attributed At</div><div>{{ fmt_dt(partner_referral.attributed_at_utc) }}</div></div>
+        </div>
+        {% else %}
+        <p class="muted">Kein Referral zugeordnet.</p>
+        {% endif %}
+      </article>
+
+      <article class="panel panel-large">
+        <div class="panel-header"><h2>Partner Commissions</h2><span class="muted">letzte 20 Provisionen dieses Tenants</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Created</th><th>Invoice</th><th>Status</th><th>Base</th><th>Rate</th><th>Commission</th><th>Action</th></tr></thead>
+            <tbody>
+              {% for row in partner_commissions %}
+              <tr>
+                <td>{{ fmt_dt(row.created_at_utc) }}</td>
+                <td>{{ row.provider_invoice_id }}</td>
+                <td>{{ row.status }}</td>
+                <td>{{ fmt_money(row.base_amount) }} {{ row.currency }}</td>
+                <td>{{ '%.2f'|format(row.commission_rate * 100) }}%</td>
+                <td>{{ fmt_money(row.commission_amount) }} {{ row.currency }}</td>
+                <td>
+                  <form method="post" action="/admin/commissions/{{ row.id }}/status" class="inline-form wrap-gap">
+                    <select name="status_value">
+                      {% for value in commission_statuses %}
+                      <option value="{{ value }}" {% if row.status == value %}selected{% endif %}>{{ value }}</option>
+                      {% endfor %}
+                    </select>
+                    <input type="text" name="note" value="{{ row.note or '' }}" placeholder="note">
+                    <button type="submit" class="btn btn-primary">Update</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+              {% if not partner_commissions %}
+              <tr><td colspan="7">Noch keine Provisionen vorhanden.</td></tr>
               {% endif %}
             </tbody>
           </table>

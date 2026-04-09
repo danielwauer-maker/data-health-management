@@ -5,11 +5,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 
+from app.core.settings import settings
 from app.db import SessionLocal
 from app.models import Scan, ScanIssueRecord, Tenant
 from app.security.tenant import (
@@ -23,6 +24,8 @@ from app.services.pricing_service import calculate_monthly_price, get_license_pr
 
 router = APIRouter(tags=["analytics"])
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
+ANALYTICS_EMBED_COOKIE_NAME = "bcs_at"
+ANALYTICS_EMBED_COOKIE_MAX_AGE_SECONDS = 15 * 60
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
@@ -622,12 +625,17 @@ def get_analytics_token(
 
 @router.get("/analytics/embed/data", response_class=JSONResponse)
 def get_analytics_data(
-    token: str = Query(...),
+    token: str | None = Query(default=None),
+    analytics_cookie_token: str | None = Cookie(default=None, alias=ANALYTICS_EMBED_COOKIE_NAME),
     scan_id: str | None = Query(default=None),
     recent_scans_page: int = Query(default=1, ge=1),
     recent_scans_page_size: int = Query(default=10, ge=1, le=25),
 ):
-    payload = verify_token(token)
+    effective_token = token or analytics_cookie_token
+    if not effective_token:
+        raise HTTPException(status_code=401, detail="Missing analytics token.")
+
+    payload = verify_token(effective_token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
 
@@ -657,9 +665,40 @@ def get_analytics_data(
 @router.get("/analytics/embed", response_class=HTMLResponse)
 def render_analytics_dashboard(
     request: Request,
-    token: str = Query(...),
+    token: str | None = Query(default=None),
+    analytics_cookie_token: str | None = Cookie(default=None, alias=ANALYTICS_EMBED_COOKIE_NAME),
 ):
-    payload = verify_token(token)
+    if token:
+        payload = verify_token(token)
+        if payload is None:
+            raise HTTPException(status_code=401, detail="Invalid or expired token.")
+
+        tenant_id = str(payload.get("tenant_id") or "").strip()
+        if not tenant_id:
+            raise HTTPException(status_code=401, detail="Token payload is missing tenant_id.")
+
+        with SessionLocal() as db:
+            tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="Tenant not found.")
+
+        response = RedirectResponse(url="/analytics/embed", status_code=303)
+        response.set_cookie(
+            key=ANALYTICS_EMBED_COOKIE_NAME,
+            value=token,
+            max_age=ANALYTICS_EMBED_COOKIE_MAX_AGE_SECONDS,
+            httponly=True,
+            secure=(settings.ENV.lower() == "prod"),
+            samesite="lax",
+            path="/analytics",
+        )
+        return response
+
+    if not analytics_cookie_token:
+        raise HTTPException(status_code=401, detail="Missing analytics token.")
+
+    payload = verify_token(analytics_cookie_token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token.")
 
@@ -678,6 +717,5 @@ def render_analytics_dashboard(
         context={
             "request": request,
             "page_title": "BCSentinel Analytics",
-            "token": token,
         },
     )

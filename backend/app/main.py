@@ -14,7 +14,9 @@ from app.db import SessionLocal, ensure_schema_is_migrated, wait_for_database
 from app.models import Scan, ScanIssueRecord, Tenant
 from app.routers.admin import router as admin_router
 from app.routers.analytics import router as analytics_router
+from app.routers.billing import router as billing_router
 from app.routers.license import router as license_router
+from app.routers.partners import router as partners_router
 from app.routers.scans import router as scans_router
 from app.schemas.scan import (
     QuickScanRequest,
@@ -30,6 +32,7 @@ from app.security.tenant import (
     load_authenticated_tenant,
     require_tenant_headers,
 )
+from app.security.token_hash import hash_api_token
 from app.services.cost_service import ensure_default_issue_costs
 from app.services.impact_service import (
     apply_commercials_to_scan,
@@ -68,6 +71,8 @@ app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
 app.include_router(admin_router)
 app.include_router(analytics_router)
+app.include_router(billing_router)
+app.include_router(partners_router)
 app.include_router(scans_router)
 app.include_router(license_router)
 
@@ -111,6 +116,7 @@ def register_tenant(payload: TenantRegisterRequest) -> TenantRegisterResponse:
         tenant = Tenant(
             tenant_id=tenant_id,
             api_token=api_token,
+            api_token_hash=hash_api_token(api_token),
             environment_name=payload.environment_name,
             app_version=payload.app_version,
             created_at_utc=now_utc,

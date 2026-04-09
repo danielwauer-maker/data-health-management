@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     # === TOKEN ===
     TOKEN_EXPIRE_MINUTES: int = 60
 
+    # === BILLING (STRIPE) ===
+    STRIPE_SECRET_KEY: str | None = None
+    STRIPE_WEBHOOK_SECRET: str | None = None
+    STRIPE_PRICE_ID_PREMIUM: str | None = None
+    BILLING_SUCCESS_URL: str | None = None
+    BILLING_CANCEL_URL: str | None = None
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         extra="ignore",
