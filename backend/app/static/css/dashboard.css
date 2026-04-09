@@ -859,3 +859,260 @@ th, td {
   border-radius: 999px;
   background: #e59572;
 }
+
+/* ---------------------------------------------
+   Admin UI theme (landingpage aligned)
+---------------------------------------------- */
+
+.admin-shell {
+  width: min(1740px, calc(100vw - 28px));
+  margin: 0 auto;
+  padding: 18px 6px 34px;
+  display: grid;
+  gap: 18px;
+}
+
+.page-header.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.page-header.admin-header h1 {
+  margin: 0;
+  font-size: clamp(34px, 2.4vw, 46px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: #0f2340;
+}
+
+.tenant-back-link {
+  color: #b45a33;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.tenant-back-link:hover {
+  text-decoration: underline;
+}
+
+.header-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.content-grid.admin-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.compact-stats-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
+.stat-card.emphasis .stat-value {
+  color: #13294b;
+}
+
+.stat-value-small {
+  font-size: 24px;
+}
+
+.stat-helper-strong {
+  font-size: 14px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.inline-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wrap-gap {
+  gap: 10px;
+}
+
+.btn {
+  border: 1px solid #e1c9be;
+  background: #fff8f4;
+  color: #9e4a27;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+}
+
+.btn:hover {
+  background: #ffefe8;
+  border-color: #eab9a5;
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  border-color: #eea986;
+  background: linear-gradient(135deg, #f3ad8b, #ea7b4f);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(234, 123, 79, 0.22);
+}
+
+.btn-primary:hover {
+  border-color: #e9916a;
+  color: #fff;
+  background: linear-gradient(135deg, #f1a37f, #e56d3f);
+}
+
+.btn-secondary {
+  background: #ffffff;
+  border-color: #dfe7f2;
+  color: #334155;
+}
+
+.btn-secondary:hover {
+  background: #f8fbff;
+  border-color: #ccd8e7;
+}
+
+.btn-danger {
+  background: #fff4f3;
+  border-color: #f4c4bf;
+  color: #b03b3b;
+}
+
+.btn-danger:hover {
+  background: #ffe9e6;
+  border-color: #eeaaa1;
+}
+
+.config-list {
+  display: grid;
+  gap: 10px;
+}
+
+.config-row {
+  display: grid;
+  grid-template-columns: 1.1fr repeat(4, minmax(0, 1fr)) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  background: #fcfdff;
+  border: 1px solid #e2eaf5;
+  border-radius: 12px;
+}
+
+.config-row.no-border {
+  border-color: transparent;
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.two-col-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.config-title {
+  font-weight: 700;
+  color: #1f3555;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  color: #7b8aa0;
+  margin-bottom: 5px;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+  width: 100%;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus {
+  outline: none;
+  border-color: #e7a88a;
+  box-shadow: 0 0 0 3px rgba(234, 123, 79, 0.15);
+}
+
+.tenant-link {
+  color: #b45a33;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.tenant-link:hover {
+  text-decoration: underline;
+}
+
+.small-pill {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.success-pill {
+  background: #ecfbf4;
+  border-color: #bdeed9;
+  color: #17835f;
+}
+
+code {
+  display: inline-block;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding: 4px 8px;
+  background: #f8fbff;
+  border: 1px solid #dfe7f2;
+  border-radius: 8px;
+  color: #334155;
+}
+
+@media (max-width: 1280px) {
+  .admin-grid,
+  .content-grid.admin-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .config-row {
+    grid-template-columns: 1fr;
+  }
+}
