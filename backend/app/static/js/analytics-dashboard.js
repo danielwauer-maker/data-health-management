@@ -1,4 +1,6 @@
 let currentSelectedScanId = null;
+let recentScansPage = 1;
+const RECENT_SCANS_PAGE_SIZE = 8;
 
 function byId(id) {
   return document.getElementById(id);
@@ -238,6 +240,26 @@ function renderRecentScans(items) {
   `).join('');
 }
 
+function renderRecentScansPagination(pagination) {
+  const prevButton = byId('recent-scans-prev');
+  const nextButton = byId('recent-scans-next');
+  const pageInfo = byId('recent-scans-page-info');
+  const container = byId('recent-scans-pagination');
+  if (!prevButton || !nextButton || !pageInfo || !container) return;
+
+  const page = Math.max(1, Number(pagination?.page || 1));
+  const totalPages = Math.max(1, Number(pagination?.total_pages || 1));
+  const hasPrev = Boolean(pagination?.has_prev);
+  const hasNext = Boolean(pagination?.has_next);
+  const totalItems = Math.max(0, Number(pagination?.total_items || 0));
+
+  recentScansPage = page;
+  prevButton.disabled = !hasPrev;
+  nextButton.disabled = !hasNext;
+  pageInfo.textContent = `Page ${page} / ${totalPages}`;
+  container.classList.toggle('hidden', totalItems <= RECENT_SCANS_PAGE_SIZE);
+}
+
 function renderFindings(items, isPremium) {
   const host = byId('findings-body');
   if (!host) return;
@@ -347,6 +369,8 @@ function switchTab(tab) {
 async function loadDashboard(scanId = null) {
   const url = new URL('/analytics/embed/data', window.location.origin);
   if (scanId) url.searchParams.set('scan_id', scanId);
+  url.searchParams.set('recent_scans_page', String(recentScansPage));
+  url.searchParams.set('recent_scans_page_size', String(RECENT_SCANS_PAGE_SIZE));
 
   try {
     const response = await fetch(url.toString());
@@ -384,6 +408,7 @@ async function loadDashboard(scanId = null) {
     renderProfileCards(data?.profile_cards || []);
     renderIssueGroups(data?.issue_groups || []);
     renderRecentScans(data?.recent_scans || []);
+    renderRecentScansPagination(data?.recent_scans_pagination || {});
     renderTrend('trend-chart', data?.score_trend || []);
     renderTrend('loss-chart', data?.loss_trend || [], true);
     renderFindings(data?.top_findings || [], Boolean(data?.visibility?.is_premium));
@@ -419,6 +444,23 @@ function registerEvents() {
     });
   }
 
+  const prevButton = byId('recent-scans-prev');
+  if (prevButton) {
+    prevButton.addEventListener('click', async () => {
+      if (recentScansPage <= 1) return;
+      recentScansPage -= 1;
+      await loadDashboard(currentSelectedScanId);
+    });
+  }
+
+  const nextButton = byId('recent-scans-next');
+  if (nextButton) {
+    nextButton.addEventListener('click', async () => {
+      recentScansPage += 1;
+      await loadDashboard(currentSelectedScanId);
+    });
+  }
+
   document.querySelectorAll('.topnav-link').forEach((btn) => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab || 'overview'));
   });
@@ -427,5 +469,6 @@ function registerEvents() {
 document.addEventListener('DOMContentLoaded', () => {
   registerEvents();
   switchTab('overview');
+  recentScansPage = 1;
   loadDashboard();
 });
