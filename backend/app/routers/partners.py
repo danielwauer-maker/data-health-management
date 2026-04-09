@@ -112,6 +112,18 @@ class PartnerMeResponse(BaseModel):
     default_commission_rate: float
 
 
+class PartnerProfileUpdateRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    new_password: str | None = Field(default=None, min_length=8, max_length=200)
+
+
+class PartnerProfileUpdateResponse(BaseModel):
+    id: int
+    name: str
+    partner_code: str
+    contact_email: str | None
+
+
 class PartnerReferralRow(BaseModel):
     tenant_id: str
     company_name: str
@@ -602,6 +614,36 @@ def partner_me(partner: Partner = Depends(_load_partner_from_bearer)) -> Partner
         status=partner.status,
         default_commission_rate=float(partner.default_commission_rate or 0.0),
     )
+
+
+@router.post("/api/partners/me/profile", response_model=PartnerProfileUpdateResponse)
+def partner_update_profile(
+    payload: PartnerProfileUpdateRequest,
+    partner: Partner = Depends(_load_partner_from_bearer),
+) -> PartnerProfileUpdateResponse:
+    normalized_name = (payload.name or "").strip()
+    if len(normalized_name) < 2:
+        raise HTTPException(status_code=400, detail="name must be at least 2 characters.")
+
+    with SessionLocal() as db:
+        row = db.scalar(select(Partner).where(Partner.id == partner.id))
+        if row is None:
+            raise HTTPException(status_code=404, detail="Partner not found.")
+        if (row.status or "").strip().lower() != "active":
+            raise HTTPException(status_code=403, detail="Partner is not active.")
+
+        row.name = normalized_name
+        if payload.new_password:
+            row.password_hash = hash_api_token(payload.new_password)
+        row.updated_at_utc = utc_now()
+        db.commit()
+        db.refresh(row)
+        return PartnerProfileUpdateResponse(
+            id=row.id,
+            name=row.name,
+            partner_code=row.partner_code,
+            contact_email=row.contact_email,
+        )
 
 
 @router.get("/api/partners/me/referrals", response_model=list[PartnerReferralRow])

@@ -93,6 +93,9 @@ Hinweis: Fuer korrekte Tenant-Zuordnung muessen `tenant_id` und `plan_code` in d
   - setzt Passwort per einmaligem Reset-Token (`token`, `new_password`)
 - `GET /api/partners/me` (Bearer)
   - liefert Partner-Profil fuer das Portal
+- `POST /api/partners/me/profile` (Bearer)
+  - aktualisiert Partner-Profil (aktuell: `name`, optional `new_password`)
+  - Login-E-Mail bleibt absichtlich unveraenderbar im Portal
 - `GET /api/partners/me/referrals` (Bearer)
   - liefert tenant-basierte Referrals inkl. Lizenz-/Subscription-Status
 - `GET /api/partners/me/commissions` (Bearer)
