@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # === TOKEN ===
     TOKEN_EXPIRE_MINUTES: int = 60
+    PARTNER_RESET_URL_BASE: str | None = None
 
     # === BILLING (STRIPE) ===
     STRIPE_SECRET_KEY: str | None = None

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import secrets
+import threading
+import time
+from collections import defaultdict, deque
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -24,6 +27,8 @@ from app.services.partner_service import (
 router = APIRouter(tags=["partners"])
 security = HTTPBasic()
 partner_bearer = HTTPBearer(auto_error=False)
+_RATE_LIMIT_LOCK = threading.Lock()
+_RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
 
 
 class PartnerCreateRequest(BaseModel):
@@ -118,6 +123,11 @@ class PartnerCommissionRow(BaseModel):
     paid_at_utc: str | None
 
 
+class PartnerResetConfirmRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=4000)
+    new_password: str = Field(min_length=8, max_length=200)
+
+
 def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
     expected_username = settings.ADMIN_USERNAME
     expected_password = settings.ADMIN_PASSWORD
@@ -150,6 +160,24 @@ def _create_partner_access_token(partner: Partner) -> str:
             "scope": "partner_portal",
         }
     )
+
+
+def _require_rate_limit(request: Request, action: str, max_attempts: int, window_seconds: int) -> None:
+    client = request.client.host if request.client else "unknown"
+    key = f"{action}:{client}"
+    now = time.time()
+    window_start = now - float(window_seconds)
+
+    with _RATE_LIMIT_LOCK:
+        bucket = _RATE_LIMIT_BUCKETS[key]
+        while bucket and bucket[0] < window_start:
+            bucket.popleft()
+        if len(bucket) >= max_attempts:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many attempts. Please retry later.",
+            )
+        bucket.append(now)
 
 
 def _load_partner_from_bearer(
@@ -210,7 +238,8 @@ def create_partner(payload: PartnerCreateRequest, _: str = Depends(require_admin
 
 
 @router.post("/api/partners/auth/login", response_model=PartnerLoginResponse)
-def partner_login(payload: PartnerLoginRequest) -> PartnerLoginResponse:
+def partner_login(payload: PartnerLoginRequest, request: Request) -> PartnerLoginResponse:
+    _require_rate_limit(request, action="partner_login", max_attempts=8, window_seconds=60)
     normalized_email = (payload.email or "").strip().lower()
     if not normalized_email:
         raise HTTPException(status_code=400, detail="email is required.")
@@ -271,6 +300,34 @@ def partner_set_credentials(
             partner_code=partner.partner_code,
             contact_email=partner.contact_email or "",
         )
+
+
+@router.post("/api/partners/auth/reset/confirm")
+def partner_reset_confirm(payload: PartnerResetConfirmRequest, request: Request) -> dict:
+    _require_rate_limit(request, action="partner_reset_confirm", max_attempts=6, window_seconds=300)
+    token_payload = verify_token(payload.token)
+    if token_payload is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+
+    if token_payload.get("scope") != "partner_reset":
+        raise HTTPException(status_code=400, detail="Invalid reset token scope.")
+
+    partner_id_raw = token_payload.get("partner_id")
+    try:
+        partner_id = int(partner_id_raw)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid reset token payload.") from None
+
+    with SessionLocal() as db:
+        partner = db.scalar(select(Partner).where(Partner.id == partner_id))
+        if partner is None:
+            raise HTTPException(status_code=404, detail="Partner not found.")
+
+        partner.password_hash = hash_api_token(payload.new_password)
+        partner.updated_at_utc = utc_now()
+        db.commit()
+
+    return {"status": "ok"}
 
 
 @router.get("/api/partners/me", response_model=PartnerMeResponse)

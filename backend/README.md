@@ -81,12 +81,28 @@ Hinweis: Fuer korrekte Tenant-Zuordnung muessen `tenant_id` und `plan_code` in d
   - liefert `access_token` (Bearer JWT)
 - `POST /api/partners/auth/set-credentials` (Admin Basic-Auth)
   - setzt/aktualisiert Login-Daten (`partner_code`, `email`, `password`)
+- `POST /api/partners/auth/reset/confirm`
+  - setzt Passwort per einmaligem Reset-Token (`token`, `new_password`)
 - `GET /api/partners/me` (Bearer)
   - liefert Partner-Profil fuer das Portal
 - `GET /api/partners/me/referrals` (Bearer)
   - liefert tenant-basierte Referrals inkl. Lizenz-/Subscription-Status
 - `GET /api/partners/me/commissions` (Bearer)
   - liefert Provisionshistorie des Partners
+
+### Admin UI Erweiterungen (Partner Access)
+- Passwort-Generator direkt im Partner-Credentials-Formular.
+- `POST /admin/partners/{partner_id}/reset-link`
+  - erzeugt einen Reset-Link fuer `partner-reset-password.html?token=...`
+  - Token-Laufzeit folgt `TOKEN_EXPIRE_MINUTES`
+  - inklusive Copy-to-Clipboard auf der Ausgabe-Seite
+- Optionales ENV: `PARTNER_RESET_URL_BASE`
+  - wenn gesetzt, wird diese Base-URL fuer Reset-Links verwendet
+  - sonst wird `request.base_url` genutzt
+
+### Basis Abuse-Protection
+- Login (`POST /api/partners/auth/login`): max. 8 Versuche pro IP / 60 Sekunden.
+- Reset-Confirm (`POST /api/partners/auth/reset/confirm`): max. 6 Versuche pro IP / 5 Minuten.
 
 ### Tenant-Logik im Partner-Portal
 - Referral-Zuordnung bleibt tenant-zentriert (`partner_referrals.tenant_id` unique).

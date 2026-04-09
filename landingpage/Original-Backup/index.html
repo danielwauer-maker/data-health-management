@@ -144,61 +144,6 @@
       box-shadow: var(--shadow);
       backdrop-filter: blur(14px);
     }
-    .value-proof-box {
-      margin-top: 16px;
-      padding: 14px 16px;
-      border-radius: 16px;
-      background: rgba(74,141,255,.1);
-      border: 1px solid rgba(74,141,255,.2);
-      color: #dce7fb;
-      font-size: .95rem;
-      line-height: 1.5;
-    }
-    .value-proof-box strong {
-      color: #fff;
-    }
-    .pricing-fit {
-      margin: 14px 0 4px;
-      color: var(--muted);
-      font-size: .94rem;
-    }
-    .guarantee-list {
-      margin: 16px 0 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 8px;
-    }
-    .guarantee-list li {
-      display: flex;
-      gap: 8px;
-      color: var(--muted);
-      font-size: .92rem;
-    }
-    .guarantee-list li::before {
-      content: "✓";
-      color: var(--green);
-      font-weight: 900;
-      flex: 0 0 auto;
-    }
-    .trust-badge-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .trust-badge {
-      display: inline-flex;
-      align-items: center;
-      min-height: 34px;
-      padding: 0 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.04);
-      color: var(--text);
-      font-size: .85rem;
-      font-weight: 700;
-    }
 
     @media (max-width: 980px) {
       .value-preview-layout {
@@ -240,7 +185,6 @@
         <a href="#problem" data-i18n="nav_problem">Problem</a>
         <a href="#solution" data-i18n="nav_solution">Solution</a>
         <a href="#pricing" data-i18n="nav_pricing">Pricing</a>
-        <a href="#partners" data-i18n="nav_partners">Partners</a>
         <a href="#security" data-i18n="nav_security">Security</a>
         <a href="#faq" data-i18n="nav_faq">FAQ</a>
       </nav>
@@ -264,7 +208,6 @@
         <a href="#problem" data-i18n="nav_problem">Problem</a>
         <a href="#solution" data-i18n="nav_solution">Solution</a>
         <a href="#pricing" data-i18n="nav_pricing">Pricing</a>
-        <a href="#partners" data-i18n="nav_partners">Partners</a>
         <a href="#security" data-i18n="nav_security">Security</a>
         <a href="#faq" data-i18n="nav_faq">FAQ</a>
 
@@ -330,9 +273,6 @@
             <p class="lead-small" data-i18n="value_text">
               Turn weak data quality into a financial conversation that supports prioritization, budget decisions, and internal buy-in.
             </p>
-            <p class="value-proof-box" data-i18n="value_proof">
-              Example: 18 pricing issues × 12 months × 15 minutes rework = <strong>€ 2,835 annual avoidable cost</strong>.
-            </p>
           </div>
 
           <div class="value-stats-grid">
@@ -370,35 +310,35 @@
         </div>
 
         <div class="problem-bullets">
-          <span data-i18n="problem_bullet_1">Missing mandatory fields in master data</span>
-          <span data-i18n="problem_bullet_2">Pricing anomalies and inconsistent discounts</span>
-          <span data-i18n="problem_bullet_3">Duplicate business records and contact data</span>
-          <span data-i18n="problem_bullet_4">Old open documents and blocked ledger entries</span>
+          <span data-i18n="problem_bullet_1">Missing customer, vendor, or item details</span>
+          <span data-i18n="problem_bullet_2">Incorrect prices, discounts, or posting setups</span>
+          <span data-i18n="problem_bullet_3">Duplicate or inconsistent master data</span>
+          <span data-i18n="problem_bullet_4">Open documents and ledger issues blocking processes</span>
         </div>
 
         <div class="grid grid-4">
           <article class="card">
             <div class="icon-badge">01</div>
-            <h3 data-i18n="problem_card_1_title">Margin leakage</h3>
-            <p data-i18n="problem_card_1_text">Wrong prices and discount mismatches quietly reduce contribution margin.</p>
+            <h3 data-i18n="problem_card_1_title">Missing data</h3>
+            <p data-i18n="problem_card_1_text">Incomplete master data leads to manual work, follow-ups, and delays.</p>
           </article>
 
           <article class="card">
             <div class="icon-badge">02</div>
-            <h3 data-i18n="problem_card_2_title">Manual rework load</h3>
-            <p data-i18n="problem_card_2_text">Teams spend recurring effort on corrections, follow-ups, and data cleanup.</p>
+            <h3 data-i18n="problem_card_2_title">Wrong prices</h3>
+            <p data-i18n="problem_card_2_text">Incorrect sales prices and purchase data directly affect margin and trust.</p>
           </article>
 
           <article class="card">
             <div class="icon-badge">03</div>
-            <h3 data-i18n="problem_card_3_title">Operational delays</h3>
-            <p data-i18n="problem_card_3_text">Blocked transactions and unresolved documents slow execution across departments.</p>
+            <h3 data-i18n="problem_card_3_title">Duplicates</h3>
+            <p data-i18n="problem_card_3_text">Multiple inconsistent records create reporting errors and broken workflows.</p>
           </article>
 
           <article class="card">
             <div class="icon-badge">04</div>
-            <h3 data-i18n="problem_card_4_title">Decision risk</h3>
-            <p data-i18n="problem_card_4_text">Low-quality data distorts KPIs, forecasts, and management decisions.</p>
+            <h3 data-i18n="problem_card_4_title">Process friction</h3>
+            <p data-i18n="problem_card_4_text">Open documents and setup gaps slow teams down and delay decisions.</p>
           </article>
         </div>
       </div>
@@ -559,7 +499,6 @@
               <li data-i18n="plan_free_4">Estimated annual loss</li>
               <li data-i18n="plan_free_5">Dashboard overview and monitoring basis</li>
             </ul>
-            <p class="pricing-fit" data-i18n="plan_free_fit">Best for teams that want to quantify risk before changing processes.</p>
             <a class="btn btn-secondary btn-full" href="contact.html" data-i18n="plan_free_cta">Start free scan</a>
           </article>
 
@@ -576,12 +515,6 @@
               <li data-i18n="plan_premium_3">Recommendations and prioritization</li>
               <li data-i18n="plan_premium_4">Direct actions in Business Central</li>
               <li data-i18n="plan_premium_5">Clear upgrade path from insight to execution</li>
-            </ul>
-            <p class="pricing-fit" data-i18n="plan_premium_fit">Best for teams that want fast execution and measurable savings.</p>
-            <ul class="guarantee-list">
-              <li data-i18n="plan_guarantee_1">Monthly cancellable</li>
-              <li data-i18n="plan_guarantee_2">No heavy setup project required</li>
-              <li data-i18n="plan_guarantee_3">Upgrade anytime from Free</li>
             </ul>
             <a class="btn btn-primary btn-full" href="contact.html" data-i18n="plan_premium_cta">Request Premium demo</a>
           </article>
@@ -604,11 +537,6 @@
 
         <div class="grid grid-2">
           <article class="card">
-            <div class="trust-badge-row">
-              <span class="trust-badge" data-i18n="security_badge_1">Hosting in Germany</span>
-              <span class="trust-badge" data-i18n="security_badge_2">Tenant separation</span>
-              <span class="trust-badge" data-i18n="security_badge_3">Audit-ready admin actions</span>
-            </div>
             <ul class="feature-list compact-list">
               <li data-i18n="security_1">GDPR-conscious setup</li>
               <li data-i18n="security_2">Hosted on a German server</li>
@@ -623,49 +551,6 @@
               Hosted in Germany, designed for GDPR-conscious businesses, and built with a focus on secure processing, tenant separation, and minimal exposure of sensitive ERP information.
             </p>
           </article>
-        </div>
-      </div>
-    </section>
-
-    <section id="partners" class="section">
-      <div class="container">
-        <div class="section-shell section-shell-soft">
-          <div class="section-head">
-            <div class="eyebrow">
-              <span class="eyebrow-dot"></span>
-              <span data-i18n="partners_eyebrow">Partner Program</span>
-            </div>
-            <h2 data-i18n="partners_title">Build recurring revenue as a BCSentinel partner.</h2>
-            <p class="lead" data-i18n="partners_sub">
-              Recommend BCSentinel to Business-Central customers and earn 30% commission on eligible subscriptions.
-            </p>
-          </div>
-
-          <div class="grid grid-2">
-            <article class="card">
-              <h3 data-i18n="partners_value_title">What partners get</h3>
-              <ul class="feature-list compact-list">
-                <li data-i18n="partners_value_1">30% commission on qualified Premium revenue</li>
-                <li data-i18n="partners_value_2">Tenant-based referral attribution and tracking</li>
-                <li data-i18n="partners_value_3">Clear payout overview with status transparency</li>
-                <li data-i18n="partners_value_4">Sales-ready material for demo and onboarding</li>
-              </ul>
-            </article>
-
-            <article class="card">
-              <h3 data-i18n="partners_flow_title">How it works</h3>
-              <ul class="feature-list compact-list">
-                <li data-i18n="partners_flow_1">Get your partner code and referral link</li>
-                <li data-i18n="partners_flow_2">Refer tenants and track their status in your portal</li>
-                <li data-i18n="partners_flow_3">See commissions move from pending to approved and paid</li>
-              </ul>
-              <div class="btn-row" style="margin-top:16px;">
-                <a class="btn btn-primary" href="contact.html?topic=Partner" data-i18n="partners_cta_primary">Become a partner</a>
-                <a class="btn btn-secondary" href="partner-login.html" data-i18n="partners_cta_secondary">Partner login</a>
-              </div>
-              <p class="mini-note" data-i18n="partners_note">Portal includes account details, referred tenants, commission status, and payout history.</p>
-            </article>
-          </div>
         </div>
       </div>
     </section>

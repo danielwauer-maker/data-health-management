@@ -94,6 +94,7 @@
             <div class="config-title">Neuer Partner</div>
             <input type="text" name="name" placeholder="Name" required>
             <input type="text" name="partner_code" placeholder="Code (z. B. contoso)" required>
+            <input type="email" name="contact_email" placeholder="login@partner.de (optional)">
             <input type="number" name="default_commission_rate" step="0.01" min="0" max="1" value="0.20" title="0.20 = 20%">
             <select name="status_value">
               <option value="active">active</option>
@@ -104,13 +105,14 @@
         </form>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Name</th><th>Code</th><th>Status</th><th>Default Rate</th><th>Created</th><th>Actions</th></tr></thead>
+            <thead><tr><th>ID</th><th>Name</th><th>Code</th><th>Login E-Mail</th><th>Status</th><th>Default Rate</th><th>Created</th><th>Actions</th></tr></thead>
             <tbody>
               {% for partner in partners %}
               <tr>
                 <td>{{ partner.id }}</td>
                 <td>{{ partner.name }}</td>
                 <td>{{ partner.partner_code }}</td>
+                <td>{{ partner.contact_email or "—" }}</td>
                 <td>{{ partner.status }}</td>
                 <td>{{ '%.2f'|format(partner.default_commission_rate * 100) }}%</td>
                 <td>{{ fmt_dt(partner.created_at_utc) }}</td>
@@ -118,6 +120,7 @@
                   <form method="post" action="/admin/partners/{{ partner.id }}/update" class="inline-form wrap-gap">
                     <input type="text" name="name" value="{{ partner.name }}" required>
                     <input type="text" name="partner_code" value="{{ partner.partner_code }}" required>
+                    <input type="email" name="contact_email" value="{{ partner.contact_email or '' }}" placeholder="login@partner.de">
                     <input type="number" name="default_commission_rate" step="0.01" min="0" max="1" value="{{ partner.default_commission_rate }}" title="0.20 = 20%">
                     <select name="status_value">
                       <option value="active" {% if partner.status == "active" %}selected{% endif %}>active</option>
@@ -125,11 +128,20 @@
                     </select>
                     <button type="submit" class="btn btn-secondary">Save</button>
                   </form>
+                  <form method="post" action="/admin/partners/{{ partner.id }}/credentials" class="inline-form wrap-gap credentials-form" style="margin-top:8px;">
+                    <input type="email" name="contact_email" value="{{ partner.contact_email or '' }}" placeholder="login@partner.de" required>
+                    <input type="text" name="new_password" class="new-password-input" placeholder="Neues Passwort (min. 8)" required>
+                    <button type="button" class="btn btn-secondary js-generate-password">Generate</button>
+                    <button type="submit" class="btn btn-primary" onclick="return confirm('Login-Credentials fuer Partner {{ partner.partner_code }} neu setzen?');">Reset Login</button>
+                  </form>
+                  <form method="post" action="/admin/partners/{{ partner.id }}/reset-link" class="inline-form wrap-gap" style="margin-top:8px;" target="_blank">
+                    <button type="submit" class="btn btn-secondary">Generate Reset Link</button>
+                  </form>
                 </td>
               </tr>
               {% endfor %}
               {% if not partners %}
-              <tr><td colspan="7">Noch keine Partner vorhanden.</td></tr>
+              <tr><td colspan="8">Noch keine Partner vorhanden.</td></tr>
               {% endif %}
             </tbody>
           </table>
@@ -224,5 +236,30 @@
       </div>
     </section>
   </div>
+  <script>
+    function generatePassword(length) {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*_-+=";
+      const size = Math.max(12, length || 16);
+      const bytes = new Uint32Array(size);
+      crypto.getRandomValues(bytes);
+      let out = "";
+      for (let i = 0; i < size; i++) {
+        out += chars[bytes[i] % chars.length];
+      }
+      return out;
+    }
+
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest(".js-generate-password");
+      if (!button) return;
+      const form = button.closest(".credentials-form");
+      if (!form) return;
+      const input = form.querySelector(".new-password-input");
+      if (!input) return;
+      input.value = generatePassword(16);
+      input.focus();
+      input.select();
+    });
+  </script>
 </body>
 </html>

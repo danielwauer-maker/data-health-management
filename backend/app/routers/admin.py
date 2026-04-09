@@ -29,6 +29,8 @@ from app.services.pricing_service import ensure_default_license_pricing
 from app.services.billing_service import utc_now
 from app.services.admin_audit_service import log_admin_event
 from app.services.partner_service import normalize_partner_code
+from app.security.token_hash import hash_api_token
+from app.security.token import create_token
 
 router = APIRouter(tags=["admin"])
 security = HTTPBasic()
@@ -70,6 +72,20 @@ def _fmt_money(value) -> str:
         return f"{float(value or 0.0):.2f}"
     except (TypeError, ValueError):
         return "0.00"
+
+
+def _normalize_email(value: str | None) -> str | None:
+    normalized = (value or "").strip().lower()
+    return normalized or None
+
+
+def _partner_reset_url(request: Request, token: str) -> str:
+    base = (settings.PARTNER_RESET_URL_BASE or "").strip()
+    if base:
+        base = base.rstrip("/")
+    else:
+        base = str(request.base_url).rstrip("/")
+    return f"{base}/partner-reset-password.html?token={token}"
 
 
 def _load_tenant_rows(db):
@@ -503,12 +519,14 @@ def update_commission_status(
 def create_partner(
     name: str = Form(...),
     partner_code: str = Form(...),
+    contact_email: str = Form(default=""),
     default_commission_rate: float = Form(default=0.2),
     status_value: str = Form(default="active"),
     admin_username: str = Depends(require_admin),
 ):
     normalized_name = (name or "").strip()
     normalized_code = normalize_partner_code(partner_code)
+    normalized_email = _normalize_email(contact_email)
     normalized_status = (status_value or "").strip().lower()
     normalized_rate = float(default_commission_rate)
 
@@ -525,10 +543,15 @@ def create_partner(
         existing = db.scalar(select(Partner).where(Partner.partner_code == normalized_code))
         if existing is not None:
             raise HTTPException(status_code=409, detail="partner_code already exists.")
+        if normalized_email:
+            existing_email_owner = db.scalar(select(Partner).where(Partner.contact_email == normalized_email))
+            if existing_email_owner is not None:
+                raise HTTPException(status_code=409, detail="contact_email already exists.")
 
         row = Partner(
             name=normalized_name,
             partner_code=normalized_code,
+            contact_email=normalized_email,
             status=normalized_status,
             default_commission_rate=normalized_rate,
             created_at_utc=utc_now(),
@@ -541,7 +564,12 @@ def create_partner(
             action="partner.create",
             target_type="partner",
             target_id=normalized_code,
-            details={"name": normalized_name, "status": normalized_status, "default_commission_rate": normalized_rate},
+            details={
+                "name": normalized_name,
+                "status": normalized_status,
+                "default_commission_rate": normalized_rate,
+                "contact_email": normalized_email,
+            },
         )
         db.commit()
 
@@ -553,12 +581,14 @@ def update_partner(
     partner_id: int,
     name: str = Form(...),
     partner_code: str = Form(...),
+    contact_email: str = Form(default=""),
     default_commission_rate: float = Form(...),
     status_value: str = Form(...),
     admin_username: str = Depends(require_admin),
 ):
     normalized_name = (name or "").strip()
     normalized_code = normalize_partner_code(partner_code)
+    normalized_email = _normalize_email(contact_email)
     normalized_status = (status_value or "").strip().lower()
     normalized_rate = float(default_commission_rate)
 
@@ -581,15 +611,23 @@ def update_partner(
         )
         if existing_code_owner is not None:
             raise HTTPException(status_code=409, detail="partner_code already exists.")
+        if normalized_email:
+            existing_email_owner = db.scalar(
+                select(Partner).where(Partner.contact_email == normalized_email, Partner.id != partner_id)
+            )
+            if existing_email_owner is not None:
+                raise HTTPException(status_code=409, detail="contact_email already exists.")
 
         before = {
             "name": row.name,
             "partner_code": row.partner_code,
+            "contact_email": row.contact_email,
             "status": row.status,
             "default_commission_rate": float(row.default_commission_rate or 0.0),
         }
         row.name = normalized_name
         row.partner_code = normalized_code
+        row.contact_email = normalized_email
         row.status = normalized_status
         row.default_commission_rate = normalized_rate
         row.updated_at_utc = utc_now()
@@ -604,6 +642,7 @@ def update_partner(
                 "after": {
                     "name": row.name,
                     "partner_code": row.partner_code,
+                    "contact_email": row.contact_email,
                     "status": row.status,
                     "default_commission_rate": float(row.default_commission_rate),
                 },
@@ -612,6 +651,118 @@ def update_partner(
         db.commit()
 
     return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/admin/partners/{partner_id}/credentials")
+def set_partner_credentials(
+    partner_id: int,
+    contact_email: str = Form(...),
+    new_password: str = Form(...),
+    admin_username: str = Depends(require_admin),
+):
+    normalized_email = _normalize_email(contact_email)
+    raw_password = (new_password or "").strip()
+    if normalized_email is None:
+        raise HTTPException(status_code=400, detail="contact_email is required.")
+    if len(raw_password) < 8:
+        raise HTTPException(status_code=400, detail="new_password must be at least 8 characters.")
+
+    with SessionLocal() as db:
+        partner = db.scalar(select(Partner).where(Partner.id == partner_id))
+        if partner is None:
+            raise HTTPException(status_code=404, detail="Partner not found.")
+
+        existing_email_owner = db.scalar(
+            select(Partner).where(Partner.contact_email == normalized_email, Partner.id != partner_id)
+        )
+        if existing_email_owner is not None:
+            raise HTTPException(status_code=409, detail="contact_email already exists.")
+
+        before_email = partner.contact_email
+        partner.contact_email = normalized_email
+        partner.password_hash = hash_api_token(raw_password)
+        partner.updated_at_utc = utc_now()
+        log_admin_event(
+            db,
+            admin_username=admin_username,
+            action="partner.credentials.reset",
+            target_type="partner",
+            target_id=str(partner.id),
+            details={
+                "partner_code": partner.partner_code,
+                "before_contact_email": before_email,
+                "after_contact_email": normalized_email,
+                "password_reset": True,
+            },
+        )
+        db.commit()
+
+    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/admin/partners/{partner_id}/reset-link", response_class=HTMLResponse)
+def generate_partner_reset_link(
+    partner_id: int,
+    request: Request,
+    admin_username: str = Depends(require_admin),
+):
+    with SessionLocal() as db:
+        partner = db.scalar(select(Partner).where(Partner.id == partner_id))
+        if partner is None:
+            raise HTTPException(status_code=404, detail="Partner not found.")
+
+        token = create_token(
+            {
+                "sub": f"partner_reset:{partner.id}",
+                "scope": "partner_reset",
+                "partner_id": partner.id,
+                "partner_code": partner.partner_code,
+            }
+        )
+        reset_url = _partner_reset_url(request, token)
+        log_admin_event(
+            db,
+            admin_username=admin_username,
+            action="partner.credentials.reset_link.generate",
+            target_type="partner",
+            target_id=str(partner.id),
+            details={
+                "partner_code": partner.partner_code,
+                "contact_email": partner.contact_email,
+            },
+        )
+        db.commit()
+
+    html = f"""
+    <!doctype html>
+    <html><head><meta charset="utf-8"><title>Partner Reset Link</title></head>
+    <body style="font-family: Inter, Arial, sans-serif; margin: 24px;">
+      <h2>Partner Reset Link</h2>
+      <p>Partner: <strong>{partner.partner_code}</strong></p>
+      <p>Use this link to reset password:</p>
+      <p id="resetUrlWrap"><a id="resetUrl" href="{reset_url}" target="_blank" rel="noopener noreferrer">{reset_url}</a></p>
+      <p>
+        <button id="copyBtn" type="button" style="min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid #c7d2e7; background: #f5f8ff; cursor: pointer;">Copy Link</button>
+        <span id="copyState" style="margin-left: 8px; color:#2f5f2f;"></span>
+      </p>
+      <p style="color:#666;">Token validity follows TOKEN_EXPIRE_MINUTES from backend settings.</p>
+      <p><a href="/admin/tenants">Back to Admin</a></p>
+      <script>
+        const copyBtn = document.getElementById("copyBtn");
+        const copyState = document.getElementById("copyState");
+        const resetUrl = document.getElementById("resetUrl").href;
+        copyBtn.addEventListener("click", async () => {{
+          try {{
+            await navigator.clipboard.writeText(resetUrl);
+            copyState.textContent = "Copied.";
+          }} catch (_) {{
+            copyState.textContent = "Copy failed. Please copy manually.";
+          }}
+        }});
+      </script>
+    </body></html>
+    """
+    return HTMLResponse(content=html)
 
 
 @router.post("/admin/tenants/{tenant_id}/referral")
