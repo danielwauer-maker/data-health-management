@@ -79,7 +79,9 @@ Hinweis: Fuer korrekte Tenant-Zuordnung muessen `tenant_id` und `plan_code` in d
 ### Neue API Endpunkte (Landingpage Partner-Portal)
 - `POST /api/partners/register`
   - oeffentliche Partner-Registrierung (Firma, Kontakt, E-Mail, Einwilligung)
-  - legt einen Datensatz in `partner_applications` mit Status `new` an
+  - legt/aktualisiert direkt einen Partner im `partners`-Stamm (E-Mail-basiert)
+  - setzt ein zufaelliges Startpasswort und sendet eine Bestaetigungsmail
+  - schreibt zusaetzlich einen Datensatz in `partner_applications` (Status `accepted`)
 - `POST /api/partners/auth/login`
   - Login per `email + password`
   - liefert `access_token` (Bearer JWT)

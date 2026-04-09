@@ -7,6 +7,7 @@ import time
 from collections import defaultdict, deque
 from email.mime.text import MIMEText
 import logging
+import string
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -257,6 +258,95 @@ def _send_partner_reset_email(target_email: str, reset_url: str) -> bool:
         return False
 
 
+def _generate_partner_password(length: int = 14) -> str:
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*_-+"
+    size = max(12, int(length))
+    return "".join(secrets.choice(alphabet) for _ in range(size))
+
+
+def _derive_partner_code(company_name: str, contact_name: str) -> str:
+    raw = f"{company_name} {contact_name}".strip().lower()
+    cleaned = "".join(ch if ch.isalnum() else "-" for ch in raw)
+    compact = "-".join(part for part in cleaned.split("-") if part)
+    base = normalize_partner_code(compact[:28] or "partner")
+    if not base:
+        base = "partner"
+    return base
+
+
+def _unique_partner_code(db, base_code: str) -> str:
+    code = normalize_partner_code(base_code) or "partner"
+    if db.scalar(select(Partner).where(Partner.partner_code == code)) is None:
+        return code
+    for _ in range(20):
+        suffix = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(4))
+        candidate = normalize_partner_code(f"{code[:30]}-{suffix}") or f"partner-{suffix}"
+        if db.scalar(select(Partner).where(Partner.partner_code == candidate)) is None:
+            return candidate
+    # Last fallback (extremely unlikely)
+    suffix = secrets.token_hex(3)
+    return normalize_partner_code(f"partner-{suffix}") or f"partner-{suffix}"
+
+
+def _build_partner_login_url(request: Request) -> str:
+    base = (settings.PARTNER_RESET_URL_BASE or "").strip().rstrip("/")
+    if not base:
+        base = str(request.base_url).rstrip("/")
+    return f"{base}/partner-login.html"
+
+
+def _send_partner_welcome_email(
+    target_email: str,
+    contact_name: str,
+    partner_code: str,
+    generated_password: str,
+    login_url: str,
+) -> bool:
+    host = (settings.SMTP_HOST or "").strip()
+    from_email = (settings.SMTP_FROM_EMAIL or "").strip()
+    if not host or not from_email:
+        logger.warning("SMTP not configured. Partner welcome email skipped for: %s", target_email)
+        return False
+
+    subject = "Your BCSentinel partner access"
+    display_name = (contact_name or "").strip() or "Partner"
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #1f2a44;">
+        <p>Hello {display_name},</p>
+        <p>your BCSentinel partner account has been created.</p>
+        <p><strong>Partner code:</strong> {partner_code}<br/>
+           <strong>Login email:</strong> {target_email}<br/>
+           <strong>Temporary password:</strong> {generated_password}</p>
+        <p>Login here: <a href="{login_url}">{login_url}</a></p>
+        <p>Please change your password after first login.</p>
+      </body>
+    </html>
+    """
+    msg = MIMEText(html_body, "html", "utf-8")
+    msg["Subject"] = subject
+    msg["From"] = (
+        f"{settings.SMTP_FROM_NAME} <{from_email}>"
+        if settings.SMTP_FROM_NAME
+        else from_email
+    )
+    msg["To"] = target_email
+
+    try:
+        with smtplib.SMTP(host, settings.SMTP_PORT, timeout=15) as smtp:
+            if settings.SMTP_USE_TLS:
+                smtp.starttls()
+            username = (settings.SMTP_USERNAME or "").strip()
+            password = settings.SMTP_PASSWORD or ""
+            if username:
+                smtp.login(username, password)
+            smtp.sendmail(from_email, [target_email], msg.as_string())
+        return True
+    except Exception:
+        logger.exception("Failed to send partner welcome email to %s", target_email)
+        return False
+
+
 def _load_partner_from_bearer(
     credentials: HTTPAuthorizationCredentials = Depends(partner_bearer),
 ) -> Partner:
@@ -445,7 +535,36 @@ def partner_register(payload: PartnerRegisterRequest, request: Request) -> dict:
     if not normalized_email:
         raise HTTPException(status_code=400, detail="email is required.")
 
+    login_url = _build_partner_login_url(request)
+    generated_password = _generate_partner_password()
+    generated_password_hash = hash_api_token(generated_password)
+
     with SessionLocal() as db:
+        existing_partner = db.scalar(select(Partner).where(Partner.contact_email == normalized_email))
+        partner_code_for_mail = ""
+        if existing_partner is None:
+            base_code = _derive_partner_code(payload.company_name, payload.contact_name)
+            unique_code = _unique_partner_code(db, base_code)
+            new_partner = Partner(
+                name=(payload.company_name or "").strip(),
+                partner_code=unique_code,
+                contact_email=normalized_email,
+                password_hash=generated_password_hash,
+                status="active",
+                default_commission_rate=0.3,
+                created_at_utc=utc_now(),
+                updated_at_utc=utc_now(),
+            )
+            db.add(new_partner)
+            db.flush()
+            partner_code_for_mail = new_partner.partner_code
+        else:
+            existing_partner.name = (payload.company_name or "").strip() or existing_partner.name
+            existing_partner.password_hash = generated_password_hash
+            existing_partner.status = "active"
+            existing_partner.updated_at_utc = utc_now()
+            partner_code_for_mail = existing_partner.partner_code
+
         row = PartnerApplication(
             company_name=(payload.company_name or "").strip(),
             contact_name=(payload.contact_name or "").strip(),
@@ -455,12 +574,20 @@ def partner_register(payload: PartnerRegisterRequest, request: Request) -> dict:
             country=((payload.country or "").strip() or None),
             message=((payload.message or "").strip() or None),
             source_page=((payload.source_page or "").strip() or None),
-            status="new",
+            status="accepted",
             created_at_utc=utc_now(),
-            reviewed_at_utc=None,
+            reviewed_at_utc=utc_now(),
         )
         db.add(row)
         db.commit()
+
+    _send_partner_welcome_email(
+        target_email=normalized_email,
+        contact_name=payload.contact_name,
+        partner_code=partner_code_for_mail,
+        generated_password=generated_password,
+        login_url=login_url,
+    )
 
     return {"status": "ok", "message": "Partner registration received."}
 
