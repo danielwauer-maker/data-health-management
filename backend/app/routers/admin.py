@@ -771,6 +771,49 @@ def generate_partner_reset_link(
     return HTMLResponse(content=html)
 
 
+@router.post("/admin/partners/{partner_id}/delete")
+def delete_partner(
+    partner_id: int,
+    admin_username: str = Depends(require_admin),
+):
+    with SessionLocal() as db:
+        partner = db.scalar(select(Partner).where(Partner.id == partner_id))
+        if partner is None:
+            raise HTTPException(status_code=404, detail="Partner not found.")
+
+        referral_count = db.scalar(
+            select(func.count(PartnerReferral.id)).where(PartnerReferral.partner_id == partner_id)
+        ) or 0
+        commission_count = db.scalar(
+            select(func.count(PartnerCommission.id)).where(PartnerCommission.partner_id == partner_id)
+        ) or 0
+        if referral_count > 0 or commission_count > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Partner has linked referrals or commissions and cannot be deleted. "
+                    "Please keep partner inactive for audit/history."
+                ),
+            )
+
+        log_admin_event(
+            db,
+            admin_username=admin_username,
+            action="partner.delete",
+            target_type="partner",
+            target_id=str(partner.id),
+            details={
+                "partner_code": partner.partner_code,
+                "name": partner.name,
+                "contact_email": partner.contact_email,
+            },
+        )
+        db.delete(partner)
+        db.commit()
+
+    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.post("/admin/tenants/{tenant_id}/referral")
 def upsert_tenant_referral(
     tenant_id: str,

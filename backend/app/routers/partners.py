@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import secrets
+import smtplib
 import threading
 import time
 from collections import defaultdict, deque
+from email.mime.text import MIMEText
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -29,6 +32,7 @@ security = HTTPBasic()
 partner_bearer = HTTPBearer(auto_error=False)
 _RATE_LIMIT_LOCK = threading.Lock()
 _RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
+logger = logging.getLogger(__name__)
 
 
 class PartnerCreateRequest(BaseModel):
@@ -128,6 +132,10 @@ class PartnerResetConfirmRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=200)
 
 
+class PartnerResetRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
+
+
 def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
     expected_username = settings.ADMIN_USERNAME
     expected_password = settings.ADMIN_PASSWORD
@@ -178,6 +186,56 @@ def _require_rate_limit(request: Request, action: str, max_attempts: int, window
                 detail="Too many attempts. Please retry later.",
             )
         bucket.append(now)
+
+
+def _build_partner_reset_url(request: Request, token: str) -> str:
+    base = (settings.PARTNER_RESET_URL_BASE or "").strip().rstrip("/")
+    if not base:
+        base = str(request.base_url).rstrip("/")
+    return f"{base}/partner-reset-password.html?token={token}"
+
+
+def _send_partner_reset_email(target_email: str, reset_url: str) -> bool:
+    host = (settings.SMTP_HOST or "").strip()
+    from_email = (settings.SMTP_FROM_EMAIL or "").strip()
+    if not host or not from_email:
+        logger.warning("SMTP not configured. Partner reset email skipped for: %s", target_email)
+        return False
+
+    subject = "Reset your BCSentinel partner password"
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #1f2a44;">
+        <p>Hello,</p>
+        <p>we received a request to reset your BCSentinel partner password.</p>
+        <p><a href="{reset_url}">Reset password</a></p>
+        <p>If you did not request this, you can ignore this email.</p>
+        <p>Link expires automatically.</p>
+      </body>
+    </html>
+    """
+    msg = MIMEText(html_body, "html", "utf-8")
+    msg["Subject"] = subject
+    msg["From"] = (
+        f"{settings.SMTP_FROM_NAME} <{from_email}>"
+        if settings.SMTP_FROM_NAME
+        else from_email
+    )
+    msg["To"] = target_email
+
+    try:
+        with smtplib.SMTP(host, settings.SMTP_PORT, timeout=15) as smtp:
+            if settings.SMTP_USE_TLS:
+                smtp.starttls()
+            username = (settings.SMTP_USERNAME or "").strip()
+            password = settings.SMTP_PASSWORD or ""
+            if username:
+                smtp.login(username, password)
+            smtp.sendmail(from_email, [target_email], msg.as_string())
+        return True
+    except Exception:
+        logger.exception("Failed to send partner reset email to %s", target_email)
+        return False
 
 
 def _load_partner_from_bearer(
@@ -328,6 +386,33 @@ def partner_reset_confirm(payload: PartnerResetConfirmRequest, request: Request)
         db.commit()
 
     return {"status": "ok"}
+
+
+@router.post("/api/partners/auth/reset/request")
+def partner_reset_request(payload: PartnerResetRequest, request: Request) -> dict:
+    _require_rate_limit(request, action="partner_reset_request", max_attempts=4, window_seconds=300)
+    normalized_email = (payload.email or "").strip().lower()
+    if not normalized_email:
+        return {"status": "ok"}
+
+    with SessionLocal() as db:
+        partner = db.scalar(select(Partner).where(Partner.contact_email == normalized_email))
+        if partner is None:
+            return {"status": "ok"}
+        if (partner.status or "").strip().lower() != "active":
+            return {"status": "ok"}
+
+        token = create_token(
+            {
+                "sub": f"partner_reset:{partner.id}",
+                "scope": "partner_reset",
+                "partner_id": partner.id,
+                "partner_code": partner.partner_code,
+            }
+        )
+        reset_url = _build_partner_reset_url(request, token)
+        _send_partner_reset_email(target_email=normalized_email, reset_url=reset_url)
+        return {"status": "ok"}
 
 
 @router.get("/api/partners/me", response_model=PartnerMeResponse)

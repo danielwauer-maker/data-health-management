@@ -139,6 +139,9 @@
                   <form method="post" action="/admin/partners/{{ partner.id }}/reset-link" class="inline-form wrap-gap" style="margin-top:8px;" target="_blank">
                     <button type="submit" class="btn btn-secondary">Generate Reset Link</button>
                   </form>
+                  <form method="post" action="/admin/partners/{{ partner.id }}/delete" class="inline-form wrap-gap" style="margin-top:8px;" onsubmit="return confirm('Partner {{ partner.partner_code }} wirklich loeschen? Das ist nur moeglich, wenn keine Referrals/Provisionen verknuepft sind.');">
+                    <button type="submit" class="btn btn-danger">Delete Partner</button>
+                  </form>
                 </td>
               </tr>
               {% endfor %}
