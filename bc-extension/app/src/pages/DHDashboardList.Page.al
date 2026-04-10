@@ -186,7 +186,7 @@ page 53124 "DH Dashboard List"
                         Error('Setup not found.');
 
                     if Setup."Premium Enabled" then begin
-                        Message('Premium actions are already unlocked for this tenant.');
+                        Message('Premium is already enabled.');
                         exit;
                     end;
 

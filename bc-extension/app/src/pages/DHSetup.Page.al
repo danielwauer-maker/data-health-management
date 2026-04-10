@@ -257,7 +257,7 @@ page 53100 "DH Setup"
                     ApiClient: Codeunit "DH API Client";
                 begin
                     if Rec."Premium Enabled" then begin
-                        Message('Premium actions are already unlocked for this tenant.');
+                        Message('Premium is already enabled.');
                         exit;
                     end;
 

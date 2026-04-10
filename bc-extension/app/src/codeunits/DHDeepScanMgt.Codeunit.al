@@ -41,6 +41,7 @@ codeunit 53124 "DH Deep Scan Mgt."
 
         DeepScanRun."Task ID" := TaskId;
         DeepScanRun.Modify(true);
+        Commit();
 
         Page.Run(Page::"DH Deep Scan Monitor", DeepScanRun);
 

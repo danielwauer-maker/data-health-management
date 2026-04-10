@@ -310,7 +310,7 @@ page 53158 "DH Deep Scan Monitor"
                         Error('No deep scan run is available.');
 
                     Finding.SetRange("Deep Scan Entry No.", Rec."Entry No.");
-                    Page.Run(Page::"DH Deep Scan Findings", Finding);
+                    Page.Run(Page::"DH Deep Scan Findings List", Finding);
                 end;
             }
 
@@ -343,7 +343,7 @@ page 53158 "DH Deep Scan Monitor"
                     LoadSetupOrError(Setup);
 
                     if Setup."Premium Enabled" then begin
-                        Message('Premium actions are already unlocked for this tenant.');
+                        Message('Premium is already enabled.');
                         exit;
                     end;
 
@@ -385,6 +385,7 @@ page 53158 "DH Deep Scan Monitor"
     begin
         if not AutoRefreshStarted then begin
             AutoRefreshStarted := true;
+            FinalRefreshPending := true;
             QueueAutoRefresh();
         end;
     end;
@@ -399,6 +400,10 @@ page 53158 "DH Deep Scan Monitor"
 
         if ShouldKeepRefreshing() then
             QueueAutoRefresh();
+        if (not ShouldKeepRefreshing()) and FinalRefreshPending then begin
+            FinalRefreshPending := false;
+            QueueFinalRefresh();
+        end;
     end;
 
     trigger OnPageBackgroundTaskError(TaskId: Integer; ErrorCode: Text; ErrorText: Text; ErrorCallStack: Text; var IsHandled: Boolean)
@@ -413,12 +418,17 @@ page 53158 "DH Deep Scan Monitor"
 
         if ShouldKeepRefreshing() then
             QueueAutoRefresh();
+        if (not ShouldKeepRefreshing()) and FinalRefreshPending then begin
+            FinalRefreshPending := false;
+            QueueFinalRefresh();
+        end;
     end;
 
     var
         RefreshTaskId: Integer;
         RefreshTaskRunning: Boolean;
         AutoRefreshStarted: Boolean;
+        FinalRefreshPending: Boolean;
         ShowSystem: Boolean;
         ShowFinance: Boolean;
         ShowSales: Boolean;
@@ -641,6 +651,19 @@ page 53158 "DH Deep Scan Monitor"
 
         Parameters.Add('EntryNo', Format(Rec."Entry No."));
         Parameters.Add('WaitMs', '1500');
+        CurrPage.EnqueueBackgroundTask(RefreshTaskId, Codeunit::"DH Monitor Refresh Task", Parameters, 4000, PageBackgroundTaskErrorLevel::Ignore);
+        RefreshTaskRunning := true;
+    end;
+
+    local procedure QueueFinalRefresh()
+    var
+        Parameters: Dictionary of [Text, Text];
+    begin
+        if RefreshTaskRunning then
+            exit;
+
+        Parameters.Add('EntryNo', Format(Rec."Entry No."));
+        Parameters.Add('WaitMs', '1200');
         CurrPage.EnqueueBackgroundTask(RefreshTaskId, Codeunit::"DH Monitor Refresh Task", Parameters, 4000, PageBackgroundTaskErrorLevel::Ignore);
         RefreshTaskRunning := true;
     end;

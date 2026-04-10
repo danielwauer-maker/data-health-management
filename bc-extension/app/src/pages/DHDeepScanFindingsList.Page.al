@@ -1,24 +1,30 @@
-page 53121 "DH Issues Part"
+page 53160 "DH Deep Scan Findings List"
 {
-    PageType = ListPart;
-    SourceTable = "DH Dashboard Issue";
+    PageType = List;
+    SourceTable = "DH Deep Scan Finding";
     ApplicationArea = All;
-    Caption = 'Issues';
+    UsageCategory = Lists;
+    Caption = 'Deep Scan Findings';
     Editable = false;
     InsertAllowed = false;
     DeleteAllowed = false;
     ModifyAllowed = false;
-    UsageCategory = None;
 
     layout
     {
         area(Content)
         {
-            repeater(General)
+            repeater(Findings)
             {
-                field("Source Type"; Rec."Source Type")
+                field(Category; Rec.Category)
                 {
                     ApplicationArea = All;
+                }
+
+                field("Issue Code"; Rec."Issue Code")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowPremiumDetails;
                 }
 
                 field(Title; Rec.Title)
@@ -29,7 +35,7 @@ page 53121 "DH Issues Part"
                     var
                         IssueDrilldownMgt: Codeunit "DH Issue Drilldown Mgt.";
                     begin
-                        IssueDrilldownMgt.OpenDashboardIssue(Rec);
+                        IssueDrilldownMgt.OpenDeepScanFinding(Rec);
                     end;
                 }
 
@@ -47,7 +53,7 @@ page 53121 "DH Issues Part"
                     var
                         IssueDrilldownMgt: Codeunit "DH Issue Drilldown Mgt.";
                     begin
-                        IssueDrilldownMgt.OpenDashboardIssue(Rec);
+                        IssueDrilldownMgt.OpenDeepScanFinding(Rec);
                     end;
                 }
 
@@ -60,61 +66,40 @@ page 53121 "DH Issues Part"
                 field("Recommendation Preview"; Rec."Recommendation Preview")
                 {
                     ApplicationArea = All;
+                    Visible = ShowPremiumDetails;
                 }
-            }
-        }
-    }
 
-    actions
-    {
-        area(Processing)
-        {
-            action(OpenAllIssues)
-            {
-                Caption = 'Show All Issues';
-                ApplicationArea = All;
-                Image = List;
-
-                trigger OnAction()
-                var
-                    DashboardIssue: Record "DH Dashboard Issue";
-                begin
-                    DashboardIssue.SetRange("Dashboard Scan Entry No.", Rec."Dashboard Scan Entry No.");
-                    Page.Run(Page::"DH Dashboard Issues List", DashboardIssue);
-                end;
+                field(Access; AccessText)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Access';
+                }
             }
         }
     }
 
     trigger OnAfterGetRecord()
     begin
+        UpdateAccessState();
         SeverityStyle := GetSeverityStyle();
     end;
 
     trigger OnOpenPage()
     begin
         EnsureSortFields();
-        Rec.SetCurrentKey("Dashboard Scan Entry No.", "Severity Sort Order", "Affected Count Sort Value");
+        UpdateAccessState();
+        Rec.SetCurrentKey("Deep Scan Entry No.", "Severity Sort Order", "Affected Count Sort Value");
         Rec.Ascending(true);
-    end;
-
-
-    procedure SetDashboardScanEntryNo(DashboardScanEntryNo: Integer)
-    begin
-        Rec.Reset();
-        Rec.SetRange("Dashboard Scan Entry No.", DashboardScanEntryNo);
-        EnsureSortFields();
-        Rec.SetCurrentKey("Dashboard Scan Entry No.", "Severity Sort Order", "Affected Count Sort Value");
-        Rec.Ascending(true);
-        CurrPage.Update(false);
     end;
 
     var
         SeverityStyle: Text[30];
+        ShowPremiumDetails: Boolean;
+        AccessText: Text[80];
 
     local procedure EnsureSortFields()
     var
-        Issue: Record "DH Dashboard Issue";
+        Issue: Record "DH Deep Scan Finding";
         NeedsUpdate: Boolean;
     begin
         Issue.CopyFilters(Rec);
@@ -163,5 +148,19 @@ page 53121 "DH Issues Part"
         end;
 
         exit('Standard');
+    end;
+
+    local procedure UpdateAccessState()
+    var
+        Setup: Record "DH Setup";
+    begin
+        ShowPremiumDetails := false;
+        AccessText := 'Upgrade to Premium';
+
+        if Setup.Get('SETUP') then
+            if Setup."Premium Enabled" then begin
+                ShowPremiumDetails := true;
+                AccessText := 'Unlocked';
+            end;
     end;
 }

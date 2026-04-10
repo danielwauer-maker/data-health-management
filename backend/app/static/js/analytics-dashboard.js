@@ -275,7 +275,7 @@ function renderFindings(items, isPremium) {
     const accessLabel = isPremium ? 'Open in BC' : 'Premium';
     const openInBcUrl = String(item?.open_in_bc_url || '');
     const accessMarkup = isPremium && openInBcUrl
-      ? `<a href="${escapeHtml(openInBcUrl)}" class="access-chip ${accessClass}" target="_blank" rel="noopener noreferrer">${accessLabel}</a>`
+      ? `<button type="button" class="access-chip ${accessClass}" data-open-in-bc-url="${escapeHtml(openInBcUrl)}">${accessLabel}</button>`
       : `<span class="access-chip ${accessClass}">${accessLabel}</span>`;
     return `
       <tr>
@@ -288,6 +288,14 @@ function renderFindings(items, isPremium) {
       </tr>
     `;
   }).join('');
+
+  host.querySelectorAll('[data-open-in-bc-url]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const targetUrl = button.getAttribute('data-open-in-bc-url') || '';
+      if (!targetUrl) return;
+      window.location.assign(targetUrl);
+    });
+  });
 }
 
 function renderPremiumPreview(items) {

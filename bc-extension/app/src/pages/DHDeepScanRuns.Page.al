@@ -110,7 +110,7 @@ page 53130 "DH Deep Scan Runs"
                 begin
                     DashboardMgt.RefreshDashboardIssueCache(Rec);
                     DashboardIssue.SetRange("Dashboard Scan Entry No.", Rec."Entry No.");
-                    Page.Run(Page::"DH Dashboard Issues", DashboardIssue);
+                    Page.Run(Page::"DH Dashboard Issues List", DashboardIssue);
                 end;
             }
 

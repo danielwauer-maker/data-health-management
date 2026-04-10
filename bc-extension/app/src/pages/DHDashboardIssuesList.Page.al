@@ -1,24 +1,25 @@
-page 53121 "DH Issues Part"
+page 53161 "DH Dashboard Issues List"
 {
-    PageType = ListPart;
+    PageType = List;
     SourceTable = "DH Dashboard Issue";
     ApplicationArea = All;
-    Caption = 'Issues';
+    UsageCategory = Lists;
+    Caption = 'BCSentinel Issues';
     Editable = false;
     InsertAllowed = false;
     DeleteAllowed = false;
     ModifyAllowed = false;
-    UsageCategory = None;
 
     layout
     {
         area(Content)
         {
-            repeater(General)
+            repeater(Issues)
             {
-                field("Source Type"; Rec."Source Type")
+                field(Severity; Rec.Severity)
                 {
                     ApplicationArea = All;
+                    StyleExpr = SeverityStyle;
                 }
 
                 field(Title; Rec.Title)
@@ -33,15 +34,10 @@ page 53121 "DH Issues Part"
                     end;
                 }
 
-                field(Severity; Rec.Severity)
-                {
-                    ApplicationArea = All;
-                    StyleExpr = SeverityStyle;
-                }
-
                 field("Affected Count"; Rec."Affected Count")
                 {
                     ApplicationArea = All;
+                    Caption = 'Count';
 
                     trigger OnDrillDown()
                     var
@@ -54,63 +50,43 @@ page 53121 "DH Issues Part"
                 field("Estimated Impact (EUR)"; Rec."Estimated Impact (EUR)")
                 {
                     ApplicationArea = All;
-                    Caption = 'Impact €';
+                    Caption = 'Impact â‚¬';
                 }
 
-                field("Recommendation Preview"; Rec."Recommendation Preview")
+                field("Recommendation Review"; Rec."Recommendation Preview")
                 {
                     ApplicationArea = All;
+                    Caption = 'Recommendation';
+                    Visible = ShowPremiumDetails;
                 }
-            }
-        }
-    }
 
-    actions
-    {
-        area(Processing)
-        {
-            action(OpenAllIssues)
-            {
-                Caption = 'Show All Issues';
-                ApplicationArea = All;
-                Image = List;
-
-                trigger OnAction()
-                var
-                    DashboardIssue: Record "DH Dashboard Issue";
-                begin
-                    DashboardIssue.SetRange("Dashboard Scan Entry No.", Rec."Dashboard Scan Entry No.");
-                    Page.Run(Page::"DH Dashboard Issues List", DashboardIssue);
-                end;
+                field(Access; AccessText)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Access';
+                }
             }
         }
     }
 
     trigger OnAfterGetRecord()
     begin
+        UpdateAccessState();
         SeverityStyle := GetSeverityStyle();
     end;
 
     trigger OnOpenPage()
     begin
         EnsureSortFields();
+        UpdateAccessState();
         Rec.SetCurrentKey("Dashboard Scan Entry No.", "Severity Sort Order", "Affected Count Sort Value");
         Rec.Ascending(true);
-    end;
-
-
-    procedure SetDashboardScanEntryNo(DashboardScanEntryNo: Integer)
-    begin
-        Rec.Reset();
-        Rec.SetRange("Dashboard Scan Entry No.", DashboardScanEntryNo);
-        EnsureSortFields();
-        Rec.SetCurrentKey("Dashboard Scan Entry No.", "Severity Sort Order", "Affected Count Sort Value");
-        Rec.Ascending(true);
-        CurrPage.Update(false);
     end;
 
     var
         SeverityStyle: Text[30];
+        ShowPremiumDetails: Boolean;
+        AccessText: Text[80];
 
     local procedure EnsureSortFields()
     var
@@ -163,5 +139,19 @@ page 53121 "DH Issues Part"
         end;
 
         exit('Standard');
+    end;
+
+    local procedure UpdateAccessState()
+    var
+        Setup: Record "DH Setup";
+    begin
+        ShowPremiumDetails := false;
+        AccessText := 'Upgrade to Premium for detailed insights';
+
+        if Setup.Get('SETUP') then
+            if Setup."Premium Enabled" then begin
+                ShowPremiumDetails := true;
+                AccessText := 'Unlocked';
+            end;
     end;
 }

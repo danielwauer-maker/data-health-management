@@ -42,8 +42,11 @@ page 53159 "DH Issue Drilldown Launch"
         if not Rec.Get('SETUP') then
             Error('Setup not found.');
 
-        if not Rec."Premium Enabled" then
-            Error('This tenant already uses the full DeepScan data basis. Upgrade to Premium to unlock recommendations, drilldowns, and correction worklists.');
+        if not Rec."Premium Enabled" then begin
+            Message('Premium access is required.');
+            CurrPage.Close();
+            exit;
+        end;
 
         StatusTxt := StrSubstNo('Opening Business Central worklist for %1 ...', IssueCode);
         IssueDrilldownDispatcher.OpenByIssueCode(IssueCode);
