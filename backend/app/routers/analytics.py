@@ -4,6 +4,7 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -111,6 +112,17 @@ def _issue_recommendation(issue: ScanIssueRecord) -> str:
     if group == "Finance":
         return "Investigate financial postings and open entries with missing or inconsistent setup."
     return "Review the affected records and resolve the underlying setup issue in Business Central."
+
+
+def _build_open_in_bc_url(bc_issue_launch_url: str | None, issue_code: str | None) -> str:
+    base_url = str(bc_issue_launch_url or "").strip()
+    normalized_issue_code = str(issue_code or "").strip().upper()
+    if not base_url or not normalized_issue_code:
+        return ""
+
+    separator = "&" if "?" in base_url else "?"
+    filter_value = f"'Issue Drilldown Code' IS '{normalized_issue_code}'"
+    return f"{base_url}{separator}filter={quote(filter_value, safe='')}"
 
 
 
@@ -410,6 +422,7 @@ def _build_dashboard_payload(
     selected_scan_id: str | None,
     recent_scans_page: int = 1,
     recent_scans_page_size: int = 10,
+    bc_issue_launch_url: str | None = None,
 ) -> dict[str, Any]:
     if tenant is None:
         return _build_fallback_payload(company, environment, scan_mode)
@@ -487,6 +500,7 @@ def _build_dashboard_payload(
             "group": _issue_group_from_code(issue.code),
             "recommendation_preview": _issue_recommendation(issue) if can_view_recommendations else "",
             "premium_only": bool(issue.premium_only),
+            "open_in_bc_url": _build_open_in_bc_url(bc_issue_launch_url, issue.code),
         }
         for issue in issues
     ]
@@ -586,6 +600,7 @@ def get_analytics_token(
     environment: str = Query(default="BC Cloud"),
     tenant_id: str | None = Query(default=None),
     scan_mode: str | None = Query(default=None),
+    bc_issue_launch_url: str | None = Query(default=None),
     tenant_auth: tuple[str, str] = Depends(require_tenant_headers),
 ):
     header_tenant_id, header_api_token = tenant_auth
@@ -602,6 +617,7 @@ def get_analytics_token(
             "environment": environment,
             "tenant_id": tenant.tenant_id,
             "scan_mode": scan_mode,
+            "bc_issue_launch_url": bc_issue_launch_url,
         }
     )
     return JSONResponse(content={"token": token})
@@ -642,6 +658,7 @@ def get_analytics_data(
             selected_scan_id=scan_id,
             recent_scans_page=recent_scans_page,
             recent_scans_page_size=recent_scans_page_size,
+            bc_issue_launch_url=payload.get("bc_issue_launch_url"),
         )
     )
 

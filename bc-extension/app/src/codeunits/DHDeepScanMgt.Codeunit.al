@@ -42,7 +42,6 @@ codeunit 53124 "DH Deep Scan Mgt."
         DeepScanRun."Task ID" := TaskId;
         DeepScanRun.Modify(true);
 
-        Message('Deep scan %1 was queued and scheduled in the background.', DeepScanRun."Run ID");
         Page.Run(Page::"DH Deep Scan Monitor", DeepScanRun);
 
         exit(EntryNo);

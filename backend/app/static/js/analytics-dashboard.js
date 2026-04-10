@@ -273,6 +273,10 @@ function renderFindings(items, isPremium) {
   host.innerHTML = items.map((item) => {
     const accessClass = isPremium ? 'premium' : 'locked';
     const accessLabel = isPremium ? 'Open in BC' : 'Premium';
+    const openInBcUrl = String(item?.open_in_bc_url || '');
+    const accessMarkup = isPremium && openInBcUrl
+      ? `<a href="${escapeHtml(openInBcUrl)}" class="access-chip ${accessClass}" target="_blank" rel="noopener noreferrer">${accessLabel}</a>`
+      : `<span class="access-chip ${accessClass}">${accessLabel}</span>`;
     return `
       <tr>
         <td><strong>${escapeHtml(item?.title)}</strong></td>
@@ -280,7 +284,7 @@ function renderFindings(items, isPremium) {
         <td><span class="severity severity-${escapeHtml(item?.severity)}">${escapeHtml(String(item?.severity || '').toUpperCase())}</span></td>
         <td>${formatNumber(item?.count)}</td>
         <td>${formatCurrency(item?.impact_eur)}</td>
-        <td><span class="access-chip ${accessClass}">${accessLabel}</span></td>
+        <td>${accessMarkup}</td>
       </tr>
     `;
   }).join('');

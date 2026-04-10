@@ -301,21 +301,13 @@ page 53100 "DH Setup"
                         Setup: Record "DH Setup";
                         ApiClient: Codeunit "DH API Client";
                         DeepScanMgt: Codeunit "DH Deep Scan Mgt.";
-                        DeepScanRun: Record "DH Deep Scan Run";
-                        EntryNo: Integer;
                     begin
                         EnsureSetupExists();
                         Setup := Rec;
                         ApiClient.EnsureReadyForScan(Setup);
 
-                        EntryNo := DeepScanMgt.QueueDeepScan(Setup);
+                        DeepScanMgt.QueueDeepScan(Setup);
                         CurrPage.Update(false);
-
-                        if DeepScanRun.Get(EntryNo) then
-                            if Setup."Premium Enabled" then
-                                Message('BCSentinel Premium deep scan queued.\Run ID: %1\Status: %2', DeepScanRun."Run ID", Format(DeepScanRun.Status))
-                            else
-                                Message('BCSentinel deep scan queued in Free mode.\Run ID: %1\Status: %2\Premium unlocks recommendations and correction actions.', DeepScanRun."Run ID", Format(DeepScanRun.Status));
                     end;
                 }
 
@@ -371,7 +363,7 @@ page 53100 "DH Setup"
         if Setup."Tenant ID" = '' then
             Error('Tenant is not registered yet.');
 
-        exit(RemoveTrailingSlash(Setup."API Base URL") + '/analytics/get-token?company=' + EncodeUrlValue(CompanyName()) + '&environment=' + EncodeUrlValue('BC Cloud') + '&tenant_id=' + EncodeUrlValue(Setup."Tenant ID") + '&scan_mode=' + EncodeUrlValue(GetScanMode(Setup)));
+        exit(RemoveTrailingSlash(Setup."API Base URL") + '/analytics/get-token?company=' + EncodeUrlValue(CompanyName()) + '&environment=' + EncodeUrlValue('BC Cloud') + '&tenant_id=' + EncodeUrlValue(Setup."Tenant ID") + '&scan_mode=' + EncodeUrlValue(GetScanMode(Setup)) + '&bc_issue_launch_url=' + EncodeUrlValue(GetIssueDrilldownLaunchUrl()));
     end;
 
     local procedure GetScanMode(var Setup: Record "DH Setup"): Text
@@ -384,6 +376,11 @@ page 53100 "DH Setup"
     local procedure GetDashboardUrl(var Setup: Record "DH Setup"; Token: Text): Text
     begin
         exit(RemoveTrailingSlash(Setup."API Base URL") + '/analytics/embed?token=' + EncodeUrlValue(Token));
+    end;
+
+    local procedure GetIssueDrilldownLaunchUrl(): Text
+    begin
+        exit(GetUrl(ClientType::Web, CompanyName(), ObjectType::Page, Page::"DH Issue Drilldown Launch"));
     end;
 
     local procedure ExtractTokenFromJson(JsonText: Text): Text

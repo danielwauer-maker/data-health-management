@@ -514,7 +514,8 @@ codeunit 53100 "DH API Client"
             '?company=' + EncodeUrlValue(CompanyName()) +
             '&environment=' + EncodeUrlValue('BC Cloud') +
             '&tenant_id=' + EncodeUrlValue(Setup."Tenant ID") +
-            '&scan_mode=' + EncodeUrlValue(GetAnalyticsScanMode(Setup));
+            '&scan_mode=' + EncodeUrlValue(GetAnalyticsScanMode(Setup)) +
+            '&bc_issue_launch_url=' + EncodeUrlValue(GetIssueDrilldownLaunchUrl());
 
         Headers := Client.DefaultRequestHeaders();
         if Headers.Contains('X-Tenant-Id') then
@@ -629,6 +630,11 @@ codeunit 53100 "DH API Client"
     local procedure BuildUrl(BaseUrl: Text; RelativePath: Text): Text
     begin
         exit(RemoveTrailingSlash(BaseUrl) + RelativePath);
+    end;
+
+    local procedure GetIssueDrilldownLaunchUrl(): Text
+    begin
+        exit(GetUrl(ClientType::Web, CompanyName(), ObjectType::Page, Page::"DH Issue Drilldown Launch"));
     end;
 
     local procedure RemoveTrailingSlash(Value: Text): Text

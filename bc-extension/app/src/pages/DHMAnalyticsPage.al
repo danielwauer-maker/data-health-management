@@ -137,7 +137,8 @@ page 53123 "DHM Analytics"
             '?company=' + CompanyValue +
             '&environment=' + EnvironmentValue +
             '&tenant_id=' + TenantValue +
-            '&scan_mode=' + ScanModeValue);
+            '&scan_mode=' + ScanModeValue +
+            '&bc_issue_launch_url=' + EncodeUrlValue(GetIssueDrilldownLaunchUrl()));
     end;
 
 
@@ -147,6 +148,11 @@ page 53123 "DHM Analytics"
             exit('premium_deep');
 
         exit('free_deep');
+    end;
+
+    local procedure GetIssueDrilldownLaunchUrl(): Text
+    begin
+        exit(GetUrl(ClientType::Web, CompanyName(), ObjectType::Page, Page::"DH Issue Drilldown Launch"));
     end;
 
     local procedure GetDashboardUrl(var Setup: Record "DH Setup"; Token: Text): Text

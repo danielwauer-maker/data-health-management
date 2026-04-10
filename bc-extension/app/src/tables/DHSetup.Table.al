@@ -169,6 +169,11 @@ table 53100 "DH Setup"
             DataClassification = SystemMetadata;
             InitValue = true;
         }
+        field(26; "Issue Drilldown Code"; Code[50])
+        {
+            Caption = 'Issue Drilldown Code';
+            DataClassification = SystemMetadata;
+        }
     }
 
     keys

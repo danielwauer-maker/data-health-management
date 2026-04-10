@@ -868,7 +868,8 @@ page 53158 "DH Deep Scan Monitor"
           '?company=' + CompanyValue +
           '&environment=' + EnvironmentValue +
           '&tenant_id=' + TenantValue +
-          '&scan_mode=' + ScanModeValue);
+          '&scan_mode=' + ScanModeValue +
+          '&bc_issue_launch_url=' + EncodeUrlValue(GetIssueDrilldownLaunchUrl()));
     end;
 
     local procedure GetDashboardUrl(var Setup: Record "DH Setup"; Token: Text): Text
@@ -877,6 +878,11 @@ page 53158 "DH Deep Scan Monitor"
     begin
         BaseUrl := BuildUrl(Setup."API Base URL", '/analytics/embed');
         exit(BaseUrl + '?token=' + EncodeUrlValue(Token));
+    end;
+
+    local procedure GetIssueDrilldownLaunchUrl(): Text
+    begin
+        exit(GetUrl(ClientType::Web, CompanyName(), ObjectType::Page, Page::"DH Issue Drilldown Launch"));
     end;
 
     local procedure GetScanModeQueryValue(): Text

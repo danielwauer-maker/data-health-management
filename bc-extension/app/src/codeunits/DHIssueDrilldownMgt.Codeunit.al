@@ -18,7 +18,7 @@ codeunit 53142 "DH Issue Drilldown Mgt."
         OpenByIssueCode(DeepFinding."Issue Code");
     end;
 
-    local procedure OpenByIssueCode(IssueCode: Code[50])
+    procedure OpenByIssueCode(IssueCode: Code[50])
     var
         IssueDrilldownDispatcher: Codeunit "DH Issue Drilldown Dispatcher";
     begin
