@@ -51,7 +51,7 @@ class QuickScanResponse(BaseModel):
     data_score: int = Field(ge=0, le=100)
     checks_count: int = Field(ge=0)
     issues_count: int = Field(ge=0)
-    premium_available: bool = True
+    premium_available: bool = False
     summary: ScanSummary
     issues: List[ScanIssue] = Field(default_factory=list)
     data_profile: DataProfile = Field(default_factory=DataProfile)

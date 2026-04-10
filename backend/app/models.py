@@ -53,7 +53,7 @@ class Scan(Base):
     data_score: Mapped[int] = mapped_column(Integer)
     checks_count: Mapped[int] = mapped_column(Integer)
     issues_count: Mapped[int] = mapped_column(Integer)
-    premium_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    premium_available: Mapped[bool] = mapped_column(Boolean, default=False)
     summary_headline: Mapped[str] = mapped_column(String(255))
     summary_rating: Mapped[str] = mapped_column(String(30))
     total_records: Mapped[int] = mapped_column(Integer, default=0)

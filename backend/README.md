@@ -20,8 +20,9 @@ Ueber Docker Compose im Projekt-Root.
 - Serverseitige Feature-Enforcement-Helper liegen in:
   - `app/services/entitlement_guard_service.py`
 - `premium_available` beschreibt nur noch:
-  - ob `deep_scan` fuer den Tenant freigeschaltet ist
+  - ob Premium-Action-/Detail-Features fuer den Tenant freigeschaltet sind
   - (nicht mehr pauschal `true`)
+- `deep_scan` ist Teil der gemeinsamen Analysebasis fuer Free und Premium.
 
 ### Matrix-Check ausfuehren
 
@@ -46,7 +47,7 @@ Erwartetes Ergebnis:
 
 ### Listenpreis aendern (Marketing, App-Berechnung, Stripe)
 
-Die interne Berechnung und Marketing-Defaults folgen `config/pricing_canonical.json` bzw. der Tabelle `license_pricing_config` (siehe `docs/product/pricing-canonical.md`). **Stripe** arbeitet mit **Price IDs**, nicht mit dem Betrag im Code: Wenn sich der veroeffentlichte Monats- oder Jahrespreis aendert, legt ihr in Stripe Dashboard neue **Prices** an (oder dupliziert bestehende und passt Betrag/Intervall an), traegt die neuen IDs in die Umgebung ein:
+Die interne Berechnung und Marketing-Defaults folgen `config/pricing_canonical.json` bzw. der Tabelle `license_pricing_config` (siehe `docs/product/pricing-canonical.md`). Die Landingpage liest oeffentliche Preisinfos zuerst ueber `GET /public/pricing` und faellt nur bei Fehlern auf `pricing-snapshot.js` zurueck. **Stripe** arbeitet mit **Price IDs**, nicht mit dem Betrag im Code: Wenn sich der veroeffentlichte Monats- oder Jahrespreis aendert, legt ihr in Stripe Dashboard neue **Prices** an (oder dupliziert bestehende und passt Betrag/Intervall an), traegt die neuen IDs in die Umgebung ein:
 
 - `STRIPE_PRICE_ID_PREMIUM` (monatlich)
 - `STRIPE_PRICE_ID_PREMIUM_YEARLY` (jaehrlich, optional)

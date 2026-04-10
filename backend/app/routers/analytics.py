@@ -225,6 +225,8 @@ def _scan_mode_label(scan_type: str | None, fallback: str | None) -> str:
     normalized = (scan_type or fallback or "").strip().lower()
     if normalized in {"deep", "premium_deep"}:
         return "Premium DeepScan"
+    if normalized == "free_deep":
+        return "Free DeepScan"
     return "Free QuickScan"
 
 

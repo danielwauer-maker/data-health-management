@@ -233,6 +233,8 @@ def _format_public_marketing_strings(base_price: float, currency: str, marketing
 
 
 def get_public_pricing_payload(db, plan_code: str = "premium") -> dict[str, Any]:
+    # Public pricing is safe for anonymous callers: only list-price display data,
+    # no internal billing metadata, provider ids, or tenant-specific values.
     canonical = _load_canonical_pricing_document()
     currency = str(canonical.get("currency") or "EUR").upper()
     marketing = canonical.get("marketing") or {}
@@ -261,5 +263,8 @@ def get_public_pricing_payload(db, plan_code: str = "premium") -> dict[str, Any]
         "included_records": included_records,
         "step_records": included_records,
         "step_price": round(step_price, 2),
+        "annual_fixed_price": round(base_price * 12, 2),
+        "monthly_note": PRICING_NOTE_MONTHLY,
+        "annual_note": PRICING_NOTE_ANNUAL,
         "marketing": _format_public_marketing_strings(base_price, currency, marketing),
     }

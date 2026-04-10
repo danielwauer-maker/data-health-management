@@ -103,6 +103,7 @@ page 53100 "DH Setup"
                 {
                     ApplicationArea = All;
                     Editable = false;
+                    ToolTip = 'Shows whether premium recommendations, drilldowns, worklists, and related premium details are unlocked.';
                 }
             }
 

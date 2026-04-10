@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 
+# Product rule: deep_scan is available for free and premium.
+# Premium unlocks additional action/detail features.
 FEATURE_MATRIX: dict[tuple[str, str], tuple[str, ...]] = {
-    ("free", "trial"): ("scan_sync", "quick_scan", "billing_checkout"),
-    ("free", "active"): ("scan_sync", "quick_scan", "billing_checkout"),
+    ("free", "trial"): ("scan_sync", "quick_scan", "deep_scan", "billing_checkout"),
+    ("free", "active"): ("scan_sync", "quick_scan", "deep_scan", "billing_checkout"),
     ("free", "blocked"): ("scan_sync", "quick_scan", "billing_checkout"),
     ("free", "expired"): ("scan_sync", "quick_scan", "billing_checkout"),
     (
@@ -53,6 +55,8 @@ FEATURE_MATRIX: dict[tuple[str, str], tuple[str, ...]] = {
 FALLBACK_FEATURES: tuple[str, ...] = ("scan_sync", "quick_scan", "billing_checkout")
 PREMIUM_ACTION_FEATURES: frozenset[str] = frozenset(
     {
+        # analytics_full is treated as premium detail access because the full
+        # analytics experience exposes premium findings/trends beyond the shared deep-scan basis.
         "recommendations",
         "record_drilldown",
         "correction_worklists",

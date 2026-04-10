@@ -4,8 +4,8 @@ from app.services.entitlement_service import resolve_features
 
 
 EXPECTED_MATRIX: dict[tuple[str, str], set[str]] = {
-    ("free", "trial"): {"scan_sync", "quick_scan", "billing_checkout"},
-    ("free", "active"): {"scan_sync", "quick_scan", "billing_checkout"},
+    ("free", "trial"): {"scan_sync", "quick_scan", "deep_scan", "billing_checkout"},
+    ("free", "active"): {"scan_sync", "quick_scan", "deep_scan", "billing_checkout"},
     ("free", "blocked"): {"scan_sync", "quick_scan", "billing_checkout"},
     ("free", "expired"): {"scan_sync", "quick_scan", "billing_checkout"},
     (

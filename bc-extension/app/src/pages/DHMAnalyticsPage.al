@@ -146,7 +146,7 @@ page 53123 "DHM Analytics"
         if Setup."Premium Enabled" then
             exit('premium_deep');
 
-        exit('free_quick');
+        exit('free_deep');
     end;
 
     local procedure GetDashboardUrl(var Setup: Record "DH Setup"; Token: Text): Text

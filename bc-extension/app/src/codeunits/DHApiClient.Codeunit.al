@@ -611,7 +611,7 @@ codeunit 53100 "DH API Client"
         if Setup."Premium Enabled" then
             exit('premium_deep');
 
-        exit('free_quick');
+        exit('free_deep');
     end;
 
     local procedure EncodeUrlValue(Value: Text): Text

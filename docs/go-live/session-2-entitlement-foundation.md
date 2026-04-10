@@ -6,10 +6,10 @@ Goal: one canonical mapping from `plan` + `license_status` to `features`.
 
 ## 1) Current state (observed)
 
-- Backend currently returns `deep_scan` for any non-`expired` and non-`blocked` tenant.
+- Backend currently resolves `deep_scan` as shared analysis basis for active/trial access.
 - BC extension currently derives premium in two ways:
   - from `plan` + `license_status`
-  - from `features` containing `deep_scan` (`Premium Enabled`)
+  - from premium action/detail features (`Premium Enabled`)
 - This creates conflicting behavior between UI visibility and action gating.
 
 ## 2) Canonical entitlement contract (target)
@@ -49,8 +49,8 @@ Legend: `Y` enabled, `N` disabled.
 
 | plan | license_status | scan_sync | quick_scan | deep_scan | advanced_checks | recommendations | record_drilldown | correction_worklists | analytics_full | billing_checkout | billing_portal |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| free | trial | Y | Y | N | N | N | N | N | N | Y | N |
-| free | active | Y | Y | N | N | N | N | N | N | Y | N |
+| free | trial | Y | Y | Y | N | N | N | N | N | Y | N |
+| free | active | Y | Y | Y | N | N | N | N | N | Y | N |
 | free | blocked | Y | Y | N | N | N | N | N | N | Y | N |
 | free | expired | Y | Y | N | N | N | N | N | N | Y | N |
 | premium | trial | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
@@ -60,6 +60,7 @@ Legend: `Y` enabled, `N` disabled.
 
 Notes:
 - `quick_scan` remains available for all states to keep baseline product usable.
+- `deep_scan` is part of the shared analysis basis for free and premium during active/trial access.
 - Premium-only capabilities are disabled for `blocked`/`expired`.
 - `billing_checkout` remains available to allow upgrade/recovery.
 - `billing_portal` remains available for premium lifecycle self-service.
@@ -82,7 +83,7 @@ Optional (recommended for future-proofing):
 
 `premium_available` in scan payloads/responses is a derived compatibility flag and means:
 
-- `true` when `deep_scan` is present in tenant features
+- `true` when premium action/detail features are present in tenant features
 - `false` otherwise
 
 It must not be treated as an independent source of truth.

@@ -17,6 +17,7 @@ from app.routers.analytics import router as analytics_router
 from app.routers.billing import router as billing_router
 from app.routers.license import router as license_router
 from app.routers.partners import router as partners_router
+from app.routers.public import router as public_router
 from app.routers.scans import router as scans_router
 from app.schemas.scan import (
     QuickScanRequest,
@@ -42,7 +43,7 @@ from app.services.impact_service import (
 )
 from app.services.entitlement_guard_service import get_tenant_features, require_tenant_feature
 from app.services.entitlement_service import is_premium_actions_enabled
-from app.services.pricing_service import ensure_default_license_pricing, get_public_pricing_payload
+from app.services.pricing_service import ensure_default_license_pricing
 from app.services.scoring_service import calculate_quick_scan_result
 from fastapi.responses import RedirectResponse
 
@@ -75,6 +76,7 @@ app.include_router(admin_router)
 app.include_router(analytics_router)
 app.include_router(billing_router)
 app.include_router(partners_router)
+app.include_router(public_router)
 app.include_router(scans_router)
 app.include_router(license_router)
 
@@ -87,28 +89,6 @@ class TenantRegisterRequest(BaseModel):
 class TenantRegisterResponse(BaseModel):
     tenant_id: str
     api_token: str
-
-
-class PublicPricingMarketingLocale(BaseModel):
-    plan_premium_price: str
-    pricing_premium_chip: str
-
-
-class PublicPricingMarketing(BaseModel):
-    de: PublicPricingMarketingLocale
-    en: PublicPricingMarketingLocale
-
-
-class PublicPricingResponse(BaseModel):
-    source: str
-    currency: str
-    plan_code: str
-    display_name: str
-    base_price: float
-    included_records: int
-    step_records: int
-    step_price: float
-    marketing: PublicPricingMarketing
 
 
 @app.get("/health")
@@ -128,12 +108,6 @@ def root():
             "docs": "/docs"
         }
     }
-
-
-@app.get("/public/pricing", response_model=PublicPricingResponse)
-def get_public_pricing() -> PublicPricingResponse:
-    with SessionLocal() as db:
-        return PublicPricingResponse.model_validate(get_public_pricing_payload(db, "premium"))
 
 
 @app.post("/tenant/register", response_model=TenantRegisterResponse)

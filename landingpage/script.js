@@ -399,13 +399,33 @@ function mergePricingMarketingStrings(marketing) {
   });
 }
 
+function isValidPublicPricingPayload(payload) {
+  return Boolean(
+    payload &&
+    typeof payload === "object" &&
+    typeof payload.currency === "string" &&
+    typeof payload.plan_code === "string" &&
+    Number.isFinite(Number(payload.base_price)) &&
+    payload.marketing &&
+    payload.marketing.de &&
+    payload.marketing.en
+  );
+}
+
 async function loadPublicPricing() {
   try {
     const response = await fetch("/public/pricing", {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      throw new Error("Unexpected content type");
+    }
     const payload = await response.json();
+    if (!isValidPublicPricingPayload(payload)) {
+      throw new Error("Invalid public pricing payload");
+    }
     const marketing = payload?.marketing || buildMarketingStringsFromPublicPricing(payload);
     mergePricingMarketingStrings(marketing);
     applyTranslations(document.documentElement.getAttribute("lang") || getInitialLanguage());

@@ -249,10 +249,10 @@ table 53100 "DH Setup"
 
     procedure GetFeatureAccessText(): Text[100]
     begin
-        if IsPremiumLicenseActive() then
-            exit('Premium access unlocked');
+        if "Premium Enabled" then
+            exit('Premium actions unlocked');
 
-        exit('Free mode: insights visible, actions locked');
+        exit('Deep scan basis available, premium actions locked');
     end;
 
     procedure GetUpgradeHintText(): Text[250]
