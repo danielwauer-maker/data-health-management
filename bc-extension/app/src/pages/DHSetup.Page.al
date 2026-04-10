@@ -256,8 +256,8 @@ page 53100 "DH Setup"
                 var
                     ApiClient: Codeunit "DH API Client";
                 begin
-                    if Rec.IsPremiumLicenseActive() then begin
-                        Message('Premium is already active for this tenant.');
+                    if Rec."Premium Enabled" then begin
+                        Message('Premium actions are already unlocked for this tenant.');
                         exit;
                     end;
 
@@ -312,7 +312,7 @@ page 53100 "DH Setup"
                         CurrPage.Update(false);
 
                         if DeepScanRun.Get(EntryNo) then
-                            if Setup.IsPremiumLicenseActive() then
+                            if Setup."Premium Enabled" then
                                 Message('BCSentinel Premium deep scan queued.\Run ID: %1\Status: %2', DeepScanRun."Run ID", Format(DeepScanRun.Status))
                             else
                                 Message('BCSentinel deep scan queued in Free mode.\Run ID: %1\Status: %2\Premium unlocks recommendations and correction actions.', DeepScanRun."Run ID", Format(DeepScanRun.Status));
@@ -376,7 +376,7 @@ page 53100 "DH Setup"
 
     local procedure GetScanMode(var Setup: Record "DH Setup"): Text
     begin
-        if Setup.IsPremiumLicenseActive() then
+        if Setup."Premium Enabled" then
             exit('premium_deep');
         exit('free_deep');
     end;

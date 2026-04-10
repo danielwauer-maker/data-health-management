@@ -144,7 +144,7 @@ page 53131 "DH Deep Scan Findings"
         AccessText := 'Upgrade to Premium';
 
         if Setup.Get('SETUP') then
-            if Setup.IsPremiumLicenseActive() then begin
+            if Setup."Premium Enabled" then begin
                 ShowPremiumDetails := true;
                 AccessText := 'Unlocked';
             end;

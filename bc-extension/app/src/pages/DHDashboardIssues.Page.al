@@ -159,7 +159,7 @@ page 53135 "DH Dashboard Issues"
         AccessText := 'Upgrade to Premium for detailed insights';
 
         if Setup.Get('SETUP') then
-            if Setup.IsPremiumLicenseActive() then begin
+            if Setup."Premium Enabled" then begin
                 ShowPremiumDetails := true;
                 AccessText := 'Unlocked';
             end;

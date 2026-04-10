@@ -32,7 +32,7 @@ codeunit 53142 "DH Issue Drilldown Mgt."
         if not Setup.Get('SETUP') then
             Error('Setup not found.');
 
-        if not Setup.IsPremiumLicenseActive() then
+        if not Setup."Premium Enabled" then
             Error('This tenant already uses the full DeepScan data basis. Upgrade to Premium to unlock recommendations, drilldowns, and correction worklists.');
     end;
 }

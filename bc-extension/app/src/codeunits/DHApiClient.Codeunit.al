@@ -145,8 +145,7 @@ codeunit 53100 "DH API Client"
         if JsonResponse.Get('features', FeaturesToken) then begin
             Features := FeaturesToken.AsArray();
             Setup."Premium Enabled" := HasPremiumActionFeatures(Features);
-        end else
-            Setup."Premium Enabled" := IsPremiumAllowed(Setup);
+        end;
 
         Setup.Modify(true);
     end;

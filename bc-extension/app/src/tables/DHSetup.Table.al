@@ -257,7 +257,7 @@ table 53100 "DH Setup"
 
     procedure GetUpgradeHintText(): Text[250]
     begin
-        if IsPremiumLicenseActive() then
+        if "Premium Enabled" then
             exit('Premium recommendations and correction actions are available for this tenant.');
 
         exit('This scan already uses the full DeepScan data basis. Upgrade to Premium to unlock recommendations, drilldowns, and correction worklists.');

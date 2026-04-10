@@ -114,14 +114,17 @@ def _issue_recommendation(issue: ScanIssueRecord) -> str:
 
 
 
-def _load_recent_scans_desc(tenant_id: str, limit: int = 20) -> list[Scan]:
+def _load_recent_scans_desc(tenant_id: str, limit: int | None = None) -> list[Scan]:
     with SessionLocal() as db:
-        scans = db.scalars(
+        query = (
             select(Scan)
             .where(Scan.tenant_id == tenant_id)
             .order_by(Scan.generated_at_utc.desc(), Scan.id.desc())
-            .limit(limit)
-        ).all()
+        )
+        if limit is not None:
+            query = query.limit(limit)
+
+        scans = db.scalars(query).all()
     return list(scans)
 
 
@@ -411,7 +414,7 @@ def _build_dashboard_payload(
     if tenant is None:
         return _build_fallback_payload(company, environment, scan_mode)
 
-    recent_scans_desc = _load_recent_scans_desc(tenant.tenant_id, limit=20)
+    recent_scans_desc = _load_recent_scans_desc(tenant.tenant_id)
     if not recent_scans_desc:
         return _build_fallback_payload(company, environment, scan_mode)
 

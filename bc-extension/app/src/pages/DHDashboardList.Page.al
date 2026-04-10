@@ -185,8 +185,8 @@ page 53124 "DH Dashboard List"
                     if not Setup.Get('SETUP') then
                         Error('Setup not found.');
 
-                    if Setup.IsPremiumLicenseActive() then begin
-                        Message('Premium is already active for this tenant.');
+                    if Setup."Premium Enabled" then begin
+                        Message('Premium actions are already unlocked for this tenant.');
                         exit;
                     end;
 
