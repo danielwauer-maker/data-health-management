@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -68,6 +69,20 @@ app = FastAPI(
     title="Data Health Management APIs",
     version="0.7.0",
     lifespan=lifespan,
+)
+
+PUBLIC_FRONTEND_ORIGINS = [
+    "https://dev.bcsentinel.com",
+    "https://www.bcsentinel.com",
+    "https://bcsentinel.com",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=PUBLIC_FRONTEND_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=["Accept", "Content-Type"],
 )
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
