@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import desc, select
+from sqlalchemy.exc import IntegrityError
 
 from app.models import BillingWebhookEvent, Invoice, Subscription, Tenant
 
@@ -59,7 +60,12 @@ def resolve_effective_license(db, tenant: Tenant) -> tuple[str, str]:
 
 
 def ensure_webhook_event_once(db, *, provider: str, event_id: str, event_type: str, payload_json: str) -> tuple[BillingWebhookEvent, bool]:
-    existing = db.scalar(select(BillingWebhookEvent).where(BillingWebhookEvent.event_id == event_id))
+    existing = db.scalar(
+        select(BillingWebhookEvent).where(
+            BillingWebhookEvent.provider == provider,
+            BillingWebhookEvent.event_id == event_id,
+        )
+    )
     if existing is not None:
         return existing, False
 
@@ -72,7 +78,19 @@ def ensure_webhook_event_once(db, *, provider: str, event_id: str, event_type: s
         processed_at_utc=None,
     )
     db.add(created)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        existing_after_race = db.scalar(
+            select(BillingWebhookEvent).where(
+                BillingWebhookEvent.provider == provider,
+                BillingWebhookEvent.event_id == event_id,
+            )
+        )
+        if existing_after_race is not None:
+            return existing_after_race, False
+        raise
     return created, True
 
 

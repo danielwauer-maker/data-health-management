@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 class PartnerCreateRequest(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     partner_code: str = Field(min_length=2, max_length=40)
-    default_commission_rate: float = Field(default=0.2, ge=0.0, le=1.0)
+    default_commission_rate: float = Field(default=0.3, ge=0.0, le=1.0)
 
 
 class PartnerCreateResponse(BaseModel):

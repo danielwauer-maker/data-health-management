@@ -25,6 +25,7 @@ from app.services.billing_service import (
     upsert_subscription_from_payload,
     utc_now,
 )
+from app.services.entitlement_guard_service import require_tenant_feature
 from app.services.partner_service import ensure_partner_commission_for_invoice
 
 router = APIRouter(tags=["billing"])
@@ -39,18 +40,23 @@ router = APIRouter(tags=["billing"])
 # - invoice.voided                  -> invoice.voided
 SUPPORTED_STRIPE_EVENTS = {
     "checkout.session.completed",
+    "checkout.session.expired",
     "customer.subscription.created",
     "customer.subscription.updated",
     "customer.subscription.deleted",
     "invoice.paid",
     "invoice.payment_failed",
     "invoice.voided",
+    "invoice.finalized",
+    "invoice.updated",
+    "invoice.marked_uncollectible",
 }
 
 
 class CheckoutSessionRequest(BaseModel):
     tenant_id: str
     plan_code: str = "premium"
+    billing_interval: str = "monthly"
     success_url: str | None = None
     cancel_url: str | None = None
 
@@ -61,6 +67,18 @@ class CheckoutSessionResponse(BaseModel):
     provider: str
     tenant_id: str
     plan_code: str
+    billing_interval: str = "monthly"
+
+
+class BillingPortalRequest(BaseModel):
+    tenant_id: str
+    return_url: str | None = None
+
+
+class BillingPortalResponse(BaseModel):
+    provider: str
+    tenant_id: str
+    portal_url: str
 
 
 class BillingSubscriptionStatusResponse(BaseModel):
@@ -74,6 +92,12 @@ class BillingSubscriptionStatusResponse(BaseModel):
     cancel_at_period_end: bool = False
     amount_monthly: float = 0.0
     currency: str = "EUR"
+
+
+class CheckoutSessionSyncResponse(BaseModel):
+    status: str
+    checkout_session_id: str
+    subscription_status: BillingSubscriptionStatusResponse
 
 
 class BillingWebhookPayload(BaseModel):
@@ -115,11 +139,29 @@ def _dt_from_unix(value) -> datetime | None:
         return None
 
 
+def _extract_subscription_monthly_amount(subscription_obj: dict) -> float:
+    price_data = (
+        ((subscription_obj.get("items", {}) or {}).get("data", [{}])[0].get("price", {}) or {})
+    )
+    recurring = (price_data.get("recurring") or {}) if isinstance(price_data, dict) else {}
+    recurring_interval = str(recurring.get("interval") or "month").strip().lower()
+    recurring_interval_count = int(recurring.get("interval_count") or 1)
+    unit_amount = float(price_data.get("unit_amount") or 0) / 100.0
+    if recurring_interval == "year":
+        divisor = max(1, 12 * recurring_interval_count)
+        return unit_amount / divisor
+    return unit_amount / max(1, recurring_interval_count)
+
+
 def _is_stripe_configured() -> bool:
     return bool(
         (settings.STRIPE_SECRET_KEY or "").strip()
         and (settings.STRIPE_PRICE_ID_PREMIUM or "").strip()
     )
+
+
+def _is_prod_env() -> bool:
+    return (settings.ENV or "").strip().lower() == "prod"
 
 
 def _stripe_default_success_url() -> str:
@@ -134,6 +176,32 @@ def _stripe_default_cancel_url() -> str:
     if configured:
         return configured
     return "https://app.bcsentinel.com/billing/cancel"
+
+
+def _stripe_default_portal_return_url() -> str:
+    configured = (settings.BILLING_PORTAL_RETURN_URL or "").strip()
+    if configured:
+        return configured
+    return "https://app.bcsentinel.com/billing"
+
+
+def _normalize_billing_interval(value: str | None) -> str:
+    normalized = (value or "monthly").strip().lower()
+    if normalized in {"monthly", "yearly"}:
+        return normalized
+    raise HTTPException(status_code=400, detail="billing_interval must be 'monthly' or 'yearly'.")
+
+
+def _resolve_stripe_price_id(billing_interval: str) -> str:
+    if billing_interval == "yearly":
+        price_id = (settings.STRIPE_PRICE_ID_PREMIUM_YEARLY or "").strip()
+        if not price_id:
+            raise HTTPException(status_code=503, detail="Yearly premium billing is not configured.")
+        return price_id
+    price_id = (settings.STRIPE_PRICE_ID_PREMIUM or "").strip()
+    if not price_id:
+        raise HTTPException(status_code=503, detail="Monthly premium billing is not configured.")
+    return price_id
 
 
 def _find_tenant_for_invoice(db, explicit_tenant_id: str | None, provider_subscription_id: str | None) -> Tenant | None:
@@ -247,25 +315,34 @@ def create_checkout_session(
     enforce_tenant_match(payload.tenant_id, header_tenant_id, "Payload tenant_id")
 
     with SessionLocal() as db:
-        load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        require_tenant_feature(db, tenant, "billing_checkout")
+
+    billing_interval = _normalize_billing_interval(payload.billing_interval)
+
+    if _is_prod_env() and not _is_stripe_configured():
+        raise HTTPException(status_code=503, detail="Stripe checkout is not configured for production.")
 
     if _is_stripe_configured():
         stripe.api_key = settings.STRIPE_SECRET_KEY
         success_url = (payload.success_url or "").strip() or _stripe_default_success_url()
         cancel_url = (payload.cancel_url or "").strip() or _stripe_default_cancel_url()
+        price_id = _resolve_stripe_price_id(billing_interval)
         session = stripe.checkout.Session.create(
             mode="subscription",
-            line_items=[{"price": settings.STRIPE_PRICE_ID_PREMIUM, "quantity": 1}],
+            line_items=[{"price": price_id, "quantity": 1}],
             success_url=success_url,
             cancel_url=cancel_url,
             metadata={
                 "tenant_id": payload.tenant_id,
                 "plan_code": (payload.plan_code or "premium").lower(),
+                "billing_interval": billing_interval,
             },
             subscription_data={
                 "metadata": {
                     "tenant_id": payload.tenant_id,
                     "plan_code": (payload.plan_code or "premium").lower(),
+                    "billing_interval": billing_interval,
                 }
             },
         )
@@ -275,6 +352,7 @@ def create_checkout_session(
             provider="stripe",
             tenant_id=payload.tenant_id,
             plan_code=(payload.plan_code or "premium").lower(),
+            billing_interval=billing_interval,
         )
 
     session_id = f"chk_{uuid4().hex}"
@@ -288,6 +366,50 @@ def create_checkout_session(
         provider="pending_integration",
         tenant_id=payload.tenant_id,
         plan_code=(payload.plan_code or "premium").lower(),
+        billing_interval=billing_interval,
+    )
+
+
+@router.post("/billing/portal", response_model=BillingPortalResponse)
+def create_billing_portal_session(
+    payload: BillingPortalRequest,
+    tenant_auth: tuple[str, str] = Depends(require_tenant_headers),
+) -> BillingPortalResponse:
+    header_tenant_id, header_api_token = tenant_auth
+    enforce_tenant_match(payload.tenant_id, header_tenant_id, "Payload tenant_id")
+
+    with SessionLocal() as db:
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        require_tenant_feature(db, tenant, "billing_portal")
+        subscription = get_latest_subscription_for_tenant(db, tenant.tenant_id)
+
+    if subscription is None or not (subscription.provider_subscription_id or "").strip():
+        raise HTTPException(status_code=404, detail="No active subscription found for tenant.")
+
+    if not _is_stripe_configured():
+        if _is_prod_env():
+            raise HTTPException(status_code=503, detail="Stripe billing portal is not configured for production.")
+        return BillingPortalResponse(
+            provider="pending_integration",
+            tenant_id=payload.tenant_id,
+            portal_url=(payload.return_url or _stripe_default_portal_return_url()),
+        )
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    provider_subscription_id = (subscription.provider_subscription_id or "").strip()
+    stripe_subscription = stripe.Subscription.retrieve(provider_subscription_id)
+    customer_id = str(getattr(stripe_subscription, "customer", "") or "").strip()
+    if not customer_id:
+        raise HTTPException(status_code=502, detail="Stripe customer reference missing on subscription.")
+
+    portal = stripe.billing_portal.Session.create(
+        customer=customer_id,
+        return_url=(payload.return_url or "").strip() or _stripe_default_portal_return_url(),
+    )
+    return BillingPortalResponse(
+        provider="stripe",
+        tenant_id=payload.tenant_id,
+        portal_url=str(getattr(portal, "url", "") or ""),
     )
 
 
@@ -321,6 +443,83 @@ def get_billing_subscription_status(
             amount_monthly=float(subscription.amount_monthly or 0.0),
             currency=subscription.currency or "EUR",
         )
+
+
+@router.get("/billing/checkout/session/status", response_model=CheckoutSessionSyncResponse)
+def sync_checkout_session_status(
+    session_id: str,
+    tenant_auth: tuple[str, str] = Depends(require_tenant_headers),
+) -> CheckoutSessionSyncResponse:
+    header_tenant_id, header_api_token = tenant_auth
+    if not (session_id or "").strip():
+        raise HTTPException(status_code=400, detail="session_id is required.")
+
+    if not _is_stripe_configured():
+        if _is_prod_env():
+            raise HTTPException(status_code=503, detail="Stripe is not configured for production.")
+        status_payload = get_billing_subscription_status(tenant_auth)
+        return CheckoutSessionSyncResponse(
+            status="pending_integration",
+            checkout_session_id=session_id,
+            subscription_status=status_payload,
+        )
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    checkout = stripe.checkout.Session.retrieve(
+        session_id,
+        expand=["subscription", "subscription.items.data.price"],
+    )
+
+    tenant_id_from_session = str((checkout.get("metadata", {}) or {}).get("tenant_id") or "").strip()
+    if tenant_id_from_session:
+        enforce_tenant_match(tenant_id_from_session, header_tenant_id, "Checkout metadata tenant_id")
+
+    subscription_obj = checkout.get("subscription")
+    if not subscription_obj:
+        status_payload = get_billing_subscription_status(tenant_auth)
+        return CheckoutSessionSyncResponse(
+            status="pending",
+            checkout_session_id=session_id,
+            subscription_status=status_payload,
+        )
+
+    if not isinstance(subscription_obj, dict):
+        subscription_obj = stripe.Subscription.retrieve(str(subscription_obj))
+
+    provider_subscription_id = str(subscription_obj.get("id") or "").strip()
+    if not provider_subscription_id:
+        raise HTTPException(status_code=502, detail="Stripe subscription id missing in checkout session.")
+
+    resolved_tenant_id = tenant_id_from_session or header_tenant_id
+
+    with SessionLocal() as db:
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        enforce_tenant_match(resolved_tenant_id, tenant.tenant_id, "Resolved tenant_id")
+
+        subscription = upsert_subscription_from_payload(
+            db,
+            tenant_id=tenant.tenant_id,
+            provider="stripe",
+            provider_subscription_id=provider_subscription_id,
+            status=str(subscription_obj.get("status") or "incomplete").lower(),
+            plan_code=str((subscription_obj.get("metadata", {}) or {}).get("plan_code") or "premium").lower(),
+            currency=str(subscription_obj.get("currency") or "EUR").upper(),
+            amount_monthly=float(_extract_subscription_monthly_amount(subscription_obj)),
+            current_period_start_utc=_dt_from_unix(subscription_obj.get("current_period_start")),
+            current_period_end_utc=_dt_from_unix(subscription_obj.get("current_period_end")),
+            cancel_at_period_end=bool(subscription_obj.get("cancel_at_period_end") or False),
+            canceled_at_utc=_dt_from_unix(subscription_obj.get("canceled_at")),
+        )
+        sync_tenant_license_from_subscription(tenant, subscription)
+        tenant.last_seen_at_utc = utc_now()
+        db.commit()
+
+    status_payload = get_billing_subscription_status(tenant_auth)
+    return CheckoutSessionSyncResponse(
+        status="synced",
+        checkout_session_id=session_id,
+        subscription_status=status_payload,
+    )
 
 
 @router.post("/billing/webhook", response_model=BillingWebhookResponse)
@@ -371,19 +570,30 @@ async def process_billing_webhook(
                     raw_payload_json=body_text,
                 )
 
+        if event_type == "checkout.session.expired":
+            tenant_id = str((data_object.get("metadata", {}) or {}).get("tenant_id") or "").strip()
+            if not tenant_id:
+                return BillingWebhookResponse(status="ignored", event_id=event_id, processed=False)
+            with SessionLocal() as db:
+                return _process_normalized_webhook(
+                    db,
+                    provider="stripe",
+                    event_id=event_id,
+                    event_type=event_type,
+                    tenant_id=tenant_id,
+                    occurred_at_utc=occurred_at_utc,
+                    subscription_data=None,
+                    invoice_data=None,
+                    raw_payload_json=body_text,
+                )
+
         if event_type.startswith("customer.subscription."):
             subscription_data = {
                 "id": data_object.get("id"),
                 "status": data_object.get("status"),
                 "plan_code": (data_object.get("metadata", {}) or {}).get("plan_code", "premium"),
                 "currency": (data_object.get("currency") or "EUR").upper(),
-                "amount_monthly": float(
-                    ((data_object.get("items", {}) or {}).get("data", [{}])[0].get("price", {}) or {}).get(
-                        "unit_amount", 0
-                    )
-                    or 0
-                )
-                / 100.0,
+                "amount_monthly": float(_extract_subscription_monthly_amount(data_object)),
                 "current_period_end_utc": _dt_from_unix(data_object.get("current_period_end")),
                 "cancel_at_period_end": bool(data_object.get("cancel_at_period_end")),
                 "canceled_at_utc": _dt_from_unix(data_object.get("canceled_at")),
@@ -428,6 +638,9 @@ async def process_billing_webhook(
                 invoice_data=invoice_data,
                 raw_payload_json=body_text,
             )
+
+    if _is_prod_env():
+        raise HTTPException(status_code=400, detail="Stripe-Signature header is required in production.")
 
     try:
         payload = BillingWebhookPayload.model_validate_json(body_text)

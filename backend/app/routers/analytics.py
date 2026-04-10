@@ -19,8 +19,14 @@ from app.security.tenant import (
     require_tenant_headers,
 )
 from app.security.token import create_token, verify_token
+from app.services.entitlement_guard_service import get_tenant_features
+from app.services.entitlement_service import is_premium_actions_enabled
 from app.services.impact_service import normalize_stored_commercials
-from app.services.pricing_service import calculate_monthly_price, get_license_pricing
+from app.services.pricing_service import (
+    build_embed_pricing_breakdown,
+    calculate_monthly_price,
+    get_license_pricing,
+)
 
 router = APIRouter(tags=["analytics"])
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
@@ -266,40 +272,18 @@ def _get_current_plan_price_monthly(tenant: Tenant | None, scan: Scan | None) ->
 
 
 def _get_premium_pricing_breakdown(scan: Scan | None) -> dict[str, Any]:
-    base_price = 149.0
-    step_records = 2000
-    price_per_step = 8.0
-
     total_records = _safe_int(getattr(scan, "total_records", 0)) if scan is not None else 0
-
-    try:
-        with SessionLocal() as db:
-            pricing = get_license_pricing(db, "premium")
-            if pricing is not None:
-                base_price = _safe_float(getattr(pricing, "base_price_monthly", 149.0), 149.0)
-                step_records = max(_safe_int(getattr(pricing, "included_records", 2000), 2000), 1)
-                price_per_step = _safe_float(getattr(pricing, "additional_price_per_1000_records", 8.0), 8.0)
-                final_price = round(_safe_float(calculate_monthly_price(total_records, pricing)), 2)
-            else:
-                final_price = round(base_price + ((total_records / step_records) * price_per_step if total_records > 0 else 0.0), 2)
-    except Exception:
-        final_price = round(base_price + ((total_records / step_records) * price_per_step if total_records > 0 else 0.0), 2)
-
-    variable_price = round((total_records / step_records) * price_per_step if total_records > 0 else 0.0, 2)
-
-    return {
-        "base_price_monthly": round(base_price, 2),
-        "step_records": step_records,
-        "price_per_step": round(price_per_step, 2),
-        "variable_price_monthly": variable_price,
-        "final_price_monthly": final_price,
-        "annual_fixed_price": round(final_price * 12, 2),
-        "monthly_note": "Monthly billing is recalculated from your current scanned records.",
-        "annual_note": "Annual billing locks in your current price for 12 months, even if your record volume increases.",
-    }
+    with SessionLocal() as db:
+        pricing = get_license_pricing(db, "premium")
+        return build_embed_pricing_breakdown(total_records, pricing)
 
 
 def _build_fallback_payload(company: str, environment: str, scan_mode: str | None) -> dict[str, Any]:
+    with SessionLocal() as db:
+        pricing = get_license_pricing(db, "premium")
+        default_pricing = build_embed_pricing_breakdown(0, pricing)
+    fallback_monthly = _safe_float(default_pricing.get("final_price_monthly"), 0.0)
+
     return {
         "title": "BCSentinel Analytics",
         "subtitle": f"{company} · {environment}",
@@ -323,7 +307,7 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
             "health_score": 0,
             "total_records": 0,
             "affected_records": 0,
-            "estimated_premium_price_monthly": 149.0,
+            "estimated_premium_price_monthly": fallback_monthly,
             "estimated_loss_eur": 0.0,
             "potential_saving_eur": 0.0,
             "roi_eur": 0.0,
@@ -355,37 +339,19 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
                 "Business Central navigation",
             ],
         },
-        "pricing_breakdown": {
-            "base_price_monthly": 149.0,
-            "step_records": 2000,
-            "price_per_step": 8.0,
-            "variable_price_monthly": 0.0,
-            "final_price_monthly": 149.0,
-            "annual_fixed_price": 1788.0,
-            "monthly_note": "Monthly billing is recalculated from your current scanned records.",
-            "annual_note": "Annual billing locks in your current price for 12 months, even if your record volume increases.",
-        },
+        "pricing_breakdown": default_pricing,
         "subscription": {
             "plan_label": "Free",
             "price_monthly": 0.0,
             "annual_cost": 0.0,
             "cta_label": "Upgrade to Premium",
             "plan_note": "Insight is free. Action is Premium.",
-            "pricing_breakdown": {
-                "base_price_monthly": 149.0,
-                "step_records": 2000,
-                "price_per_step": 8.0,
-                "variable_price_monthly": 0.0,
-                "final_price_monthly": 149.0,
-                "annual_fixed_price": 1788.0,
-                "monthly_note": "Monthly billing is recalculated from your current scanned records.",
-                "annual_note": "Annual billing locks in your current price for 12 months, even if your record volume increases.",
-            },
+            "pricing_breakdown": default_pricing,
             "billing_options": {
                 "monthly_label": "Monthly billing",
-                "monthly_note": "Monthly billing is recalculated from your current scanned records.",
+                "monthly_note": default_pricing.get("monthly_note", ""),
                 "annual_label": "Annual fixed plan",
-                "annual_note": "Annual billing locks in your current price for 12 months, even if your record volume increases.",
+                "annual_note": default_pricing.get("annual_note", ""),
             },
         },
     }
@@ -441,9 +407,12 @@ def _build_dashboard_payload(
 
     active_scan = _select_active_scan(recent_scans_desc, selected_scan_id)
     issues = _load_scan_issues(active_scan.scan_id)
+    with SessionLocal() as db:
+        tenant_features = get_tenant_features(db, tenant)
 
     current_plan = _normalize_plan(getattr(tenant, "current_plan", "free"))
-    is_premium = current_plan == "premium"
+    is_premium = is_premium_actions_enabled(tenant_features)
+    can_view_recommendations = "recommendations" in tenant_features
 
     pricing_breakdown = _get_premium_pricing_breakdown(active_scan)
 
@@ -503,7 +472,7 @@ def _build_dashboard_payload(
             "count": _safe_int(issue.affected_count),
             "impact_eur": round(_safe_float(issue.estimated_impact_eur), 2),
             "group": _issue_group_from_code(issue.code),
-            "recommendation_preview": _issue_recommendation(issue),
+            "recommendation_preview": _issue_recommendation(issue) if can_view_recommendations else "",
             "premium_only": bool(issue.premium_only),
         }
         for issue in issues
@@ -566,7 +535,7 @@ def _build_dashboard_payload(
             {"name": name, "count": count}
             for name, count in sorted(issue_groups.items(), key=lambda item: item[1], reverse=True)
         ],
-        "top_findings": top_findings,
+        "top_findings": top_findings if is_premium else [],
         "premium_preview_findings": premium_preview_findings,
         "premium_unlock": {
             "headline": "Do you want to keep losing money or start fixing the root causes?",

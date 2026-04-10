@@ -29,6 +29,9 @@ BCSentinel is sold as a Business Central data quality and business impact platfo
   - Teams actively fixing master/process data quality
   - Multi-tenant partners serving BC customers
 
+## Operational source of truth
+For implemented list prices, defaults, DB seeding, and landing snapshots, see **`docs/product/pricing-canonical.md`** and **`config/pricing_canonical.json`**.
+
 ## Price governance
 - Billing cadence: monthly
 - Currency default: EUR

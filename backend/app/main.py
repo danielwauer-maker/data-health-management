@@ -40,7 +40,9 @@ from app.services.impact_service import (
     ensure_default_impact_config,
     normalize_stored_commercials,
 )
-from app.services.pricing_service import ensure_default_license_pricing
+from app.services.entitlement_guard_service import get_tenant_features, require_tenant_feature
+from app.services.entitlement_service import is_premium_actions_enabled
+from app.services.pricing_service import ensure_default_license_pricing, get_public_pricing_payload
 from app.services.scoring_service import calculate_quick_scan_result
 from fastapi.responses import RedirectResponse
 
@@ -87,6 +89,28 @@ class TenantRegisterResponse(BaseModel):
     api_token: str
 
 
+class PublicPricingMarketingLocale(BaseModel):
+    plan_premium_price: str
+    pricing_premium_chip: str
+
+
+class PublicPricingMarketing(BaseModel):
+    de: PublicPricingMarketingLocale
+    en: PublicPricingMarketingLocale
+
+
+class PublicPricingResponse(BaseModel):
+    source: str
+    currency: str
+    plan_code: str
+    display_name: str
+    base_price: float
+    included_records: int
+    step_records: int
+    step_price: float
+    marketing: PublicPricingMarketing
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -104,6 +128,12 @@ def root():
             "docs": "/docs"
         }
     }
+
+
+@app.get("/public/pricing", response_model=PublicPricingResponse)
+def get_public_pricing() -> PublicPricingResponse:
+    with SessionLocal() as db:
+        return PublicPricingResponse.model_validate(get_public_pricing_payload(db, "premium"))
 
 
 @app.post("/tenant/register", response_model=TenantRegisterResponse)
@@ -143,6 +173,8 @@ def quick_scan(
 
     with SessionLocal() as db:
         tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        tenant_features = get_tenant_features(db, tenant)
+        require_tenant_feature(db, tenant, "quick_scan")
 
         data_score, checks_count, issues_count, summary, issues = calculate_quick_scan_result(
             payload.metrics
@@ -177,7 +209,7 @@ def quick_scan(
                 data_score=data_score,
                 checks_count=checks_count,
                 issues_count=issues_count,
-                premium_available=True,
+                premium_available=is_premium_actions_enabled(tenant_features),
                 summary_headline=summary.headline,
                 summary_rating=summary.rating,
                 customers_count=payload.data_profile.customers,
@@ -203,7 +235,7 @@ def quick_scan(
             scan.data_score = data_score
             scan.checks_count = checks_count
             scan.issues_count = issues_count
-            scan.premium_available = True
+            scan.premium_available = is_premium_actions_enabled(tenant_features)
             scan.summary_headline = summary.headline
             scan.summary_rating = summary.rating
             apply_commercials_to_scan(scan, commercials)
@@ -255,7 +287,7 @@ def quick_scan(
         data_score=data_score,
         checks_count=checks_count,
         issues_count=issues_count,
-        premium_available=True,
+        premium_available=is_premium_actions_enabled(tenant_features),
         summary=summary,
         issues=enriched_issues,
         data_profile=payload.data_profile,
@@ -278,7 +310,8 @@ def get_scan_history(
     enforce_tenant_match(tenant_id, header_tenant_id, "Path tenant_id")
 
     with SessionLocal() as db:
-        load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        require_tenant_feature(db, tenant, "quick_scan")
 
         scans = db.scalars(
             select(Scan)
@@ -369,7 +402,8 @@ def get_scan_trend(
     enforce_tenant_match(tenant_id, header_tenant_id, "Path tenant_id")
 
     with SessionLocal() as db:
-        load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        require_tenant_feature(db, tenant, "quick_scan")
 
         scans = db.scalars(
             select(Scan)

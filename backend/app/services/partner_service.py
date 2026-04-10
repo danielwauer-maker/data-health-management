@@ -1,9 +1,14 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models import Invoice, Partner, PartnerCommission, PartnerReferral
 from app.services.billing_service import utc_now
+
+STANDARD_COMMISSION_RATE = 0.30
+RENEWAL_COMMISSION_RATE = 0.15
+PAID_INVOICE_STATUSES = {"paid"}
+REVERSAL_INVOICE_STATUSES = {"void", "voided", "uncollectible", "marked_uncollectible", "refunded"}
 
 
 def normalize_partner_code(value: str) -> str:
@@ -49,11 +54,52 @@ def attach_partner_referral_to_tenant(
     return referral
 
 
+def resolve_partner_commission_rate(db, partner: Partner, invoice: Invoice) -> float:
+    prior_commissions_count = int(
+        db.scalar(
+            select(func.count(PartnerCommission.id)).where(
+                PartnerCommission.partner_id == partner.id,
+                PartnerCommission.tenant_id == invoice.tenant_id,
+            )
+        )
+        or 0
+    )
+    if prior_commissions_count > 0:
+        return RENEWAL_COMMISSION_RATE
+    return float(partner.default_commission_rate or STANDARD_COMMISSION_RATE)
+
+
+def reconcile_partner_commission_for_invoice(db, *, invoice: Invoice) -> PartnerCommission | None:
+    if invoice is None:
+        return None
+
+    existing_commission = db.scalar(
+        select(PartnerCommission).where(PartnerCommission.provider_invoice_id == invoice.provider_invoice_id)
+    )
+    if existing_commission is None:
+        return None
+
+    invoice_status = (invoice.status or "").lower()
+    if invoice_status in PAID_INVOICE_STATUSES:
+        return existing_commission
+
+    if invoice_status in REVERSAL_INVOICE_STATUSES:
+        if existing_commission.status != "paid":
+            existing_commission.status = "rejected"
+            existing_commission.note = f"Auto-reversed because invoice status is '{invoice_status}'."
+        else:
+            existing_commission.note = (
+                f"Invoice status is '{invoice_status}'. Manual clawback required for already paid commission."
+            )
+    return existing_commission
+
+
 def ensure_partner_commission_for_invoice(db, *, invoice: Invoice) -> PartnerCommission | None:
     if invoice is None:
         return None
-    if (invoice.status or "").lower() != "paid":
-        return None
+    invoice_status = (invoice.status or "").lower()
+    if invoice_status != "paid":
+        return reconcile_partner_commission_for_invoice(db, invoice=invoice)
 
     existing_commission = db.scalar(
         select(PartnerCommission).where(PartnerCommission.provider_invoice_id == invoice.provider_invoice_id)
@@ -72,7 +118,7 @@ def ensure_partner_commission_for_invoice(db, *, invoice: Invoice) -> PartnerCom
         return None
 
     base_amount = float(invoice.amount_paid or invoice.amount_total or 0.0)
-    rate = float(partner.default_commission_rate or 0.0)
+    rate = resolve_partner_commission_rate(db, partner, invoice)
     commission_amount = round(base_amount * rate, 2)
 
     commission = PartnerCommission(

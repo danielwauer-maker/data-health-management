@@ -2079,6 +2079,7 @@ codeunit 53128 "DH Deep Scan Runner"
     local procedure EnsureDashboardHeaderForDeepScan(var DeepScanRun: Record "DH Deep Scan Run")
     var
         ScanHeader: Record "DH Scan Header";
+        Setup: Record "DH Setup";
     begin
         ScanHeader.Reset();
         ScanHeader.SetRange("Scan Type", ScanHeader."Scan Type"::Deep);
@@ -2130,7 +2131,10 @@ codeunit 53128 "DH Deep Scan Runner"
         ScanHeader."ROI" := DeepScanRun."ROI";
         ScanHeader."Headline" := CopyStr(DeepScanRun."Headline", 1, MaxStrLen(ScanHeader."Headline"));
         ScanHeader."Rating" := CopyStr(DeepScanRun."Rating", 1, MaxStrLen(ScanHeader."Rating"));
-        ScanHeader."Premium Available" := true;
+        if Setup.Get('SETUP') then
+            ScanHeader."Premium Available" := Setup."Premium Enabled"
+        else
+            ScanHeader."Premium Available" := false;
         ScanHeader.Modify(true);
     end;
 
@@ -2316,7 +2320,7 @@ codeunit 53128 "DH Deep Scan Runner"
         Payload.Add('data_score', DeepScanRun."Deep Score");
         Payload.Add('checks_count', DeepScanRun."Checks Count");
         Payload.Add('issues_count', DeepScanRun."Issues Count");
-        Payload.Add('premium_available', true);
+        Payload.Add('premium_available', Setup."Premium Enabled");
         Payload.Add('data_profile', DataProfilingMgt.BuildDataProfile());
         Payload.Add('headline', DeepScanRun."Headline");
         Payload.Add('rating', DeepScanRun."Rating");

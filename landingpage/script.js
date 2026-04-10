@@ -107,7 +107,7 @@ const translations = {
     plan_free_fit: "Ideal für Teams, die Risiken zuerst sauber quantifizieren möchten.",
     plan_premium_badge: "Premium",
     plan_premium_title: "Mache aus Insight echte Umsetzung.",
-    plan_premium_price: "Ab € 49",
+    plan_premium_price: "…",
     plan_premium_1: "Alles aus Free",
     plan_premium_2: "Record-Level-Details",
     plan_premium_3: "Empfehlungen und Priorisierung",
@@ -170,7 +170,8 @@ const translations = {
     footer_contact: "Kontakt",
     value_stat_1_sub: "Geschätzte finanzielle Auswirkung durch erkannte Datenqualitätsprobleme.",
     value_stat_2_sub: "Realistisches Einsparpotenzial nach Behebung der wichtigsten Probleme.",
-    value_stat_3_sub: "Jedes Issue nutzt betroffene Datensätze, Wahrscheinlichkeit, Aufwand, Stundensatz und Häufigkeit pro Jahr."
+    value_stat_3_sub: "Jedes Issue nutzt betroffene Datensätze, Wahrscheinlichkeit, Aufwand, Stundensatz und Häufigkeit pro Jahr.",
+    pricing_premium_chip: "…"
   },
 
   en: {
@@ -281,7 +282,7 @@ const translations = {
     plan_free_fit: "Best for teams that want to quantify risk before changing processes.",
     plan_premium_badge: "Premium",
     plan_premium_title: "Turn insight into execution.",
-    plan_premium_price: "From € 49",
+    plan_premium_price: "…",
     plan_premium_1: "Everything in Free",
     plan_premium_2: "Record-level details",
     plan_premium_3: "Recommendations and prioritization",
@@ -344,9 +345,74 @@ const translations = {
     footer_contact: "Contact",
     value_stat_1_sub: "Estimated financial impact caused by detected data quality issues.",
     value_stat_2_sub: "Realistic saving potential after resolving the most important issues first.",
-    value_stat_3_sub: "Each issue uses affected records, probability, effort, hourly rate, and yearly frequency."
+    value_stat_3_sub: "Each issue uses affected records, probability, effort, hourly rate, and yearly frequency.",
+    pricing_premium_chip: "…"
   }
 };
+
+/** Overlay list-price marketing strings from pricing-snapshot.js (generated from config/pricing_canonical.json). */
+function mergeCanonicalMarketingStrings() {
+  const snap = typeof window !== "undefined" && window.__BCS_MARKETING_STRINGS__;
+  if (!snap) return;
+  ["de", "en"].forEach((lang) => {
+    if (!translations[lang] || !snap[lang]) return;
+    const row = snap[lang];
+    if (row.plan_premium_price) translations[lang].plan_premium_price = row.plan_premium_price;
+    if (row.pricing_premium_chip) translations[lang].pricing_premium_chip = row.pricing_premium_chip;
+  });
+}
+mergeCanonicalMarketingStrings();
+
+function formatPricingAmount(lang, currency, value) {
+  const numericValue = Number(value || 0);
+  const fractionDigits = Number.isInteger(numericValue) ? 0 : 2;
+  return new Intl.NumberFormat(lang === "de" ? "de-DE" : "en-US", {
+    style: "currency",
+    currency: currency || "EUR",
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(numericValue);
+}
+
+function buildMarketingStringsFromPublicPricing(payload) {
+  const currency = payload?.currency || "EUR";
+  const basePrice = Number(payload?.base_price || 0);
+  return {
+    de: {
+      plan_premium_price: `Ab ${formatPricingAmount("de", currency, basePrice)}`,
+      pricing_premium_chip: `Ab ${formatPricingAmount("de", currency, basePrice)} / Monat`,
+    },
+    en: {
+      plan_premium_price: `From ${formatPricingAmount("en", currency, basePrice)}`,
+      pricing_premium_chip: `From ${formatPricingAmount("en", currency, basePrice)} / month`,
+    },
+  };
+}
+
+function mergePricingMarketingStrings(marketing) {
+  if (!marketing) return;
+  ["de", "en"].forEach((lang) => {
+    if (!translations[lang] || !marketing[lang]) return;
+    const row = marketing[lang];
+    if (row.plan_premium_price) translations[lang].plan_premium_price = row.plan_premium_price;
+    if (row.pricing_premium_chip) translations[lang].pricing_premium_chip = row.pricing_premium_chip;
+  });
+}
+
+async function loadPublicPricing() {
+  try {
+    const response = await fetch("/public/pricing", {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    const marketing = payload?.marketing || buildMarketingStringsFromPublicPricing(payload);
+    mergePricingMarketingStrings(marketing);
+    applyTranslations(document.documentElement.getAttribute("lang") || getInitialLanguage());
+  } catch (error) {
+    // pricing-snapshot.js remains the static fallback
+  }
+}
 
 const STORAGE_KEY = "bcsentinel-lang";
 const html = document.documentElement;
@@ -452,3 +518,4 @@ document.querySelectorAll(".mobile-menu a").forEach((link) => {
 
 applyTheme(getInitialTheme());
 applyTranslations(getInitialLanguage());
+loadPublicPricing();

@@ -638,7 +638,7 @@ def create_partner(
     partner_code: str = Form(...),
     contact_email: str = Form(...),
     new_password: str = Form(...),
-    default_commission_rate: float = Form(default=0.2),
+    default_commission_rate: float = Form(default=0.3),
     status_value: str = Form(default="active"),
     admin_username: str = Depends(require_admin),
 ):

@@ -20,6 +20,8 @@ from app.services.impact_service import (
     calculate_scan_commercials,
     normalize_stored_commercials,
 )
+from app.services.entitlement_guard_service import get_tenant_features, require_tenant_feature
+from app.services.entitlement_service import is_premium_actions_enabled
 
 router = APIRouter(tags=["scans"])
 
@@ -131,6 +133,8 @@ def sync_scan(
 
     with SessionLocal() as db:
         tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        tenant_features = get_tenant_features(db, tenant)
+        require_tenant_feature(db, tenant, "scan_sync")
         commercials = _calculate_commercials(payload, db)
         recalculated_issues = list(commercials["issues"])
 
@@ -152,7 +156,7 @@ def sync_scan(
                 data_score=_safe_int(payload.data_score),
                 checks_count=_safe_int(payload.checks_count),
                 issues_count=_safe_int(payload.issues_count),
-                premium_available=bool(payload.premium_available),
+                premium_available=is_premium_actions_enabled(tenant_features),
                 summary_headline=payload.headline or "",
                 summary_rating=payload.rating or "",
             )
@@ -165,7 +169,7 @@ def sync_scan(
             scan.data_score = _safe_int(payload.data_score)
             scan.checks_count = _safe_int(payload.checks_count)
             scan.issues_count = _safe_int(payload.issues_count)
-            scan.premium_available = bool(payload.premium_available)
+            scan.premium_available = is_premium_actions_enabled(tenant_features)
             scan.summary_headline = payload.headline or ""
             scan.summary_rating = payload.rating or ""
 
@@ -232,7 +236,8 @@ def reconcile_scans(
     keep_ids = {scan_id.strip() for scan_id in payload.scan_ids if scan_id and scan_id.strip()}
 
     with SessionLocal() as db:
-        load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        require_tenant_feature(db, tenant, "scan_sync")
 
         scans = db.scalars(select(Scan).where(Scan.tenant_id == payload.tenant_id)).all()
         deleted_ids: list[str] = []
@@ -265,7 +270,8 @@ def delete_scan(
     enforce_tenant_match(tenant_id, header_tenant_id, "Path tenant_id")
 
     with SessionLocal() as db:
-        load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
+        require_tenant_feature(db, tenant, "scan_sync")
         scan = db.scalar(select(Scan).where(Scan.tenant_id == tenant_id, Scan.scan_id == scan_id))
 
         if scan is None:

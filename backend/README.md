@@ -13,34 +13,87 @@ Erster MVP-Stand des Analyse-Backends.
 ## Start
 Ueber Docker Compose im Projekt-Root.
 
+## Entitlements (Session 2 Foundation)
+
+- Zentrale Feature-Aufloesung liegt in:
+  - `app/services/entitlement_service.py`
+- Serverseitige Feature-Enforcement-Helper liegen in:
+  - `app/services/entitlement_guard_service.py`
+- `premium_available` beschreibt nur noch:
+  - ob `deep_scan` fuer den Tenant freigeschaltet ist
+  - (nicht mehr pauschal `true`)
+
+### Matrix-Check ausfuehren
+
+Vom `backend`-Ordner:
+
+- `python -m scripts.check_entitlements`
+
+Erwartetes Ergebnis:
+
+- `Entitlement matrix check OK (8 states validated).`
+
 ## Billing Setup (Stripe)
 
 ### Benoetigte ENV Variablen
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_ID_PREMIUM`
+- optional: `STRIPE_PRICE_ID_PREMIUM_YEARLY`
 - optional: `BILLING_SUCCESS_URL`
 - optional: `BILLING_CANCEL_URL`
+- optional: `BILLING_PORTAL_RETURN_URL`
+
+### Listenpreis aendern (Marketing, App-Berechnung, Stripe)
+
+Die interne Berechnung und Marketing-Defaults folgen `config/pricing_canonical.json` bzw. der Tabelle `license_pricing_config` (siehe `docs/product/pricing-canonical.md`). **Stripe** arbeitet mit **Price IDs**, nicht mit dem Betrag im Code: Wenn sich der veroeffentlichte Monats- oder Jahrespreis aendert, legt ihr in Stripe Dashboard neue **Prices** an (oder dupliziert bestehende und passt Betrag/Intervall an), traegt die neuen IDs in die Umgebung ein:
+
+- `STRIPE_PRICE_ID_PREMIUM` (monatlich)
+- `STRIPE_PRICE_ID_PREMIUM_YEARLY` (jaehrlich, optional)
+
+Danach Deploy/Restart, damit Checkout die neuen IDs nutzt. Abgleich: Listenpreis in canonical/DB sollte zum abgerechneten Stripe-Betrag passen; bestehende Abonnements behalten ihre gebuchte Price-Version, bis ihr sie in Stripe migriert.
 
 ### API Endpunkte
 - `POST /billing/checkout/session`
   - erstellt eine Stripe Checkout Session fuer Premium
+  - unterstuetzt `billing_interval` = `monthly` | `yearly`
 - `GET /billing/subscription/status`
   - liefert den aktuellen Abo-Status des Tenants
+- `GET /billing/checkout/session/status?session_id=...`
+  - synchronisiert nach Checkout den Stripe-Subscription-Status aktiv in den Tenant
+- `POST /billing/portal`
+  - erstellt eine Stripe Billing Portal Session (self-service)
 - `POST /billing/webhook`
   - verarbeitet Stripe Webhooks (mit `Stripe-Signature`)
 
 ### Stripe Event Matrix (v1)
 Unterstuetzte Events:
 - `checkout.session.completed` (wird protokolliert, kein State-Write)
+- `checkout.session.expired` (wird protokolliert, kein State-Write)
 - `customer.subscription.created` -> `subscription.created`
 - `customer.subscription.updated` -> `subscription.updated`
 - `customer.subscription.deleted` -> `subscription.deleted`
 - `invoice.paid` -> Rechnung upsert
 - `invoice.payment_failed` -> Rechnung upsert
 - `invoice.voided` -> Rechnung upsert
+- `invoice.finalized` -> Rechnung upsert
+- `invoice.updated` -> Rechnung upsert
+- `invoice.marked_uncollectible` -> Rechnung upsert
 
 Nicht unterstuetzte Events werden explizit als `ignored` beantwortet.
+
+### E2E Billing Testablauf (empfohlen)
+1. Checkout Session erstellen:
+   - `POST /billing/checkout/session` (mit `billing_interval=monthly` oder `yearly`)
+2. Stripe Checkout abschliessen.
+3. Session aktiv synchronisieren:
+   - `GET /billing/checkout/session/status?session_id=...`
+4. Subscription Status pruefen:
+   - `GET /billing/subscription/status`
+5. Optional Self-Service testen:
+   - `POST /billing/portal`
+6. Webhook-Delivery in Stripe Dashboard pruefen:
+   - relevante Events `delivered` ohne Retry-Stau.
 
 ### Lokaler Webhook-Test (Stripe CLI)
 1. Stripe CLI Login:
@@ -143,3 +196,8 @@ Hinweis: Fuer korrekte Tenant-Zuordnung muessen `tenant_id` und `plan_code` in d
 ### Provisionserzeugung
 - Bei `invoice.paid` wird nach erfolgreichem Invoice-Upsert automatisch eine Provision erzeugt, falls ein Referral fuer den Tenant existiert.
 - Provisionen sind idempotent auf `provider_invoice_id` (keine doppelten Eintraege pro Rechnung).
+- Partner-Policy (v3):
+  - Standardrate: `30%`
+  - Renewal-Rate: `15%` (ab der zweiten provisionsfaehigen Rechnung je Partner+Tenant)
+  - Provisionserzeugung nur bei `invoice.status = paid`
+  - Bei Reversal-Status (`voided`, `uncollectible`, `refunded`) werden nicht-ausgezahlte Provisionen automatisch auf `rejected` gesetzt.

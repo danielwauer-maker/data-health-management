@@ -25,11 +25,16 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "BCSentinel"
 
     # === BILLING (STRIPE) ===
+    # Checkout uses Stripe Price objects (amount + interval). When list prices in
+    # config/pricing_canonical.json or license_pricing_config change, create matching
+    # new Prices in Stripe and update these env vars — see backend/README.md.
     STRIPE_SECRET_KEY: str | None = None
     STRIPE_WEBHOOK_SECRET: str | None = None
     STRIPE_PRICE_ID_PREMIUM: str | None = None
+    STRIPE_PRICE_ID_PREMIUM_YEARLY: str | None = None
     BILLING_SUCCESS_URL: str | None = None
     BILLING_CANCEL_URL: str | None = None
+    BILLING_PORTAL_RETURN_URL: str | None = None
 
     model_config = SettingsConfigDict(
         case_sensitive=True,

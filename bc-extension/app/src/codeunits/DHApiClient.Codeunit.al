@@ -144,7 +144,7 @@ codeunit 53100 "DH API Client"
 
         if JsonResponse.Get('features', FeaturesToken) then begin
             Features := FeaturesToken.AsArray();
-            Setup."Premium Enabled" := JsonArrayContainsText(Features, 'deep_scan');
+            Setup."Premium Enabled" := HasPremiumActionFeatures(Features);
         end else
             Setup."Premium Enabled" := IsPremiumAllowed(Setup);
 
@@ -690,6 +690,15 @@ codeunit 53100 "DH API Client"
         end;
 
         exit(false);
+    end;
+
+    local procedure HasPremiumActionFeatures(Values: JsonArray): Boolean
+    begin
+        exit(
+            JsonArrayContainsText(Values, 'recommendations') or
+            JsonArrayContainsText(Values, 'record_drilldown') or
+            JsonArrayContainsText(Values, 'correction_worklists') or
+            JsonArrayContainsText(Values, 'analytics_full'));
     end;
 
     local procedure GetEffectiveScanId(var ScanHeader: Record "DH Scan Header"): Code[50]

@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "currency": "EUR",
+  "plans": {
+    "free": {
+      "display_name": "Free",
+      "base_price_monthly": 0,
+      "included_records": 0,
+      "additional_price_per_1000_records": 0,
+      "is_active": true
+    },
+    "premium": {
+      "display_name": "Premium",
+      "base_price_monthly": 149,
+      "included_records": 2000,
+      "additional_price_per_1000_records": 8,
+      "is_active": true
+    }
+  },
+  "marketing": {
+    "format_de_plan_price": "Ab € {base}",
+    "format_de_chip": "Ab € {base} / Monat",
+    "format_en_plan_price": "From € {base}",
+    "format_en_chip": "From € {base} / month"
+  }
+}
