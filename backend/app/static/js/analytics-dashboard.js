@@ -1,6 +1,7 @@
 let currentSelectedScanId = null;
 let recentScansPage = 1;
 const RECENT_SCANS_PAGE_SIZE = 8;
+let currentDashboardState = null;
 
 function byId(id) {
   return document.getElementById(id);
@@ -356,6 +357,36 @@ function renderSubscription(data) {
   setText('subscription-cta', data?.subscription?.cta_label || 'Upgrade to Premium');
 }
 
+async function triggerBillingAction(action) {
+  const endpoint = action === 'portal'
+    ? '/analytics/billing/portal'
+    : '/analytics/billing/checkout';
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    });
+
+    if (!response.ok) {
+      console.error('Billing action failed:', response.status);
+      return;
+    }
+
+    const payload = await response.json();
+    const targetUrl = payload?.portal_url || payload?.checkout_url || '';
+    if (!targetUrl) {
+      console.error('Billing action did not return a target URL.');
+      return;
+    }
+
+    window.location.href = targetUrl;
+  } catch (error) {
+    console.error('Billing action failed:', error);
+  }
+}
+
 function switchTab(tab) {
   document.querySelectorAll('.topnav-link').forEach((btn) => {
     btn.classList.toggle('is-active', btn.dataset.tab === tab);
@@ -380,6 +411,7 @@ async function loadDashboard(scanId = null) {
     }
 
     const data = await response.json();
+    currentDashboardState = data;
     currentSelectedScanId = data?.selected_scan_id || null;
 
     setText('page-title', data?.title || 'BCSentinel Analytics');
@@ -464,6 +496,20 @@ function registerEvents() {
   document.querySelectorAll('.topnav-link').forEach((btn) => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab || 'overview'));
   });
+
+  const upgradeButton = byId('upgrade-button');
+  if (upgradeButton) {
+    upgradeButton.addEventListener('click', async () => {
+      await triggerBillingAction(currentDashboardState?.premium_unlock?.button_action || 'checkout');
+    });
+  }
+
+  const subscriptionButton = byId('subscription-cta');
+  if (subscriptionButton) {
+    subscriptionButton.addEventListener('click', async () => {
+      await triggerBillingAction(currentDashboardState?.subscription?.cta_action || 'checkout');
+    });
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

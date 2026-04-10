@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from app.core.settings import settings
 from app.db import SessionLocal
-from app.models import Subscription, Tenant
+from app.models import PartnerReferral, Subscription, Tenant
 from app.security.tenant import (
     enforce_tenant_match,
     load_authenticated_tenant,
@@ -192,6 +192,13 @@ def _normalize_billing_interval(value: str | None) -> str:
     raise HTTPException(status_code=400, detail="billing_interval must be 'monthly' or 'yearly'.")
 
 
+def _normalize_checkout_plan_code(value: str | None) -> str:
+    normalized = (value or "premium").strip().lower()
+    if normalized == "premium":
+        return normalized
+    raise HTTPException(status_code=400, detail="plan_code must be 'premium' for checkout.")
+
+
 def _resolve_stripe_price_id(billing_interval: str) -> str:
     if billing_interval == "yearly":
         price_id = (settings.STRIPE_PRICE_ID_PREMIUM_YEARLY or "").strip()
@@ -297,7 +304,11 @@ def _process_normalized_webhook(
             hosted_invoice_url=invoice_data.get("hosted_invoice_url"),
             paid_at_utc=_parse_dt(invoice_data.get("paid_at_utc")),
         )
-        ensure_partner_commission_for_invoice(db, invoice=invoice)
+        ensure_partner_commission_for_invoice(
+            db,
+            invoice=invoice,
+            referral_code=str(invoice_data.get("referral_code") or "").strip().lower() or None,
+        )
 
     webhook_event.processed_at_utc = utc_now()
     tenant.last_seen_at_utc = utc_now()
@@ -314,11 +325,22 @@ def create_checkout_session(
     header_tenant_id, header_api_token = tenant_auth
     enforce_tenant_match(payload.tenant_id, header_tenant_id, "Payload tenant_id")
 
+    normalized_plan_code = _normalize_checkout_plan_code(payload.plan_code)
     with SessionLocal() as db:
         tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
         require_tenant_feature(db, tenant, "billing_checkout")
+        referral = db.scalar(select(PartnerReferral).where(PartnerReferral.tenant_id == tenant.tenant_id))
 
     billing_interval = _normalize_billing_interval(payload.billing_interval)
+    checkout_metadata = {
+        "tenant_id": payload.tenant_id,
+        "plan_code": normalized_plan_code,
+        "billing_interval": billing_interval,
+        "tenant_environment": str(getattr(tenant, "environment_name", "") or "").strip(),
+    }
+    if referral is not None:
+        checkout_metadata["referral_code"] = str(referral.referral_code or "").strip().lower()
+        checkout_metadata["attribution_source"] = str(referral.attribution_source or "").strip().lower()
 
     if _is_prod_env() and not _is_stripe_configured():
         raise HTTPException(status_code=503, detail="Stripe checkout is not configured for production.")
@@ -330,20 +352,13 @@ def create_checkout_session(
         price_id = _resolve_stripe_price_id(billing_interval)
         session = stripe.checkout.Session.create(
             mode="subscription",
+            client_reference_id=payload.tenant_id,
             line_items=[{"price": price_id, "quantity": 1}],
             success_url=success_url,
             cancel_url=cancel_url,
-            metadata={
-                "tenant_id": payload.tenant_id,
-                "plan_code": (payload.plan_code or "premium").lower(),
-                "billing_interval": billing_interval,
-            },
+            metadata=checkout_metadata,
             subscription_data={
-                "metadata": {
-                    "tenant_id": payload.tenant_id,
-                    "plan_code": (payload.plan_code or "premium").lower(),
-                    "billing_interval": billing_interval,
-                }
+                "metadata": checkout_metadata
             },
         )
         return CheckoutSessionResponse(
@@ -351,21 +366,21 @@ def create_checkout_session(
             checkout_url=session.url,
             provider="stripe",
             tenant_id=payload.tenant_id,
-            plan_code=(payload.plan_code or "premium").lower(),
+            plan_code=normalized_plan_code,
             billing_interval=billing_interval,
         )
 
     session_id = f"chk_{uuid4().hex}"
     checkout_url = (
         payload.success_url
-        or f"https://billing.bcsentinel.com/checkout/{session_id}?tenant_id={payload.tenant_id}&plan={payload.plan_code}"
+        or f"https://billing.bcsentinel.com/checkout/{session_id}?tenant_id={payload.tenant_id}&plan={normalized_plan_code}"
     )
     return CheckoutSessionResponse(
         checkout_session_id=session_id,
         checkout_url=checkout_url,
         provider="pending_integration",
         tenant_id=payload.tenant_id,
-        plan_code=(payload.plan_code or "premium").lower(),
+        plan_code=normalized_plan_code,
         billing_interval=billing_interval,
     )
 
@@ -602,6 +617,7 @@ async def process_billing_webhook(
 
         if event_type.startswith("invoice."):
             provider_subscription_id = str(data_object.get("subscription") or "").strip() or None
+            invoice_metadata = ((data_object.get("subscription_details") or {}).get("metadata") or {})
             invoice_data = {
                 "id": data_object.get("id"),
                 "provider_subscription_id": provider_subscription_id,
@@ -611,11 +627,9 @@ async def process_billing_webhook(
                 "amount_paid": float(data_object.get("amount_paid") or 0) / 100.0,
                 "hosted_invoice_url": data_object.get("hosted_invoice_url"),
                 "paid_at_utc": _dt_from_unix(((data_object.get("status_transitions") or {}).get("paid_at"))),
+                "referral_code": str(invoice_metadata.get("referral_code") or "").strip().lower() or None,
             }
-            tenant_id = str(
-                ((data_object.get("subscription_details") or {}).get("metadata") or {}).get("tenant_id")
-                or ""
-            ).strip()
+            tenant_id = str(invoice_metadata.get("tenant_id") or "").strip()
             if not tenant_id:
                 with SessionLocal() as db:
                     tenant = _find_tenant_for_invoice(db, None, provider_subscription_id)

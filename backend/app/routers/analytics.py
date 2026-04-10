@@ -13,13 +13,19 @@ from sqlalchemy import select
 from app.core.settings import settings
 from app.db import SessionLocal
 from app.models import Scan, ScanIssueRecord, Tenant
+from app.routers.billing import (
+    BillingPortalRequest,
+    CheckoutSessionRequest,
+    create_billing_portal_session,
+    create_checkout_session,
+)
 from app.security.tenant import (
     enforce_tenant_match,
     load_authenticated_tenant,
     require_tenant_headers,
 )
 from app.security.token import create_token, verify_token
-from app.services.entitlement_guard_service import get_tenant_features
+from app.services.entitlement_guard_service import get_tenant_features, require_tenant_feature
 from app.services.entitlement_service import is_premium_actions_enabled
 from app.services.impact_service import normalize_stored_commercials
 from app.services.pricing_service import (
@@ -335,6 +341,7 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
             "headline": "Premium unlocks record-level details and direct action.",
             "body": "Upgrade to see affected records, recommendations, and Business Central actions for your highest-impact issues.",
             "button_label": "Upgrade to Premium",
+            "button_action": "checkout",
             "highlights": [
                 "Affected records and issue details",
                 "Action recommendations",
@@ -347,6 +354,7 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
             "price_monthly": 0.0,
             "annual_cost": 0.0,
             "cta_label": "Upgrade to Premium",
+            "cta_action": "checkout",
             "plan_note": "Insight is free. Action is Premium.",
             "pricing_breakdown": default_pricing,
             "billing_options": {
@@ -543,6 +551,7 @@ def _build_dashboard_payload(
             "headline": "Do you want to keep losing money or start fixing the root causes?",
             "body": "Premium reveals the exact affected records, explains what to fix, and prioritizes the work by business impact.",
             "button_label": "Upgrade to Premium",
+            "button_action": "checkout",
             "highlights": [
                 "Affected records in Business Central",
                 "Clear recommendations per issue",
@@ -555,6 +564,7 @@ def _build_dashboard_payload(
             "price_monthly": current_plan_price_monthly if is_premium else 0.0,
             "annual_cost": round(current_plan_price_monthly * 12, 2) if is_premium else 0.0,
             "cta_label": "Manage subscription" if is_premium else "Upgrade to Premium",
+            "cta_action": "portal" if is_premium else "checkout",
             "plan_note": "Current paying plan" if is_premium else "Free gives insight. Premium unlocks action.",
             "pricing_breakdown": pricing_breakdown,
             "billing_options": {
@@ -630,6 +640,75 @@ def get_analytics_data(
             recent_scans_page=recent_scans_page,
             recent_scans_page_size=recent_scans_page_size,
         )
+    )
+
+
+def _load_analytics_tenant(token: str | None, analytics_cookie_token: str | None) -> Tenant:
+    effective_token = token or analytics_cookie_token
+    if not effective_token:
+        raise HTTPException(status_code=401, detail="Missing analytics token.")
+
+    payload = verify_token(effective_token)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token.")
+
+    tenant_id = str(payload.get("tenant_id") or "").strip()
+    if not tenant_id:
+        raise HTTPException(status_code=401, detail="Token payload is missing tenant_id.")
+
+    with SessionLocal() as db:
+        tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="Tenant not found.")
+        require_tenant_feature(db, tenant, "quick_scan")
+        return tenant
+
+
+@router.post("/analytics/billing/checkout", response_class=JSONResponse)
+def analytics_billing_checkout(
+    token: str | None = Query(default=None),
+    analytics_cookie_token: str | None = Cookie(default=None, alias=ANALYTICS_EMBED_COOKIE_NAME),
+):
+    tenant = _load_analytics_tenant(token, analytics_cookie_token)
+    if not (tenant.api_token or "").strip():
+        raise HTTPException(status_code=400, detail="Tenant API token is missing.")
+
+    session = create_checkout_session(
+        CheckoutSessionRequest(
+            tenant_id=tenant.tenant_id,
+            plan_code="premium",
+            billing_interval="monthly",
+        ),
+        tenant_auth=(tenant.tenant_id, tenant.api_token),
+    )
+    return JSONResponse(
+        content={
+            "action": "checkout",
+            "provider": session.provider,
+            "checkout_url": session.checkout_url,
+        }
+    )
+
+
+@router.post("/analytics/billing/portal", response_class=JSONResponse)
+def analytics_billing_portal(
+    token: str | None = Query(default=None),
+    analytics_cookie_token: str | None = Cookie(default=None, alias=ANALYTICS_EMBED_COOKIE_NAME),
+):
+    tenant = _load_analytics_tenant(token, analytics_cookie_token)
+    if not (tenant.api_token or "").strip():
+        raise HTTPException(status_code=400, detail="Tenant API token is missing.")
+
+    portal = create_billing_portal_session(
+        BillingPortalRequest(tenant_id=tenant.tenant_id),
+        tenant_auth=(tenant.tenant_id, tenant.api_token),
+    )
+    return JSONResponse(
+        content={
+            "action": "portal",
+            "provider": portal.provider,
+            "portal_url": portal.portal_url,
+        }
     )
 
 

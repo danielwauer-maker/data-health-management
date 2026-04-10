@@ -28,10 +28,10 @@ page 53130 "DH Deep Scan Runs"
                     end;
                 }
 
-                field("Scan Type"; Rec."Scan Type")
+                /*field("Scan Type"; Rec."Scan Type")
                 {
                     ApplicationArea = All;
-                }
+                }*/
 
                 field("Scan DateTime"; Rec."Scan DateTime")
                 {
@@ -72,11 +72,11 @@ page 53130 "DH Deep Scan Runs"
                     ApplicationArea = All;
                 }
 
-                field("Premium"; GetIsPremiumRun())
+                /*field("Premium"; GetIsPremiumRun())
                 {
                     ApplicationArea = All;
                     Caption = 'Premium';
-                }
+                }*/
             }
         }
     }

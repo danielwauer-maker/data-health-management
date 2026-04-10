@@ -11,6 +11,10 @@ PAID_INVOICE_STATUSES = {"paid"}
 REVERSAL_INVOICE_STATUSES = {"void", "voided", "uncollectible", "marked_uncollectible", "refunded"}
 
 
+class ReferralAttributionConflictError(ValueError):
+    pass
+
+
 def normalize_partner_code(value: str) -> str:
     return (value or "").strip().lower()
 
@@ -28,6 +32,7 @@ def attach_partner_referral_to_tenant(
     tenant_id: str,
     partner_code: str,
     attribution_source: str = "manual",
+    force: bool = False,
 ) -> PartnerReferral:
     partner = get_partner_by_code(db, partner_code)
     if partner is None:
@@ -37,6 +42,12 @@ def attach_partner_referral_to_tenant(
 
     existing = db.scalar(select(PartnerReferral).where(PartnerReferral.tenant_id == tenant_id))
     if existing is not None:
+        if existing.partner_id == partner.id:
+            return existing
+        if not force:
+            raise ReferralAttributionConflictError(
+                "Tenant already has a referral attribution. Changes require explicit admin override."
+            )
         existing.partner_id = partner.id
         existing.referral_code = normalize_partner_code(partner_code)
         existing.attribution_source = (attribution_source or "manual").strip().lower()
@@ -94,7 +105,12 @@ def reconcile_partner_commission_for_invoice(db, *, invoice: Invoice) -> Partner
     return existing_commission
 
 
-def ensure_partner_commission_for_invoice(db, *, invoice: Invoice) -> PartnerCommission | None:
+def ensure_partner_commission_for_invoice(
+    db,
+    *,
+    invoice: Invoice,
+    referral_code: str | None = None,
+) -> PartnerCommission | None:
     if invoice is None:
         return None
     invoice_status = (invoice.status or "").lower()
@@ -107,14 +123,18 @@ def ensure_partner_commission_for_invoice(db, *, invoice: Invoice) -> PartnerCom
     if existing_commission is not None:
         return existing_commission
 
-    referral = db.scalar(select(PartnerReferral).where(PartnerReferral.tenant_id == invoice.tenant_id))
-    if referral is None:
-        return None
+    partner: Partner | None = None
+    normalized_referral_code = normalize_partner_code(referral_code or "")
+    if normalized_referral_code:
+        partner = get_partner_by_code(db, normalized_referral_code)
 
-    partner = db.scalar(select(Partner).where(Partner.id == referral.partner_id))
     if partner is None:
-        return None
-    if (partner.status or "").lower() != "active":
+        referral = db.scalar(select(PartnerReferral).where(PartnerReferral.tenant_id == invoice.tenant_id))
+        if referral is None:
+            return None
+        partner = db.scalar(select(Partner).where(Partner.id == referral.partner_id))
+
+    if partner is None or (partner.status or "").lower() != "active":
         return None
 
     base_amount = float(invoice.amount_paid or invoice.amount_total or 0.0)

@@ -29,6 +29,7 @@ from app.security.token_hash import hash_api_token, verify_api_token
 from app.security.tenant import enforce_tenant_match, load_authenticated_tenant, require_tenant_headers
 from app.services.billing_service import utc_now
 from app.services.partner_service import (
+    ReferralAttributionConflictError,
     attach_partner_referral_to_tenant,
     get_partner_by_code,
     normalize_partner_code,
@@ -662,6 +663,8 @@ def attach_referral(
                 partner_code=payload.partner_code,
                 attribution_source=payload.attribution_source,
             )
+        except ReferralAttributionConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
