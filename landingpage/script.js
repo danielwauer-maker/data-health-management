@@ -412,9 +412,22 @@ function isValidPublicPricingPayload(payload) {
   );
 }
 
+function getPublicPricingApiBase() {
+  if (typeof window === "undefined" || !window.location) {
+    return "https://api.bcsentinel.com";
+  }
+
+  const hostname = (window.location.hostname || "").toLowerCase();
+  if (hostname.startsWith("dev.")) {
+    return "https://dev-api.bcsentinel.com";
+  }
+
+  return "https://api.bcsentinel.com";
+}
+
 async function loadPublicPricing() {
   try {
-    const response = await fetch("/public/pricing", {
+    const response = await fetch(`${getPublicPricingApiBase()}/public/pricing`, {
       headers: { Accept: "application/json" },
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
