@@ -275,7 +275,7 @@ function renderFindings(items, isPremium) {
     const accessLabel = isPremium ? 'Open in BC' : 'Premium';
     const openInBcUrl = String(item?.open_in_bc_url || '');
     const accessMarkup = isPremium && openInBcUrl
-      ? `<a href="${escapeHtml(openInBcUrl)}" class="access-chip ${accessClass}">${accessLabel}</a>`
+      ? `<a href="${escapeHtml(openInBcUrl)}" class="access-chip ${accessClass}" target="_blank" rel="noopener noreferrer">${accessLabel}</a>`
       : `<span class="access-chip ${accessClass}">${accessLabel}</span>`;
     return `
       <tr>

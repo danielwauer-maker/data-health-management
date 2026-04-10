@@ -35,7 +35,7 @@ page 53159 "DH Issue Drilldown Launch"
     begin
         SetupRef.GetTable(Rec);
         IssueCodeField := SetupRef.Field(26);
-        IssueCode := CopyStr(UpperCase(Format(IssueCodeField.GetFilter())), 1, MaxStrLen(IssueCode));
+        IssueCode := GetNormalizedIssueCode(IssueCodeField);
         if IssueCode = '' then
             Error('Missing issue code for drilldown launch.');
 
@@ -51,6 +51,17 @@ page 53159 "DH Issue Drilldown Launch"
         StatusTxt := StrSubstNo('Opening Business Central worklist for %1 ...', IssueCode);
         IssueDrilldownDispatcher.OpenByIssueCode(IssueCode);
         CurrPage.Close();
+    end;
+
+    local procedure GetNormalizedIssueCode(IssueCodeField: FieldRef): Code[50]
+    var
+        FilterText: Text;
+        NormalizedIssueCode: Code[50];
+    begin
+        FilterText := UpperCase(Format(IssueCodeField.GetFilter()));
+        FilterText := DelChr(FilterText, '=', '@*''" ');
+        NormalizedIssueCode := CopyStr(FilterText, 1, MaxStrLen(NormalizedIssueCode));
+        exit(NormalizedIssueCode);
     end;
 
     var
