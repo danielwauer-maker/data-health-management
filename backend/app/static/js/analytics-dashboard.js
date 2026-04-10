@@ -1,6 +1,6 @@
 let currentSelectedScanId = null;
 let recentScansPage = 1;
-const RECENT_SCANS_PAGE_SIZE = 8;
+const RECENT_SCANS_PAGE_SIZE = 12;
 let currentDashboardState = null;
 
 function byId(id) {
