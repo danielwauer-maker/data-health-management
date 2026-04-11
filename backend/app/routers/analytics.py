@@ -4,7 +4,7 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -120,9 +120,77 @@ def _build_open_in_bc_url(bc_issue_launch_url: str | None, issue_code: str | Non
     if not base_url or not normalized_issue_code:
         return ""
 
+    direct_url = _build_direct_open_in_bc_url(base_url, normalized_issue_code)
+    if direct_url:
+        return direct_url
+
     separator = "&" if "?" in base_url else "?"
     filter_value = f"'Issue Drilldown Code' IS '{normalized_issue_code}'"
     return f"{base_url}{separator}filter={quote(filter_value, safe='')}"
+
+
+def _replace_bc_page_url(base_url: str, page_id: int, filter_value: str | None = None) -> str:
+    parsed = urlparse(base_url)
+    query_items = [
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if key.lower() not in {"page", "filter"}
+    ]
+    query_items.append(("page", str(page_id)))
+    if filter_value:
+        query_items.append(("filter", filter_value))
+
+    return urlunparse(parsed._replace(query=urlencode(query_items, doseq=True)))
+
+
+def _build_direct_open_in_bc_url(base_url: str, normalized_issue_code: str) -> str:
+    customer_filters = {
+        "CUSTOMERS_MISSING_NAME": "Name IS ''",
+        "CUSTOMERS_MISSING_SEARCH_NAME": "'Search Name' IS ''",
+        "CUSTOMERS_MISSING_ADDRESS": "Address IS ''",
+        "CUSTOMERS_MISSING_CITY": "City IS ''",
+        "CUSTOMERS_MISSING_POST_CODE": "'Post Code' IS ''",
+        "CUSTOMERS_MISSING_COUNTRY": "'Country/Region Code' IS ''",
+        "CUSTOMERS_MISSING_EMAIL": "'E-Mail' IS ''",
+        "CUSTOMERS_MISSING_PHONE": "'Phone No.' IS ''",
+        "CUSTOMERS_MISSING_PAYMENT_TERMS": "'Payment Terms Code' IS ''",
+        "CUSTOMERS_MISSING_PAYMENT_METHOD": "'Payment Method Code' IS ''",
+        "CUSTOMERS_MISSING_POSTING_GROUP": "'Customer Posting Group' IS ''",
+        "CUSTOMERS_MISSING_GEN_BUS_POSTING": "'Gen. Bus. Posting Group' IS ''",
+        "CUSTOMERS_MISSING_VAT_BUS_POSTING": "'VAT Bus. Posting Group' IS ''",
+        "CUSTOMERS_MISSING_CREDIT_LIMIT": "'Credit Limit (LCY)' IS '0'",
+    }
+    vendor_filters = {
+        "VENDORS_MISSING_NAME": "Name IS ''",
+        "VENDORS_MISSING_SEARCH_NAME": "'Search Name' IS ''",
+        "VENDORS_MISSING_ADDRESS": "Address IS ''",
+        "VENDORS_MISSING_CITY": "City IS ''",
+        "VENDORS_MISSING_POST_CODE": "'Post Code' IS ''",
+        "VENDORS_MISSING_COUNTRY": "'Country/Region Code' IS ''",
+        "VENDORS_MISSING_EMAIL": "'E-Mail' IS ''",
+        "VENDORS_MISSING_PHONE": "'Phone No.' IS ''",
+        "VENDORS_MISSING_PAYMENT_TERMS": "'Payment Terms Code' IS ''",
+        "VENDORS_MISSING_PAYMENT_METHOD": "'Payment Method Code' IS ''",
+        "VENDORS_MISSING_POSTING_GROUP": "'Vendor Posting Group' IS ''",
+        "VENDORS_MISSING_GEN_BUS_POSTING": "'Gen. Bus. Posting Group' IS ''",
+        "VENDORS_MISSING_VAT_BUS_POSTING": "'VAT Bus. Posting Group' IS ''",
+        "VENDORS_MISSING_BANK_ACCOUNT": "'Preferred Bank Account Code' IS ''",
+    }
+    direct_page_ids = {
+        "ITEMS_NEGATIVE_INVENTORY": 53136,
+        "ITEMS_WITHOUT_UNIT_COST": 53137,
+        "BLOCKED_ITEMS_WITH_INVENTORY": 53138,
+        "ITEMS_WITHOUT_UNIT_PRICE": 53148,
+    }
+
+    if normalized_issue_code in customer_filters:
+        return _replace_bc_page_url(base_url, 53156, customer_filters[normalized_issue_code])
+    if normalized_issue_code in vendor_filters:
+        return _replace_bc_page_url(base_url, 53157, vendor_filters[normalized_issue_code])
+    if normalized_issue_code in direct_page_ids:
+        return _replace_bc_page_url(base_url, direct_page_ids[normalized_issue_code])
+
+    return ""
 
 
 

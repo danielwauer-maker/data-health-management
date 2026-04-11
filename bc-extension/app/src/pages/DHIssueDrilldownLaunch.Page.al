@@ -48,9 +48,8 @@ page 53159 "DH Issue Drilldown Launch"
             exit;
         end;
 
-        StatusTxt := StrSubstNo('Opening Business Central worklist for %1 ...', IssueCode);
-        IssueDrilldownDispatcher.OpenByIssueCode(IssueCode);
         CurrPage.Close();
+        IssueDrilldownDispatcher.OpenByIssueCode(IssueCode);
     end;
 
     local procedure GetNormalizedIssueCode(IssueCodeField: FieldRef): Code[50]

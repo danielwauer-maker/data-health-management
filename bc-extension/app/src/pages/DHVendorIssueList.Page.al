@@ -81,6 +81,8 @@ page 53157 "DH Vendor Issue List"
 
     trigger OnOpenPage()
     begin
+        if CurrentIssueCode = '' then
+            CurrentIssueCode := InferIssueCodeFromFilters();
         ApplyIssueFilter();
     end;
 
@@ -121,5 +123,39 @@ page 53157 "DH Vendor Issue List"
             'VENDORS_MISSING_BANK_ACCOUNT':
                 Rec.SetRange("Preferred Bank Account Code", '');
         end;
+    end;
+
+    local procedure InferIssueCodeFromFilters(): Code[50]
+    begin
+        if Rec.GetFilter(Name) <> '' then
+            exit('VENDORS_MISSING_NAME');
+        if Rec.GetFilter("Search Name") <> '' then
+            exit('VENDORS_MISSING_SEARCH_NAME');
+        if Rec.GetFilter(Address) <> '' then
+            exit('VENDORS_MISSING_ADDRESS');
+        if Rec.GetFilter(City) <> '' then
+            exit('VENDORS_MISSING_CITY');
+        if Rec.GetFilter("Post Code") <> '' then
+            exit('VENDORS_MISSING_POST_CODE');
+        if Rec.GetFilter("Country/Region Code") <> '' then
+            exit('VENDORS_MISSING_COUNTRY');
+        if Rec.GetFilter("E-Mail") <> '' then
+            exit('VENDORS_MISSING_EMAIL');
+        if Rec.GetFilter("Phone No.") <> '' then
+            exit('VENDORS_MISSING_PHONE');
+        if Rec.GetFilter("Payment Terms Code") <> '' then
+            exit('VENDORS_MISSING_PAYMENT_TERMS');
+        if Rec.GetFilter("Payment Method Code") <> '' then
+            exit('VENDORS_MISSING_PAYMENT_METHOD');
+        if Rec.GetFilter("Vendor Posting Group") <> '' then
+            exit('VENDORS_MISSING_POSTING_GROUP');
+        if Rec.GetFilter("Gen. Bus. Posting Group") <> '' then
+            exit('VENDORS_MISSING_GEN_BUS_POSTING');
+        if Rec.GetFilter("VAT Bus. Posting Group") <> '' then
+            exit('VENDORS_MISSING_VAT_BUS_POSTING');
+        if Rec.GetFilter("Preferred Bank Account Code") <> '' then
+            exit('VENDORS_MISSING_BANK_ACCOUNT');
+
+        exit('');
     end;
 }

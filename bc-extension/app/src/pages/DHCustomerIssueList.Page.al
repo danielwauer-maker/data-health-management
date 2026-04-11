@@ -81,6 +81,8 @@ page 53156 "DH Customer Issue List"
 
     trigger OnOpenPage()
     begin
+        if CurrentIssueCode = '' then
+            CurrentIssueCode := InferIssueCodeFromFilters();
         ApplyIssueFilter();
     end;
 
@@ -121,5 +123,39 @@ page 53156 "DH Customer Issue List"
             'CUSTOMERS_MISSING_CREDIT_LIMIT':
                 Rec.SetRange("Credit Limit (LCY)", 0);
         end;
+    end;
+
+    local procedure InferIssueCodeFromFilters(): Code[50]
+    begin
+        if Rec.GetFilter(Name) <> '' then
+            exit('CUSTOMERS_MISSING_NAME');
+        if Rec.GetFilter("Search Name") <> '' then
+            exit('CUSTOMERS_MISSING_SEARCH_NAME');
+        if Rec.GetFilter(Address) <> '' then
+            exit('CUSTOMERS_MISSING_ADDRESS');
+        if Rec.GetFilter(City) <> '' then
+            exit('CUSTOMERS_MISSING_CITY');
+        if Rec.GetFilter("Post Code") <> '' then
+            exit('CUSTOMERS_MISSING_POST_CODE');
+        if Rec.GetFilter("Country/Region Code") <> '' then
+            exit('CUSTOMERS_MISSING_COUNTRY');
+        if Rec.GetFilter("E-Mail") <> '' then
+            exit('CUSTOMERS_MISSING_EMAIL');
+        if Rec.GetFilter("Phone No.") <> '' then
+            exit('CUSTOMERS_MISSING_PHONE');
+        if Rec.GetFilter("Payment Terms Code") <> '' then
+            exit('CUSTOMERS_MISSING_PAYMENT_TERMS');
+        if Rec.GetFilter("Payment Method Code") <> '' then
+            exit('CUSTOMERS_MISSING_PAYMENT_METHOD');
+        if Rec.GetFilter("Customer Posting Group") <> '' then
+            exit('CUSTOMERS_MISSING_POSTING_GROUP');
+        if Rec.GetFilter("Gen. Bus. Posting Group") <> '' then
+            exit('CUSTOMERS_MISSING_GEN_BUS_POSTING');
+        if Rec.GetFilter("VAT Bus. Posting Group") <> '' then
+            exit('CUSTOMERS_MISSING_VAT_BUS_POSTING');
+        if Rec.GetFilter("Credit Limit (LCY)") <> '' then
+            exit('CUSTOMERS_MISSING_CREDIT_LIMIT');
+
+        exit('');
     end;
 }
