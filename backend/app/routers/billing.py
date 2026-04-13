@@ -140,8 +140,31 @@ def _dt_from_unix(value) -> datetime | None:
 
 
 def _stripe_to_plain_data(value):
+    if value is None:
+        return None
+
+    if isinstance(value, dict):
+        return {k: _stripe_to_plain_data(v) for k, v in value.items()}
+
+    if isinstance(value, list):
+        return [_stripe_to_plain_data(v) for v in value]
+
     if hasattr(value, "to_dict_recursive"):
-        return value.to_dict_recursive()
+        try:
+            return _stripe_to_plain_data(value.to_dict_recursive())
+        except Exception:
+            pass
+
+    if hasattr(value, "to_dict"):
+        try:
+            return _stripe_to_plain_data(value.to_dict())
+        except Exception:
+            pass
+
+    raw_data = getattr(value, "_data", None)
+    if isinstance(raw_data, dict):
+        return {k: _stripe_to_plain_data(v) for k, v in raw_data.items()}
+
     return value
 
 
@@ -557,11 +580,13 @@ async def process_billing_webhook(
             raise HTTPException(status_code=500, detail="Stripe webhook secret is not configured.")
         stripe.api_key = settings.STRIPE_SECRET_KEY
         try:
-            event = _stripe_to_plain_data(
-                stripe.Webhook.construct_event(body_bytes, stripe_signature, webhook_secret)
-            )
+            stripe_event = stripe.Webhook.construct_event(body_bytes, stripe_signature, webhook_secret)
+            event = _stripe_to_plain_data(stripe_event)
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Invalid Stripe webhook signature: {exc}") from exc
+
+        if not isinstance(event, dict):
+            raise HTTPException(status_code=500, detail=f"Stripe event normalization failed: {type(event)!r}")
 
         event_type = str(event.get("type") or "").strip().lower()
         event_id = str(event.get("id") or "").strip() or f"evt_{uuid4().hex}"
