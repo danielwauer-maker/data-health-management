@@ -49,6 +49,18 @@ function scoreBand(score) {
   return 'excellent';
 }
 
+function scoreBandMeta(score) {
+  const band = scoreBand(score);
+  const meta = {
+    critical: { gaugeLabel: 'Poor', badgeClass: 'critical', colorHex: '#f44336' },
+    warning: { gaugeLabel: 'Fair', badgeClass: 'warning', colorHex: '#fb8c00' },
+    moderate: { gaugeLabel: 'Normal', badgeClass: 'moderate', colorHex: '#facc15' },
+    good: { gaugeLabel: 'Good', badgeClass: 'good', colorHex: '#84cc16' },
+    excellent: { gaugeLabel: 'Super', badgeClass: 'excellent', colorHex: '#16a34a' },
+  };
+  return { band, ...(meta[band] || meta.critical) };
+}
+
 function renderPricingBreakdown(data) {
   const breakdown = data?.pricing_breakdown || {};
   const subscription = data?.subscription || {};
@@ -79,21 +91,104 @@ function renderGauge(score) {
   if (!host) return;
 
   const safeScore = Math.max(0, Math.min(100, Number(score || 0)));
-  const severityClass = scoreBand(safeScore);
-  const radius = 74;
-  const circumference = Math.PI * radius;
-  const progress = circumference * (safeScore / 100);
-  const dashOffset = circumference - progress;
+  const meta = scoreBandMeta(safeScore);
+  const centerX = 160;
+  const centerY = 186;
+  const outerRadius = 124;
+  const innerRadius = 94;
+  const labelRadius = 79;
+  const segments = [
+    { label: 'Poor', start: 180, end: 144, className: 'critical' },
+    { label: 'Fair', start: 144, end: 108, className: 'warning' },
+    { label: 'Bad', start: 108, end: 72, className: 'warning-soft' },
+    { label: 'Normal', start: 72, end: 36, className: 'moderate' },
+    { label: 'Good', start: 36, end: 0, className: 'good' },
+  ];
+
+  function polarToCartesian(cx, cy, radius, angleDeg) {
+    const radians = (angleDeg - 90) * (Math.PI / 180);
+    return {
+      x: cx + radius * Math.cos(radians),
+      y: cy + radius * Math.sin(radians),
+    };
+  }
+
+  function arcPath(cx, cy, radius, startAngle, endAngle) {
+    const start = polarToCartesian(cx, cy, radius, endAngle);
+    const end = polarToCartesian(cx, cy, radius, startAngle);
+    const largeArcFlag = Math.abs(endAngle - startAngle) <= 180 ? '0' : '1';
+    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
+  }
+
+  function ringSlicePath(cx, cy, outerR, innerR, startAngle, endAngle) {
+    const outerStart = polarToCartesian(cx, cy, outerR, startAngle);
+    const outerEnd = polarToCartesian(cx, cy, outerR, endAngle);
+    const innerStart = polarToCartesian(cx, cy, innerR, endAngle);
+    const innerEnd = polarToCartesian(cx, cy, innerR, startAngle);
+    const largeArcFlag = Math.abs(endAngle - startAngle) <= 180 ? '0' : '1';
+    return [
+      `M ${outerStart.x} ${outerStart.y}`,
+      `A ${outerR} ${outerR} 0 ${largeArcFlag} 0 ${outerEnd.x} ${outerEnd.y}`,
+      `L ${innerStart.x} ${innerStart.y}`,
+      `A ${innerR} ${innerR} 0 ${largeArcFlag} 1 ${innerEnd.x} ${innerEnd.y}`,
+      'Z',
+    ].join(' ');
+  }
+
+  function labelPosition(angleDeg) {
+    return polarToCartesian(centerX, centerY, labelRadius, angleDeg);
+  }
+
+  const segmentMarkup = segments.map((segment) => {
+    const textPos = labelPosition((segment.start + segment.end) / 2);
+    return `
+      <g class="gauge-segment-group">
+        <path d="${ringSlicePath(centerX, centerY, outerRadius, innerRadius, segment.start, segment.end)}"
+              class="gauge-segment ${segment.className}"></path>
+        <path d="${arcPath(centerX, centerY, innerRadius - 4, segment.start - 1.5, segment.end + 1.5)}"
+              class="gauge-segment-inner-outline"></path>
+        <text x="${textPos.x}" y="${textPos.y}" text-anchor="middle"
+              class="gauge-band-label"
+              transform="rotate(${((segment.start + segment.end) / 2) - 90} ${textPos.x} ${textPos.y})">${segment.label}</text>
+      </g>
+    `;
+  }).join('');
+
+  const pointerAngle = 180 - (safeScore * 1.8);
+  const needleLength = 84;
+  const needleBaseHalf = 9;
+  const radians = (pointerAngle - 90) * (Math.PI / 180);
+  const tipX = centerX + needleLength * Math.cos(radians);
+  const tipY = centerY + needleLength * Math.sin(radians);
+  const baseLeftX = centerX + needleBaseHalf * Math.cos(radians + Math.PI / 2);
+  const baseLeftY = centerY + needleBaseHalf * Math.sin(radians + Math.PI / 2);
+  const baseRightX = centerX + needleBaseHalf * Math.cos(radians - Math.PI / 2);
+  const baseRightY = centerY + needleBaseHalf * Math.sin(radians - Math.PI / 2);
+  const valueY = 258;
 
   host.innerHTML = `
-    <svg viewBox="0 0 220 140" class="gauge-svg" role="img" aria-label="Data health gauge ${safeScore}">
-      <path d="M 36 110 A 74 74 0 0 1 184 110" class="gauge-track"></path>
-      <path d="M 36 110 A 74 74 0 0 1 184 110" class="gauge-progress ${severityClass}"
-            style="stroke-dasharray:${circumference};stroke-dashoffset:${dashOffset}"></path>
-      <text x="110" y="88" text-anchor="middle" class="gauge-score">${formatNumber(safeScore)}</text>
-      <text x="110" y="106" text-anchor="middle" class="gauge-caption">Data Health Score</text>
+    <svg viewBox="0 0 320 290" class="gauge-svg gauge-dial" role="img" aria-label="Data health gauge ${safeScore}">
+      <path d="${arcPath(centerX, centerY, outerRadius, 180, 0)}" class="gauge-dial-shadow"></path>
+      ${segmentMarkup}
+      <circle cx="${centerX}" cy="${centerY}" r="66" class="gauge-center-disc"></circle>
+      <path d="M ${baseLeftX} ${baseLeftY} L ${tipX} ${tipY} L ${baseRightX} ${baseRightY} Z" class="gauge-needle"></path>
+      <circle cx="${centerX}" cy="${centerY}" r="18" class="gauge-needle-cap"></circle>
+      <circle cx="${centerX}" cy="${centerY}" r="10" class="gauge-needle-cap-inner"></circle>
+      <g transform="translate(${centerX - 46}, ${valueY})">
+        <rect width="92" height="40" rx="10" class="gauge-value-badge ${meta.badgeClass}"></rect>
+        <text x="46" y="27" text-anchor="middle" class="gauge-value-text">${formatNumber(safeScore)}</text>
+      </g>
+      <text x="${centerX}" y="238" text-anchor="middle" class="gauge-caption">Data Health Score</text>
     </svg>
   `;
+}
+
+function applyScoreValueTone(score) {
+  const scoreEl = byId('kpi-score');
+  if (!scoreEl) return;
+  const { band } = scoreBandMeta(score);
+  scoreEl.classList.remove('critical', 'warning', 'moderate', 'good', 'excellent');
+  scoreEl.classList.add(band);
 }
 
 function renderHeroPoints(items) {
@@ -441,6 +536,7 @@ async function loadDashboard(scanId = null) {
     setText('kpi-roi', formatCurrency(data?.kpis?.roi_eur));
 
     renderGauge(data?.kpis?.health_score);
+    applyScoreValueTone(data?.kpis?.health_score);
     renderProfileCards(data?.profile_cards || []);
     renderIssueGroups(data?.issue_groups || []);
     renderRecentScans(data?.recent_scans || []);

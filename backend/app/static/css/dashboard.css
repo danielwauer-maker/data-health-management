@@ -205,6 +205,11 @@ button { font: inherit; }
 
 .score-value,
 .loss-value { color: #e2574c; }
+.score-value.critical { color: #ef4444; }
+.score-value.warning { color: #f97316; }
+.score-value.moderate { color: #eab308; }
+.score-value.good { color: #84cc16; }
+.score-value.excellent { color: #16a34a; }
 .roi-value { color: var(--green); }
 .stat-helper {
   margin-top: 10px;
@@ -218,19 +223,88 @@ button { font: inherit; }
 
 .gauge-wrap {
   width: 100%;
-  max-width: 240px;
+  max-width: 320px;
+  margin: 0 auto;
 }
 
 .gauge-svg { width: 100%; height: auto; display: block; }
-.gauge-track { fill: none; stroke: #edf1f7; stroke-width: 18; stroke-linecap: round; }
-.gauge-progress { fill: none; stroke: var(--primary-strong); stroke-width: 18; stroke-linecap: round; }
-.gauge-progress.critical { stroke: #ef4444; }
-.gauge-progress.warning { stroke: #f97316; }
-.gauge-progress.moderate { stroke: #eab308; }
-.gauge-progress.good { stroke: #3b82f6; }
-.gauge-progress.excellent { stroke: #22c55e; }
-.gauge-score { font-size: 30px; font-weight: 800; fill: var(--text); }
-.gauge-caption { font-size: 12px; fill: var(--muted); }
+.gauge-dial {
+  overflow: visible;
+  filter: drop-shadow(0 18px 28px rgba(15, 35, 64, 0.08));
+}
+
+.gauge-dial-shadow {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 38;
+  stroke-linecap: round;
+}
+
+.gauge-segment {
+  stroke: #ffffff;
+  stroke-width: 3;
+}
+
+.gauge-segment.critical { fill: #f44336; }
+.gauge-segment.warning { fill: #fb8c00; }
+.gauge-segment.warning-soft { fill: #ffb020; }
+.gauge-segment.moderate { fill: #d4e157; }
+.gauge-segment.good { fill: #84cc16; }
+
+.gauge-segment-inner-outline {
+  fill: none;
+  stroke: rgba(132, 145, 166, 0.35);
+  stroke-width: 9;
+  stroke-linecap: butt;
+}
+
+.gauge-center-disc {
+  fill: #ffffff;
+  stroke: #eef2f8;
+  stroke-width: 2;
+}
+
+.gauge-band-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  fill: #2f3a4c;
+}
+
+.gauge-needle {
+  fill: #111111;
+  filter: drop-shadow(0 2px 3px rgba(17, 17, 17, 0.22));
+}
+
+.gauge-needle-cap {
+  fill: #101010;
+}
+
+.gauge-needle-cap-inner {
+  fill: #5d6470;
+}
+
+.gauge-value-badge {
+  fill: #f44336;
+}
+
+.gauge-value-badge.critical { fill: #f44336; }
+.gauge-value-badge.warning { fill: #fb8c00; }
+.gauge-value-badge.moderate { fill: #facc15; }
+.gauge-value-badge.good { fill: #84cc16; }
+.gauge-value-badge.excellent { fill: #16a34a; }
+
+.gauge-value-text {
+  font-size: 22px;
+  font-weight: 900;
+  fill: #ffffff;
+}
+
+.gauge-caption {
+  font-size: 13px;
+  fill: var(--muted);
+}
 
 .overview-grid {
   display: grid;
@@ -703,18 +777,6 @@ body.dashboard-body {
   background: linear-gradient(180deg, #fffdfc 0%, #fff5f0 100%);
 }
 
-.gauge-track {
-  stroke: #ecf1f8;
-}
-
-.gauge-progress {
-  stroke: #ea7b4f;
-}
-
-.gauge-score {
-  fill: #102848;
-}
-
 .stat-value,
 .subscription-value {
   color: #122a4c;
@@ -724,6 +786,12 @@ body.dashboard-body {
 .loss-value {
   color: #e2574c !important;
 }
+
+.score-value.critical { color: #ef4444 !important; }
+.score-value.warning { color: #f97316 !important; }
+.score-value.moderate { color: #eab308 !important; }
+.score-value.good { color: #84cc16 !important; }
+.score-value.excellent { color: #16a34a !important; }
 
 .roi-value {
   color: #1ea97f !important;
