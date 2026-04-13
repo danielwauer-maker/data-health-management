@@ -19,12 +19,6 @@ const translations = {
     hero_trust_1: "Tiefenscan deiner Business-Central-Daten",
     hero_trust_2: "Realistischer Jahresverlust und Einsparpotenzial",
     hero_trust_3: "Kontinuierliches Monitoring für kritische Datenprobleme",
-    hero_pill_gdpr: "DSGVO-ready",
-    hero_pill_hosting: "Hosting in Deutschland",
-    hero_pill_tenants: "Klare Mandantentrennung",
-    hero_loss_badge_label: "Geschätzter Jahresverlust",
-    hero_gdpr_badge_title: "DSGVO-fokussiert",
-    hero_gdpr_badge_sub: "Privacy-first Architektur",
 
     metric_loss_label: "Geschätzter Jahresverlust",
     metric_loss_sub: "Monetarisierter Impact auf Basis der erkannten Datenprobleme.",
@@ -34,7 +28,6 @@ const translations = {
     metric_save_sub: "Realistisch geschätzte Einsparung nach Behebung zentraler Probleme.",
 
     problem_eyebrow: "Das Problem",
-    problem_kicker: "Wo Geld verloren geht",
     problem_title: "Die meisten Business-Central-Systeme enthalten versteckte Datenprobleme.",
     problem_sub: "Schwache Datenqualität zeigt sich zuerst als kleine Störung und summiert sich dann zu operativen und finanziellen Risiken in Vertrieb, Einkauf, Finance und Operations.",
     problem_bullet_1: "Fehlende Pflichtfelder in Stammdaten",
@@ -51,7 +44,6 @@ const translations = {
     problem_card_4_text: "Schwache Datenqualität verzerrt KPIs, Forecasts und Management-Entscheidungen.",
 
     impact_eyebrow: "Warum das relevant ist",
-    impact_kicker: "Operativer Schmerz",
     impact_title: "Schlechte Daten sind nicht nur nervig. Sie sind teuer.",
     impact_item_1_title: "Verlorene Marge",
     impact_item_1_text: "Falsche Preise und Rabatte reduzieren die Profitabilität.",
@@ -63,7 +55,6 @@ const translations = {
     impact_item_4_text: "Schwache Datenqualität verzerrt Berichte und KPIs.",
 
     demo_eyebrow: "Business Impact",
-    demo_kicker: "Management-taugliche Sicht",
     demo_title: "Zeige dem Management einen echten Business Case — nicht nur eine Datenliste.",
     demo_text: "BCSentinel verbindet technische Findings mit finanzieller Relevanz, damit schlechte Datenqualität in Euro, Prioritäten und messbarem Verbesserungspotenzial sichtbar wird.",
     demo_list_1: "Klarer Data Health Score für einen schnellen Executive-Überblick",
@@ -72,7 +63,6 @@ const translations = {
     demo_list_4: "Starke Basis für wiederkehrendes Monitoring und Upgrade-Entscheidungen",
 
     solution_eyebrow: "Die Lösung",
-    solution_kicker: "Was du sofort bekommst",
     solution_title: "BCSentinel macht aus schlechter Datenqualität messbare Klarheit.",
     solution_sub: "Starte einen vollständigen Scan deines Business-Central-Systems und sehe sofort, wo deine Datenqualität schwach ist, wie groß der Business Impact ausfällt und welche Bereiche zuerst Aufmerksamkeit verdienen.",
     solution_card_1_title: "Data Health Score",
@@ -85,7 +75,6 @@ const translations = {
     solution_card_4_text: "Schaffe eine starke Basis für wiederkehrende Scans und kontinuierliches Data-Health-Monitoring.",
 
     how_eyebrow: "So funktioniert es",
-    how_kicker: "Schnelles erstes Ergebnis",
     how_title: "Vom ersten Scan zur klaren Handlung in drei Schritten.",
     how_sub: "Leichtgewichtig für den Kunden, stark genug für echten ERP-Mehrwert ab dem ersten Tag.",
     step_1_title: "Business Central verbinden",
@@ -96,7 +85,6 @@ const translations = {
     step_3_text: "Erhalte Score, Business Impact und Issue-Überblick — und schalte mit Premium konkrete Aktionen frei.",
 
     value_eyebrow: "Value Preview",
-    value_kicker: "Business Impact in Euro",
     value_title: "Sieh, was schlechte Daten kosten — und was ihre Bereinigung sparen kann.",
     value_text: "Mache aus schwacher Datenqualität ein finanzielles Thema, das Priorisierung, Budgetentscheidungen und internen Buy-in unterstützt.",
     value_proof: "Beispiel: 18 Preisfehler × 12 Monate × 15 Minuten Nacharbeit = 2.835 € vermeidbare Kosten pro Jahr.",
@@ -105,10 +93,9 @@ const translations = {
     value_stat_3_label: "Potenzielle Einsparung",
 
     pricing_eyebrow: "Preise",
-    pricing_kicker: "Kostenlos starten, upgraden wenn es sich lohnt",
     pricing_title: "Insight ist kostenlos. Action ist Premium.",
     pricing_sub: "Starte mit sofortiger Transparenz über deine Datenqualität und ihren Business Impact. Upgrade erst dann, wenn du tiefere Details, Priorisierung und direkte Aktionen willst.",
-    plan_free_badge: "Free",
+    plan_free_badge: "Kostenlos",
     plan_free_title: "Sichtbarkeit für deinen ersten Business Case.",
     price_month: "/ Monat",
     plan_free_1: "Vollständiger Systemscan",
@@ -133,7 +120,6 @@ const translations = {
     plan_guarantee_3: "Upgrade jederzeit aus Free möglich",
 
     security_eyebrow: "Sicherheit",
-    security_kicker: "Sicherheit & Compliance",
     security_title: "Entwickelt für datensensible Business-Central-Umgebungen.",
     security_sub: "BCSentinel ist darauf ausgelegt, Privacy-first SaaS zu unterstützen und Vertrauen in sensiblen ERP-Kontexten zu schaffen.",
     security_1: "DSGVO-bewusstes Setup",
@@ -143,10 +129,7 @@ const translations = {
     security_badge_1: "Hosting in Deutschland",
     security_badge_2: "Mandantentrennung",
     security_badge_3: "Auditierbare Admin-Aktionen",
-    security_hero_badge_title: "DSGVO-ready Setup",
-    security_hero_badge_sub: "Entwickelt für datenschutzbewusste ERP-Teams",
     partners_eyebrow: "Partnerprogramm",
-    partners_kicker: "Wiederkehrender Partnerumsatz",
     partners_title: "Baue wiederkehrenden Umsatz als BCSentinel-Partner auf.",
     partners_sub: "Empfiehl BCSentinel an Business-Central-Kunden und erhalte 30% Provision auf qualifizierte Premium-Umsaetze.",
     partners_value_title: "Was Partner erhalten",
@@ -165,7 +148,6 @@ const translations = {
     security_card_text: "Hosting in Deutschland, ausgelegt für datenschutzbewusste Unternehmen und gebaut mit Fokus auf sichere Verarbeitung, Mandantentrennung und möglichst geringe Exponierung sensibler ERP-Informationen.",
 
     faq_eyebrow: "FAQ",
-    faq_kicker: "Common questions",
     faq_title: "Fragen vor dem ersten Scan?",
     faq_1_q: "Was analysiert BCSentinel?",
     faq_1_a: "BCSentinel scannt die Datenqualität in Business Central über zentrale Bereiche wie Kunden, Lieferanten, Artikel, Finance, Einkauf, Vertrieb und prozessrelevante Datensätze hinweg.",
@@ -177,7 +159,6 @@ const translations = {
     faq_4_a: "BCSentinel ist für datenschutzbewusste Nutzung ausgelegt und kann auf einem deutschen Server betrieben werden, um Datenschutz- und Compliance-Anforderungen zu unterstützen.",
 
     cta_eyebrow: "Bereit zu starten?",
-    cta_kicker: "Bereit zu starten?",
     cta_title: "Sieh, was deine Business-Central-Daten dich kosten, bevor es noch teurer wird.",
     cta_sub: "Starte deinen kostenlosen Scan, entdecke versteckte Risiken und erhalte einen businessorientierten Blick darauf, wo schlechte Datenqualität bereits vermeidbare Kosten erzeugt.",
     cta_primary: "Kostenlosen ERP-Health-Scan starten",
@@ -213,12 +194,6 @@ const translations = {
     hero_trust_1: "Deep scan of your Business Central data",
     hero_trust_2: "Realistic annual loss and savings potential",
     hero_trust_3: "Continuous monitoring for critical data issues",
-    hero_pill_gdpr: "GDPR-ready",
-    hero_pill_hosting: "Hosting in Germany",
-    hero_pill_tenants: "Strict tenant separation",
-    hero_loss_badge_label: "Estimated annual loss",
-    hero_gdpr_badge_title: "GDPR-focused",
-    hero_gdpr_badge_sub: "Privacy-first architecture",
 
     metric_loss_label: "Estimated annual loss",
     metric_loss_sub: "Monetized impact based on your detected data issues.",
@@ -228,7 +203,6 @@ const translations = {
     metric_save_sub: "Estimated realistic savings after addressing key issues.",
 
     problem_eyebrow: "The problem",
-    problem_kicker: "Where money gets lost",
     problem_title: "Most Business Central systems contain hidden data issues.",
     problem_sub: "Weak data quality often starts as small friction and then accumulates into operational and financial risk across sales, purchasing, finance, and operations.",
     problem_bullet_1: "Missing mandatory fields in master data",
@@ -245,7 +219,6 @@ const translations = {
     problem_card_4_text: "Low-quality data distorts KPIs, forecasts, and management decisions.",
 
     impact_eyebrow: "Why this matters",
-    impact_kicker: "Operational pain",
     impact_title: "Bad data is not just annoying. It is expensive.",
     impact_item_1_title: "Lost revenue",
     impact_item_1_text: "Wrong prices and discounts reduce margin.",
@@ -257,7 +230,6 @@ const translations = {
     impact_item_4_text: "Low-quality data distorts reports and KPIs.",
 
     demo_eyebrow: "Business impact",
-    demo_kicker: "Management-ready view",
     demo_title: "Show management a real business case — not just a data list.",
     demo_text: "BCSentinel connects technical findings with financial relevance so weak data quality becomes visible in euros, priorities, and measurable improvement potential.",
     demo_list_1: "Clear Data Health Score for a fast executive overview",
@@ -266,7 +238,6 @@ const translations = {
     demo_list_4: "Strong basis for recurring monitoring and upgrade decisions",
 
     solution_eyebrow: "The solution",
-    solution_kicker: "What you get immediately",
     solution_title: "BCSentinel turns poor data into measurable clarity.",
     solution_sub: "Run a full scan of your Business Central system and instantly see where your data quality is weak, how big the business impact is, and which areas deserve attention first.",
     solution_card_1_title: "Data Health Score",
@@ -279,7 +250,6 @@ const translations = {
     solution_card_4_text: "Build a strong basis for recurring scans and continuous data health monitoring.",
 
     how_eyebrow: "How it works",
-    how_kicker: "Fast first result",
     how_title: "From first scan to clear action in three steps.",
     how_sub: "Lightweight for the customer, powerful enough to create real ERP value from day one.",
     step_1_title: "Connect Business Central",
@@ -290,7 +260,6 @@ const translations = {
     step_3_text: "Get a score, business impact, and issue overview — then unlock actions with Premium.",
 
     value_eyebrow: "Value preview",
-    value_kicker: "Business impact in euros",
     value_title: "See what poor data costs — and what fixing it can save.",
     value_text: "Turn weak data quality into a financial conversation that supports prioritization, budget decisions, and internal buy-in.",
     value_proof: "Example: 18 pricing issues × 12 months × 15 minutes rework = EUR 2,835 annual avoidable cost.",
@@ -299,7 +268,6 @@ const translations = {
     value_stat_3_label: "Potential saving",
 
     pricing_eyebrow: "Pricing",
-    pricing_kicker: "Start free, upgrade when it pays off",
     pricing_title: "Insight is free. Action is Premium.",
     pricing_sub: "Start with immediate visibility into your data quality and business impact. Upgrade when you want deeper details, prioritization, and direct action.",
     plan_free_badge: "Free",
@@ -327,7 +295,6 @@ const translations = {
     plan_guarantee_3: "Upgrade anytime from Free",
 
     security_eyebrow: "Security",
-    security_kicker: "Security & compliance",
     security_title: "Built for privacy-sensitive Business Central environments.",
     security_sub: "BCSentinel is designed to support privacy-first SaaS usage and to create trust in sensitive ERP contexts.",
     security_1: "GDPR-conscious setup",
@@ -337,10 +304,7 @@ const translations = {
     security_badge_1: "Hosting in Germany",
     security_badge_2: "Tenant separation",
     security_badge_3: "Audit-ready admin actions",
-    security_hero_badge_title: "GDPR-ready setup",
-    security_hero_badge_sub: "Designed for privacy-conscious ERP teams",
     partners_eyebrow: "Partner Program",
-    partners_kicker: "Recurring partner revenue",
     partners_title: "Build recurring revenue as a BCSentinel partner.",
     partners_sub: "Recommend BCSentinel to Business-Central customers and earn 30% commission on qualified Premium revenue.",
     partners_value_title: "What partners get",
@@ -359,7 +323,6 @@ const translations = {
     security_card_text: "Hosted in Germany, designed for GDPR-conscious businesses, and built with a focus on secure processing, tenant separation, and minimal exposure of sensitive ERP information.",
 
     faq_eyebrow: "FAQ",
-    faq_kicker: "Common questions",
     faq_title: "Questions before your first scan?",
     faq_1_q: "What does BCSentinel analyze?",
     faq_1_a: "BCSentinel scans your Business Central data quality across key areas such as customers, vendors, items, finance, purchasing, sales, and process-related records.",
@@ -371,7 +334,6 @@ const translations = {
     faq_4_a: "BCSentinel is designed for GDPR-conscious use and can be hosted on a German server to support privacy and compliance requirements.",
 
     cta_eyebrow: "Ready to start?",
-    cta_kicker: "Ready to start?",
     cta_title: "See what your Business Central data is costing you before it gets more expensive.",
     cta_sub: "Start your free scan, uncover hidden risks, and get a business-focused view of where weak data quality is already creating avoidable cost.",
     cta_primary: "Start free ERP health scan",
