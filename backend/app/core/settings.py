@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str | None = None
     STRIPE_PRICE_ID_PREMIUM: str | None = None
     STRIPE_PRICE_ID_PREMIUM_YEARLY: str | None = None
+    STRIPE_PRICE_ID_PREMIUM_BASE_MONTHLY: str | None = None
+    STRIPE_PRICE_ID_PREMIUM_BASE_YEARLY: str | None = None
+    STRIPE_PRICE_ID_PREMIUM_PACK_MONTHLY: str | None = None
+    STRIPE_PRICE_ID_PREMIUM_PACK_YEARLY: str | None = None
     BILLING_SUCCESS_URL: str | None = None
     BILLING_CANCEL_URL: str | None = None
     BILLING_PORTAL_RETURN_URL: str | None = None

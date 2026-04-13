@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from uuid import uuid4
 
@@ -10,7 +11,7 @@ from sqlalchemy import select
 
 from app.core.settings import settings
 from app.db import SessionLocal
-from app.models import PartnerReferral, Subscription, Tenant
+from app.models import PartnerReferral, Scan, Subscription, Tenant
 from app.security.tenant import (
     enforce_tenant_match,
     load_authenticated_tenant,
@@ -168,6 +169,34 @@ def _stripe_to_plain_data(value):
     return value
 
 
+def _load_latest_deep_scan(db, tenant_id: str) -> Scan | None:
+    return db.scalar(
+        select(Scan)
+        .where(
+            Scan.tenant_id == tenant_id,
+            Scan.scan_type == "deep",
+        )
+        .order_by(Scan.generated_at_utc.desc(), Scan.id.desc())
+        .limit(1)
+    )
+
+
+def _deep_scan_record_count(scan: Scan | None) -> int:
+    if scan is None:
+        return 0
+    try:
+        return max(int(scan.total_records or 0), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _additional_record_package_count(record_count: int) -> int:
+    normalized = max(int(record_count or 0), 0)
+    if normalized <= 2000:
+        return 0
+    return int(math.ceil((normalized - 2000) / 2000))
+
+
 def _extract_subscription_monthly_amount(subscription_obj: dict) -> float:
     price_data = (
         ((subscription_obj.get("items", {}) or {}).get("data", [{}])[0].get("price", {}) or {})
@@ -228,16 +257,27 @@ def _normalize_checkout_plan_code(value: str | None) -> str:
     raise HTTPException(status_code=400, detail="plan_code must be 'premium' for checkout.")
 
 
-def _resolve_stripe_price_id(billing_interval: str) -> str:
+def _is_stripe_checkout_configured() -> bool:
+    return bool(
+        (settings.STRIPE_SECRET_KEY or "").strip()
+        and (settings.STRIPE_PRICE_ID_PREMIUM_BASE_MONTHLY or "").strip()
+        and (settings.STRIPE_PRICE_ID_PREMIUM_BASE_YEARLY or "").strip()
+    )
+
+
+def _resolve_stripe_checkout_price_ids(billing_interval: str) -> tuple[str, str]:
     if billing_interval == "yearly":
-        price_id = (settings.STRIPE_PRICE_ID_PREMIUM_YEARLY or "").strip()
-        if not price_id:
-            raise HTTPException(status_code=503, detail="Yearly premium billing is not configured.")
-        return price_id
-    price_id = (settings.STRIPE_PRICE_ID_PREMIUM or "").strip()
-    if not price_id:
-        raise HTTPException(status_code=503, detail="Monthly premium billing is not configured.")
-    return price_id
+        base_price_id = (settings.STRIPE_PRICE_ID_PREMIUM_BASE_YEARLY or "").strip()
+        pack_price_id = (settings.STRIPE_PRICE_ID_PREMIUM_PACK_YEARLY or "").strip()
+        if not base_price_id:
+            raise HTTPException(status_code=503, detail="Yearly premium base billing is not configured.")
+        return base_price_id, pack_price_id
+
+    base_price_id = (settings.STRIPE_PRICE_ID_PREMIUM_BASE_MONTHLY or "").strip()
+    pack_price_id = (settings.STRIPE_PRICE_ID_PREMIUM_PACK_MONTHLY or "").strip()
+    if not base_price_id:
+        raise HTTPException(status_code=503, detail="Monthly premium base billing is not configured.")
+    return base_price_id, pack_price_id
 
 
 def _find_tenant_for_invoice(db, explicit_tenant_id: str | None, provider_subscription_id: str | None) -> Tenant | None:
@@ -359,6 +399,9 @@ def create_checkout_session(
         tenant = load_authenticated_tenant(db, header_tenant_id, header_api_token)
         require_tenant_feature(db, tenant, "billing_checkout")
         referral = db.scalar(select(PartnerReferral).where(PartnerReferral.tenant_id == tenant.tenant_id))
+        latest_deep_scan = _load_latest_deep_scan(db, tenant.tenant_id)
+        record_count = _deep_scan_record_count(latest_deep_scan)
+        package_count = _additional_record_package_count(record_count)
 
     billing_interval = _normalize_billing_interval(payload.billing_interval)
     checkout_metadata = {
@@ -366,23 +409,34 @@ def create_checkout_session(
         "plan_code": normalized_plan_code,
         "billing_interval": billing_interval,
         "tenant_environment": str(getattr(tenant, "environment_name", "") or "").strip(),
+        "record_count": str(record_count),
+        "package_size": "2000",
+        "package_count": str(package_count),
     }
     if referral is not None:
         checkout_metadata["referral_code"] = str(referral.referral_code or "").strip().lower()
         checkout_metadata["attribution_source"] = str(referral.attribution_source or "").strip().lower()
 
-    if _is_prod_env() and not _is_stripe_configured():
+    if _is_prod_env() and not _is_stripe_checkout_configured():
         raise HTTPException(status_code=503, detail="Stripe checkout is not configured for production.")
 
-    if _is_stripe_configured():
+    if _is_stripe_checkout_configured():
         stripe.api_key = settings.STRIPE_SECRET_KEY
         success_url = (payload.success_url or "").strip() or _stripe_default_success_url()
         cancel_url = (payload.cancel_url or "").strip() or _stripe_default_cancel_url()
-        price_id = _resolve_stripe_price_id(billing_interval)
+        base_price_id, pack_price_id = _resolve_stripe_checkout_price_ids(billing_interval)
+        line_items = [{"price": base_price_id, "quantity": 1}]
+        if package_count > 0:
+            if not pack_price_id:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Stripe record package billing is not configured for the tenant's data volume.",
+                )
+            line_items.append({"price": pack_price_id, "quantity": package_count})
         session = stripe.checkout.Session.create(
             mode="subscription",
             client_reference_id=payload.tenant_id,
-            line_items=[{"price": price_id, "quantity": 1}],
+            line_items=line_items,
             success_url=success_url,
             cancel_url=cancel_url,
             metadata=checkout_metadata,

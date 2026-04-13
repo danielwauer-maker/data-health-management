@@ -41,6 +41,10 @@ Erwartetes Ergebnis:
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_ID_PREMIUM`
 - optional: `STRIPE_PRICE_ID_PREMIUM_YEARLY`
+- `STRIPE_PRICE_ID_PREMIUM_BASE_MONTHLY`
+- `STRIPE_PRICE_ID_PREMIUM_BASE_YEARLY`
+- `STRIPE_PRICE_ID_PREMIUM_PACK_MONTHLY`
+- `STRIPE_PRICE_ID_PREMIUM_PACK_YEARLY`
 - optional: `BILLING_SUCCESS_URL`
 - optional: `BILLING_CANCEL_URL`
 - optional: `BILLING_PORTAL_RETURN_URL`
@@ -58,6 +62,8 @@ Danach Deploy/Restart, damit Checkout die neuen IDs nutzt. Abgleich: Listenpreis
 - `POST /billing/checkout/session`
   - erstellt eine Stripe Checkout Session fuer Premium
   - unterstuetzt `billing_interval` = `monthly` | `yearly`
+  - nutzt Base + optionales Records-Pack anhand des letzten Deep Scans des Tenants
+  - Fallback ohne Deep Scan: `record_count = 0`, damit nur der Base Price abgerechnet wird
 - `GET /billing/subscription/status`
   - liefert den aktuellen Abo-Status des Tenants
 - `GET /billing/checkout/session/status?session_id=...`
