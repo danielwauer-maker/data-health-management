@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zahlung erfolgreich – BCSentinel</title>
+  <meta name="description" content="Deine Zahlung für BCSentinel war erfolgreich." />
+
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg-soft: #131a2e;
+      --card: rgba(255, 255, 255, 0.06);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --text: #f8fafc;
+      --muted: #cbd5e1;
+      --green: #22c55e;
+      --green-soft: rgba(34, 197, 94, 0.14);
+      --blue: #3b82f6;
+      --white: #ffffff;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(59,130,246,0.18), transparent 35%),
+        linear-gradient(135deg, #0b1020 0%, #121a2f 45%, #0b1020 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 36px;
+      backdrop-filter: blur(10px);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--green-soft);
+      color: #bbf7d0;
+      border: 1px solid rgba(34, 197, 94, 0.28);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 22px;
+    }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #04110a;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: bold;
+      flex: 0 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 40px;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    .status-box {
+      margin-top: 28px;
+      padding: 18px 20px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .status-label {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+
+    .status-text {
+      font-size: 17px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .status-subtext {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .summary {
+      margin-top: 26px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .summary-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .summary-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--white);
+      word-break: break-word;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 18px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: bold;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      opacity: 0.95;
+    }
+
+    .btn-primary {
+      background: var(--green);
+      color: #052e16;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--white);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .fineprint {
+      margin-top: 22px;
+      color: #94a3b8;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 700px) {
+      .card {
+        padding: 24px;
+      }
+
+      h1 {
+        font-size: 30px;
+      }
+
+      .lead {
+        font-size: 16px;
+      }
+
+      .summary {
+        grid-template-columns: 1fr;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="badge">
+        <span class="icon">✓</span>
+        Zahlung erfolgreich
+      </div>
+
+      <h1>Dein Upgrade war erfolgreich.</h1>
+      <p class="lead">
+        Dein BCSentinel Premium-Zugang wurde erfolgreich angestoßen.
+        Wir prüfen jetzt den Status deiner Bestellung und aktualisieren deine Lizenz.
+      </p>
+
+      <div class="status-box">
+        <div class="status-label">Status</div>
+        <div id="statusText" class="status-text">
+          Wir bestätigen deine Zahlung und synchronisieren dein Abonnement.
+        </div>
+        <div id="statusSubtext" class="status-subtext">
+          Das dauert normalerweise nur einen kurzen Moment.
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="summary-card">
+          <div class="summary-label">Session-ID</div>
+          <div id="sessionValue" class="summary-value">Nicht vorhanden</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Plan</div>
+          <div id="planValue" class="summary-value">Wird geprüft</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Lizenzstatus</div>
+          <div id="licenseValue" class="summary-value">Wird geprüft</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a href="/" class="btn btn-primary">Zur Landingpage</a>
+        <a href="/#pricing" class="btn btn-secondary">Preise ansehen</a>
+      </div>
+
+      <div class="fineprint">
+        Falls dein Premium-Status nicht sofort sichtbar ist, aktualisiere die Seite nach ein paar Sekunden erneut.
+        Ohne Session-ID zeigt diese Seite nur die allgemeine Erfolgsmeldung an.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function resolveApiBase() {
+      const meta = document.querySelector('meta[name="bcsentinel-api-base"]');
+      if (meta && meta.content) {
+        return meta.content.trim().replace(/\/$/, "");
+      }
+
+      if (window.__BCSENTINEL_API_BASE__) {
+        return String(window.__BCSENTINEL_API_BASE__).trim().replace(/\/$/, "");
+      }
+
+      const host = window.location.hostname.toLowerCase();
+
+      if (host === "bcsentinel.com" || host === "www.bcsentinel.com") {
+        return "https://api.bcsentinel.com";
+      }
+
+      if (host === "dev.bcsentinel.com") {
+        return "https://dev-api.bcsentinel.com";
+      }
+
+      return window.location.origin.replace(/\/$/, "");
+    }
+
+    function setStatus(text, subtext) {
+      document.getElementById("statusText").textContent = text;
+      document.getElementById("statusSubtext").textContent = subtext || "";
+    }
+
+    function setSummary(plan, license) {
+      document.getElementById("planValue").textContent = plan || "Unbekannt";
+      document.getElementById("licenseValue").textContent = license || "Unbekannt";
+    }
+
+    async function syncCheckoutStatus() {
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get("session_id");
+      document.getElementById("sessionValue").textContent = sessionId || "Nicht vorhanden";
+
+      if (!sessionId) {
+        setStatus(
+          "Deine Zahlung wurde erfolgreich abgeschlossen.",
+          "Diese Seite wurde ohne Session-ID geöffnet. Deshalb wird kein Live-Status abgefragt."
+        );
+        setSummary("Premium", "Prüfung übersprungen");
+        return;
+      }
+
+      const tenantId =
+        localStorage.getItem("tenant_id") ||
+        localStorage.getItem("bcsentinel_tenant_id") ||
+        localStorage.getItem("tenantId");
+
+      const apiToken =
+        localStorage.getItem("api_token") ||
+        localStorage.getItem("bcsentinel_api_token") ||
+        localStorage.getItem("apiToken");
+
+      if (!tenantId || !apiToken) {
+        setStatus(
+          "Deine Zahlung war erfolgreich.",
+          "Für die Live-Abfrage fehlen tenant_id oder api_token im Browser. Die Lizenz wird serverseitig trotzdem verarbeitet."
+        );
+        setSummary("Premium", "Serverseitige Verarbeitung läuft");
+        return;
+      }
+
+      const apiBase = resolveApiBase();
+      const url = `${apiBase}/billing/checkout/session/status?session_id=${encodeURIComponent(sessionId)}`;
+
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "X-Tenant-Id": tenantId,
+            "X-Api-Token": apiToken
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const subscription = data.subscription_status || {};
+
+        const plan = subscription.current_plan || "Premium";
+        const license = subscription.license_status || "Aktivierung läuft";
+
+        setSummary(plan, license);
+
+        if ((data.status || "").toLowerCase() === "synced") {
+          setStatus(
+            "Dein Premium-Abo ist jetzt aktiv.",
+            "Die Lizenz wurde erfolgreich synchronisiert. Du kannst BCSentinel jetzt mit Premium-Funktionen nutzen."
+          );
+          return;
+        }
+
+        setStatus(
+          "Deine Zahlung wurde erfolgreich verarbeitet.",
+          "Die Checkout-Session wurde gefunden. Der finale Lizenzstatus wird möglicherweise noch im Hintergrund synchronisiert."
+        );
+      } catch (error) {
+        setStatus(
+          "Deine Zahlung war erfolgreich.",
+          "Die Live-Abfrage des Status war gerade nicht möglich. Das Abonnement wird serverseitig weiter verarbeitet."
+        );
+        setSummary("Premium", "Synchronisierung läuft");
+      }
+    }
+
+    syncCheckoutStatus();
+  </script>
+</body>
+</html>

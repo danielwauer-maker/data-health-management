@@ -11,318 +11,400 @@
     <header class="page-header admin-header">
       <div>
         <h1>BCSentinel Admin</h1>
-        <p class="muted">Tenant overview, Pricing und Issue-Cost-Konfiguration</p>
+        <p class="muted">{{ section_subtitle }}</p>
       </div>
     </header>
 
-    <section class="panel panel-large">
-      <div class="panel-header"><h2>Tenants</h2><span class="muted">aktive BC Cloud Umgebungen</span></div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Nr.</th><th>Tenant ID</th><th>Environment</th><th>App Version</th><th>Created At</th><th>Last Seen</th><th>Plan</th><th>License</th><th>Billing Provider</th><th>Billing Status</th><th>Scans</th><th>Last Scan</th><th>Actions</th></tr>
-          </thead>
-          <tbody>
-          {% for tenant in tenants %}
-            <tr>
-              <td>{{ tenant.tenant_no }}</td>
-              <td><a class="tenant-link" href="/admin/tenants/{{ tenant.tenant_id }}">{{ tenant.tenant_id }}</a></td>
-              <td>{{ tenant.environment_name }}</td>
-              <td>{{ tenant.app_version }}</td>
-              <td>{{ tenant.created_at }}</td>
-              <td>{{ tenant.last_seen_at }}</td>
-              <td><span class="pill small-pill">{{ tenant.current_plan }}</span></td>
-              <td><span class="pill small-pill success-pill">{{ tenant.license_status }}</span></td>
-              <td>{{ tenant.billing_provider }}</td>
-              <td>{{ tenant.billing_status }}</td>
-              <td>{{ tenant.scan_count }}</td>
-              <td>{{ tenant.last_scan }}</td>
-              <td>
-                <div class="inline-form wrap-gap">
-                  <a class="btn btn-secondary" href="/admin/tenants/{{ tenant.tenant_id }}">Open</a>
-                  <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/delete" class="inline-form" onsubmit="return confirm('Tenant {{ tenant.tenant_id }} wirklich löschen?');">
-                    <button type="submit" class="btn btn-danger">Delete</button>
-                  </form>
-                </div>
-              </td>
-            </tr>
+    <div class="admin-layout">
+      <aside class="panel admin-sidebar">
+        <div class="panel-header"><h2>Navigation</h2><span class="muted">Admin-Bereiche</span></div>
+        <nav class="admin-nav">
+          {% for item in admin_nav %}
+          <a href="{{ item.href }}" class="admin-nav-link{% if item.active %} is-active{% endif %}">{{ item.label }}</a>
           {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
+        </nav>
+      </aside>
 
-    <section class="admin-grid">
-      <article class="panel">
-        <div class="panel-header"><h2>Issue Costs</h2><span class="muted">€ pro betroffenem Datensatz</span></div>
-        <div class="config-list">
-          {% for row in issue_costs %}
-          <form method="post" action="/admin/config/issue-costs/{{ row.code }}" class="config-row">
-            <div class="config-title">{{ row.code }}</div>
-            <input type="text" name="title" value="{{ row.title }}">
-            <input type="number" step="0.01" name="cost_per_record" value="{{ row.cost_per_record }}">
-            <label class="checkbox-inline"><input type="checkbox" name="is_active" {% if row.is_active %}checked{% endif %}> aktiv</label>
-            <button type="submit" class="btn btn-primary">Save</button>
-          </form>
-          {% endfor %}
-        </div>
-      </article>
+      <main class="admin-main">
+        <section class="panel panel-large">
+          <div class="panel-header"><h2>{{ section_title }}</h2><span class="muted">{{ section_subtitle }}</span></div>
+        </section>
 
-      <article class="panel">
-        <div class="panel-header"><h2>License Pricing</h2><span class="muted">Free stays at €0. Premium = base price + price per step with friendly rounding.</span></div>
-        <div class="config-list">
-          {% for row in license_prices if row.plan_code in ["free", "premium"] %}
-          <form method="post" action="/admin/config/license-pricing/{{ row.plan_code }}" class="config-row">
-            <div class="config-title">{{ row.plan_code }}</div>
-            <input type="text" name="display_name" value="{{ row.display_name }}">
-            <input type="number" step="0.01" name="base_price_monthly" value="{{ row.base_price_monthly }}">
-            <input type="number" step="1" name="included_records" value="{{ row.included_records }}" title="Step records">
-            <input type="number" step="0.01" name="additional_price_per_1000_records" value="{{ row.additional_price_per_1000_records }}" title="Price per step">
-            <label class="checkbox-inline"><input type="checkbox" name="is_active" {% if row.is_active %}checked{% endif %}> aktiv</label>
-            <button type="submit" class="btn btn-primary">Save</button>
-          </form>
-          {% endfor %}
-        </div>
-      </article>
-    </section>
-
-    <section class="content-grid admin-detail-grid">
-      <article class="panel">
-        <div class="panel-header"><h2>Partners</h2><span class="muted">aktuelle Partnerstammdaten</span></div>
-        <form method="post" action="/admin/partners/create" class="config-list credentials-form">
-          <div class="config-row">
-            <div class="config-title">Neuer Partner</div>
-            <input type="text" name="name" placeholder="Name" required>
-            <input type="text" name="partner_code" placeholder="Code (z. B. contoso)" required>
-            <input type="email" name="contact_email" placeholder="login@partner.de" required>
-            <input type="text" name="new_password" class="new-password-input" placeholder="Passwort (min. 8)" required>
-            <button type="button" class="btn btn-secondary js-generate-password">Generate</button>
-            <input type="number" name="default_commission_rate" step="0.01" min="0" max="1" value="0.20" title="0.20 = 20%">
-            <select name="status_value">
-              <option value="active">active</option>
-              <option value="inactive">inactive</option>
-            </select>
-            <button type="submit" class="btn btn-primary">Create</button>
+        {% if active_section == "tenants" %}
+        <section class="panel panel-large">
+          <div class="panel-header"><h2>Tenants</h2><span class="muted">aktive BC Cloud Umgebungen</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Nr.</th><th>Tenant ID</th><th>Environment</th><th>App Version</th><th>Created At</th><th>Last Seen</th><th>Plan</th><th>License</th><th>Billing Provider</th><th>Billing Status</th><th>Scans</th><th>Last Scan</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+              {% for tenant in tenants %}
+                <tr>
+                  <td>{{ tenant.tenant_no }}</td>
+                  <td><a class="tenant-link" href="/admin/tenants/{{ tenant.tenant_id }}">{{ tenant.tenant_id }}</a></td>
+                  <td>{{ tenant.environment_name }}</td>
+                  <td>{{ tenant.app_version }}</td>
+                  <td>{{ tenant.created_at }}</td>
+                  <td>{{ tenant.last_seen_at }}</td>
+                  <td><span class="pill small-pill">{{ tenant.current_plan }}</span></td>
+                  <td><span class="pill small-pill success-pill">{{ tenant.license_status }}</span></td>
+                  <td>{{ tenant.billing_provider }}</td>
+                  <td>{{ tenant.billing_status }}</td>
+                  <td>{{ tenant.scan_count }}</td>
+                  <td>{{ tenant.last_scan }}</td>
+                  <td>
+                    <div class="inline-form wrap-gap">
+                      <a class="btn btn-secondary" href="/admin/tenants/{{ tenant.tenant_id }}">Open</a>
+                      <form method="post" action="/admin/tenants/{{ tenant.tenant_id }}/delete" class="inline-form" onsubmit="return confirm('Tenant {{ tenant.tenant_id }} wirklich loeschen?');">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
           </div>
-        </form>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>ID</th><th>Name</th><th>Code</th><th>Login E-Mail</th><th>Status</th><th>Default Rate</th><th>Created</th><th>Actions</th></tr></thead>
-            <tbody>
-              {% for partner in partners %}
-              <tr>
-                <td>{{ partner.id }}</td>
-                <td>{{ partner.name }}</td>
-                <td>{{ partner.partner_code }}</td>
-                <td>{{ partner.contact_email or "—" }}</td>
-                <td>{{ partner.status }}</td>
-                <td>{{ '%.2f'|format(partner.default_commission_rate * 100) }}%</td>
-                <td>{{ fmt_dt(partner.created_at_utc) }}</td>
-                <td>
-                  <form method="post" action="/admin/partners/{{ partner.id }}/update" class="inline-form wrap-gap">
-                    <input type="text" name="name" value="{{ partner.name }}" required>
-                    <input type="text" name="partner_code" value="{{ partner.partner_code }}" required>
-                    <input type="email" name="contact_email" value="{{ partner.contact_email or '' }}" placeholder="login@partner.de">
-                    <input type="number" name="default_commission_rate" step="0.01" min="0" max="1" value="{{ partner.default_commission_rate }}" title="0.20 = 20%">
-                    <select name="status_value">
-                      <option value="active" {% if partner.status == "active" %}selected{% endif %}>active</option>
-                      <option value="inactive" {% if partner.status == "inactive" %}selected{% endif %}>inactive</option>
-                    </select>
-                    <button type="submit" class="btn btn-secondary">Save</button>
-                  </form>
-                  <form method="post" action="/admin/partners/{{ partner.id }}/credentials" class="inline-form wrap-gap credentials-form" style="margin-top:8px;">
-                    <input type="email" name="contact_email" value="{{ partner.contact_email or '' }}" placeholder="login@partner.de" required>
-                    <input type="text" name="new_password" class="new-password-input" placeholder="Neues Passwort (min. 8)" required>
-                    <button type="button" class="btn btn-secondary js-generate-password">Generate</button>
-                    <button type="submit" class="btn btn-primary" onclick="return confirm('Login-Credentials fuer Partner {{ partner.partner_code }} neu setzen?');">Reset Login</button>
-                  </form>
-                  <form method="post" action="/admin/partners/{{ partner.id }}/reset-link" class="inline-form wrap-gap" style="margin-top:8px;" target="_blank">
-                    <button type="submit" class="btn btn-secondary">Generate Reset Link</button>
-                  </form>
-                  <form method="post" action="/admin/partners/{{ partner.id }}/delete" class="inline-form wrap-gap" style="margin-top:8px;" onsubmit="return confirm('Partner {{ partner.partner_code }} wirklich loeschen? Das ist nur moeglich, wenn keine Referrals/Provisionen verknuepft sind.');">
-                    <button type="submit" class="btn btn-danger">Delete Partner</button>
-                  </form>
-                </td>
-              </tr>
-              {% endfor %}
-              {% if not partners %}
-              <tr><td colspan="8">Noch keine Partner vorhanden.</td></tr>
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-      </article>
+        </section>
+        {% endif %}
 
-      <article class="panel panel-large">
-        <div class="panel-header"><h2>Recent Partner Commissions</h2><span class="muted">letzte 50 Provisionen</span></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Created</th><th>Tenant</th><th>Invoice</th><th>Status</th><th>Base</th><th>Rate</th><th>Commission</th></tr></thead>
-            <tbody>
-              {% for row in recent_commissions %}
-              <tr>
-                <td>{{ fmt_dt(row.created_at_utc) }}</td>
-                <td><a class="tenant-link" href="/admin/tenants/{{ row.tenant_id }}">{{ row.tenant_id }}</a></td>
-                <td>{{ row.provider_invoice_id }}</td>
-                <td>{{ row.status }}</td>
-                <td>{{ fmt_money(row.base_amount) }} {{ row.currency }}</td>
-                <td>{{ '%.2f'|format(row.commission_rate * 100) }}%</td>
-                <td>{{ fmt_money(row.commission_amount) }} {{ row.currency }}</td>
-              </tr>
+        {% if active_section == "issue_costs" %}
+        <section class="admin-grid">
+          <article class="panel">
+            <div class="panel-header"><h2>Issue Costs</h2><span class="muted">EUR pro betroffenem Datensatz</span></div>
+            <div class="config-list">
+              {% for row in issue_costs %}
+              <form method="post" action="/admin/config/issue-costs/{{ row.code }}" class="config-row">
+                <div class="config-title">{{ row.code }}</div>
+                <input type="text" name="title" value="{{ row.title }}">
+                <input type="number" step="0.01" name="cost_per_record" value="{{ row.cost_per_record }}">
+                <label class="checkbox-inline"><input type="checkbox" name="is_active" {% if row.is_active %}checked{% endif %}> aktiv</label>
+                <button type="submit" class="btn btn-primary">Save</button>
+              </form>
               {% endfor %}
-              {% if not recent_commissions %}
-              <tr><td colspan="7">Noch keine Provisionen vorhanden.</td></tr>
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-      </article>
-    </section>
+            </div>
+          </article>
+        </section>
+        {% endif %}
 
-    <section class="panel panel-large">
-      <div class="panel-header">
-        <h2>Partner Applications</h2>
-        <span class="muted">oeffentliche Registrierungen mit Review-Workflow</span>
-      </div>
-      <div class="inline-form wrap-gap" style="margin-bottom: 12px;">
-        <span class="pill small-pill">Total: {{ partner_application_stats.total_count }}</span>
-        <span class="pill small-pill">New: {{ partner_application_stats.new_count }}</span>
-        <span class="pill small-pill success-pill">Accepted: {{ partner_application_stats.accepted_count }}</span>
-        <span class="pill small-pill">Mail failed: {{ partner_application_stats.mail_failed_count }}</span>
-      </div>
-      <form method="get" action="/admin/tenants" class="inline-form wrap-gap" style="margin-bottom:12px;">
-        <input type="text" name="app_search" value="{{ app_search or '' }}" placeholder="Search company / contact / email">
-        <select name="app_status">
-          <option value="" {% if not app_status_filter %}selected{% endif %}>All statuses</option>
-          <option value="new" {% if app_status_filter == "new" %}selected{% endif %}>new</option>
-          <option value="reviewed" {% if app_status_filter == "reviewed" %}selected{% endif %}>reviewed</option>
-          <option value="accepted" {% if app_status_filter == "accepted" %}selected{% endif %}>accepted</option>
-          <option value="rejected" {% if app_status_filter == "rejected" %}selected{% endif %}>rejected</option>
-        </select>
-        <select name="mail_status">
-          <option value="" {% if not mail_status_filter %}selected{% endif %}>All mail states</option>
-          <option value="pending" {% if mail_status_filter == "pending" %}selected{% endif %}>pending</option>
-          <option value="sent" {% if mail_status_filter == "sent" %}selected{% endif %}>sent</option>
-          <option value="failed" {% if mail_status_filter == "failed" %}selected{% endif %}>failed</option>
-        </select>
-        <button type="submit" class="btn btn-primary">Filter</button>
-        <a class="btn btn-secondary" href="/admin/tenants">Reset</a>
-      </form>
-      <div class="inline-form wrap-gap" style="margin-bottom: 12px;">
-        <a class="btn btn-secondary" href="/admin/partners/applications.csv">Export CSV</a>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Created</th>
-              <th>Company</th>
-              <th>Contact</th>
-              <th>Email</th>
-              <th>Country</th>
-              <th>Status</th>
-              <th>Mail</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for app in partner_applications %}
-            <tr>
-              <td>{{ fmt_dt(app.created_at_utc) }}</td>
-              <td>{{ app.company_name }}</td>
-              <td>{{ app.contact_name }}</td>
-              <td>{{ app.contact_email }}</td>
-              <td>{{ app.country or "—" }}</td>
-              <td>{{ app.status }}</td>
-              <td>
-                {{ app.mail_status }}
-                {% if app.last_mail_error %}
-                  <div class="muted" style="max-width:320px; white-space: normal;">{{ app.last_mail_error }}</div>
+        {% if active_section == "license_pricing" %}
+        <section class="admin-grid">
+          <article class="panel">
+            <div class="panel-header"><h2>License Pricing</h2><span class="muted">Free stays at EUR0. Premium = base price + price per step with friendly rounding.</span></div>
+            <div class="config-list">
+              {% for row in license_prices if row.plan_code in ["free", "premium"] %}
+              <form method="post" action="/admin/config/license-pricing/{{ row.plan_code }}" class="config-row">
+                <div class="config-title">{{ row.plan_code }}</div>
+                <input type="text" name="display_name" value="{{ row.display_name }}">
+                <input type="number" step="0.01" name="base_price_monthly" value="{{ row.base_price_monthly }}">
+                <input type="number" step="1" name="included_records" value="{{ row.included_records }}" title="Step records">
+                <input type="number" step="0.01" name="additional_price_per_1000_records" value="{{ row.additional_price_per_1000_records }}" title="Price per step">
+                <label class="checkbox-inline"><input type="checkbox" name="is_active" {% if row.is_active %}checked{% endif %}> aktiv</label>
+                <button type="submit" class="btn btn-primary">Save</button>
+              </form>
+              {% endfor %}
+            </div>
+          </article>
+        </section>
+        {% endif %}
+
+        {% if active_section == "partners" %}
+        <section class="content-grid admin-detail-grid">
+          <article class="panel">
+            <div class="panel-header"><h2>Partners</h2><span class="muted">aktuelle Partnerstammdaten</span></div>
+            <form method="post" action="/admin/partners/create" class="config-list credentials-form">
+              <div class="config-row">
+                <div class="config-title">Neuer Partner</div>
+                <input type="text" name="name" placeholder="Name" required>
+                <input type="text" name="partner_code" placeholder="Code (z. B. contoso)" required>
+                <input type="email" name="contact_email" placeholder="login@partner.de" required>
+                <input type="text" name="new_password" class="new-password-input" placeholder="Passwort (min. 8)" required>
+                <button type="button" class="btn btn-secondary js-generate-password">Generate</button>
+                <input type="number" name="default_commission_rate" step="0.01" min="0" max="1" value="0.20" title="0.20 = 20%">
+                <select name="status_value">
+                  <option value="active">active</option>
+                  <option value="inactive">inactive</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Create</button>
+              </div>
+            </form>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>ID</th><th>Name</th><th>Code</th><th>Login E-Mail</th><th>Status</th><th>Default Rate</th><th>Created</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {% for partner in partners %}
+                  <tr>
+                    <td>{{ partner.id }}</td>
+                    <td>{{ partner.name }}</td>
+                    <td>{{ partner.partner_code }}</td>
+                    <td>{{ partner.contact_email or "-" }}</td>
+                    <td>{{ partner.status }}</td>
+                    <td>{{ '%.2f'|format(partner.default_commission_rate * 100) }}%</td>
+                    <td>{{ fmt_dt(partner.created_at_utc) }}</td>
+                    <td>
+                      <form method="post" action="/admin/partners/{{ partner.id }}/update" class="inline-form wrap-gap">
+                        <input type="text" name="name" value="{{ partner.name }}" required>
+                        <input type="text" name="partner_code" value="{{ partner.partner_code }}" required>
+                        <input type="email" name="contact_email" value="{{ partner.contact_email or '' }}" placeholder="login@partner.de">
+                        <input type="number" name="default_commission_rate" step="0.01" min="0" max="1" value="{{ partner.default_commission_rate }}" title="0.20 = 20%">
+                        <select name="status_value">
+                          <option value="active" {% if partner.status == "active" %}selected{% endif %}>active</option>
+                          <option value="inactive" {% if partner.status == "inactive" %}selected{% endif %}>inactive</option>
+                        </select>
+                        <button type="submit" class="btn btn-secondary">Save</button>
+                      </form>
+                      <form method="post" action="/admin/partners/{{ partner.id }}/credentials" class="inline-form wrap-gap credentials-form" style="margin-top:8px;">
+                        <input type="email" name="contact_email" value="{{ partner.contact_email or '' }}" placeholder="login@partner.de" required>
+                        <input type="text" name="new_password" class="new-password-input" placeholder="Neues Passwort (min. 8)" required>
+                        <button type="button" class="btn btn-secondary js-generate-password">Generate</button>
+                        <button type="submit" class="btn btn-primary" onclick="return confirm('Login-Credentials fuer Partner {{ partner.partner_code }} neu setzen?');">Reset Login</button>
+                      </form>
+                      <form method="post" action="/admin/partners/{{ partner.id }}/reset-link" class="inline-form wrap-gap" style="margin-top:8px;" target="_blank">
+                        <button type="submit" class="btn btn-secondary">Generate Reset Link</button>
+                      </form>
+                      <form method="post" action="/admin/partners/{{ partner.id }}/delete" class="inline-form wrap-gap" style="margin-top:8px;" onsubmit="return confirm('Partner {{ partner.partner_code }} wirklich loeschen? Das ist nur moeglich, wenn keine Referrals/Provisionen verknuepft sind.');">
+                        <button type="submit" class="btn btn-danger">Delete Partner</button>
+                      </form>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% if not partners %}
+                  <tr><td colspan="8">Noch keine Partner vorhanden.</td></tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+        {% endif %}
+
+        {% if active_section == "partner_commissions" %}
+        <section class="content-grid admin-detail-grid">
+          <article class="panel panel-large">
+            <div class="panel-header"><h2>Recent Partner Commissions</h2><span class="muted">letzte 50 Provisionen</span></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Created</th><th>Tenant</th><th>Invoice</th><th>Status</th><th>Base</th><th>Rate</th><th>Commission</th></tr></thead>
+                <tbody>
+                  {% for row in recent_commissions %}
+                  <tr>
+                    <td>{{ fmt_dt(row.created_at_utc) }}</td>
+                    <td><a class="tenant-link" href="/admin/tenants/{{ row.tenant_id }}">{{ row.tenant_id }}</a></td>
+                    <td>{{ row.provider_invoice_id }}</td>
+                    <td>{{ row.status }}</td>
+                    <td>{{ fmt_money(row.base_amount) }} {{ row.currency }}</td>
+                    <td>{{ '%.2f'|format(row.commission_rate * 100) }}%</td>
+                    <td>{{ fmt_money(row.commission_amount) }} {{ row.currency }}</td>
+                  </tr>
+                  {% endfor %}
+                  {% if not recent_commissions %}
+                  <tr><td colspan="7">Noch keine Provisionen vorhanden.</td></tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+        {% endif %}
+
+        {% if active_section == "partner_applications" %}
+        <section class="panel panel-large">
+          <div class="panel-header">
+            <h2>Partner Applications</h2>
+            <span class="muted">oeffentliche Registrierungen mit Review-Workflow</span>
+          </div>
+          <div class="inline-form wrap-gap" style="margin-bottom: 12px;">
+            <span class="pill small-pill">Total: {{ partner_application_stats.total_count }}</span>
+            <span class="pill small-pill">New: {{ partner_application_stats.new_count }}</span>
+            <span class="pill small-pill success-pill">Accepted: {{ partner_application_stats.accepted_count }}</span>
+            <span class="pill small-pill">Mail failed: {{ partner_application_stats.mail_failed_count }}</span>
+          </div>
+          <form method="get" action="/admin/partners/applications" class="inline-form wrap-gap" style="margin-bottom:12px;">
+            <input type="text" name="app_search" value="{{ app_search or '' }}" placeholder="Search company / contact / email">
+            <select name="app_status">
+              <option value="" {% if not app_status_filter %}selected{% endif %}>All statuses</option>
+              <option value="new" {% if app_status_filter == "new" %}selected{% endif %}>new</option>
+              <option value="reviewed" {% if app_status_filter == "reviewed" %}selected{% endif %}>reviewed</option>
+              <option value="accepted" {% if app_status_filter == "accepted" %}selected{% endif %}>accepted</option>
+              <option value="rejected" {% if app_status_filter == "rejected" %}selected{% endif %}>rejected</option>
+            </select>
+            <select name="mail_status">
+              <option value="" {% if not mail_status_filter %}selected{% endif %}>All mail states</option>
+              <option value="pending" {% if mail_status_filter == "pending" %}selected{% endif %}>pending</option>
+              <option value="sent" {% if mail_status_filter == "sent" %}selected{% endif %}>sent</option>
+              <option value="failed" {% if mail_status_filter == "failed" %}selected{% endif %}>failed</option>
+            </select>
+            <button type="submit" class="btn btn-primary">Filter</button>
+            <a class="btn btn-secondary" href="/admin/partners/applications">Reset</a>
+          </form>
+          <div class="inline-form wrap-gap" style="margin-bottom: 12px;">
+            <a class="btn btn-secondary" href="/admin/partners/applications.csv">Export CSV</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Created</th>
+                  <th>Company</th>
+                  <th>Contact</th>
+                  <th>Email</th>
+                  <th>Country</th>
+                  <th>Status</th>
+                  <th>Mail</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for app in partner_applications %}
+                <tr>
+                  <td>{{ fmt_dt(app.created_at_utc) }}</td>
+                  <td>{{ app.company_name }}</td>
+                  <td>{{ app.contact_name }}</td>
+                  <td>{{ app.contact_email }}</td>
+                  <td>{{ app.country or "-" }}</td>
+                  <td>{{ app.status }}</td>
+                  <td>
+                    {{ app.mail_status }}
+                    {% if app.last_mail_error %}
+                      <div class="muted" style="max-width:320px; white-space: normal;">{{ app.last_mail_error }}</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="/admin/partners/applications/{{ app.id }}/status" class="inline-form wrap-gap">
+                      <select name="status_value">
+                        <option value="new" {% if app.status == "new" %}selected{% endif %}>new</option>
+                        <option value="reviewed" {% if app.status == "reviewed" %}selected{% endif %}>reviewed</option>
+                        <option value="accepted" {% if app.status == "accepted" %}selected{% endif %}>accepted</option>
+                        <option value="rejected" {% if app.status == "rejected" %}selected{% endif %}>rejected</option>
+                      </select>
+                      <input type="number" step="0.01" min="0" max="1" name="default_commission_rate" value="0.30" title="0.30 = 30%">
+                      <button type="submit" class="btn btn-primary">Apply</button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+                {% if not partner_applications %}
+                <tr><td colspan="8">Noch keine Partner-Registrierungen vorhanden.</td></tr>
                 {% endif %}
-              </td>
-              <td>
-                <form method="post" action="/admin/partners/applications/{{ app.id }}/status" class="inline-form wrap-gap">
-                  <select name="status_value">
-                    <option value="new" {% if app.status == "new" %}selected{% endif %}>new</option>
-                    <option value="reviewed" {% if app.status == "reviewed" %}selected{% endif %}>reviewed</option>
-                    <option value="accepted" {% if app.status == "accepted" %}selected{% endif %}>accepted</option>
-                    <option value="rejected" {% if app.status == "rejected" %}selected{% endif %}>rejected</option>
-                  </select>
-                  <input type="number" step="0.01" min="0" max="1" name="default_commission_rate" value="0.30" title="0.30 = 30%">
-                  <button type="submit" class="btn btn-primary">Apply</button>
-                </form>
-              </td>
-            </tr>
-            {% endfor %}
-            {% if not partner_applications %}
-            <tr><td colspan="8">Noch keine Partner-Registrierungen vorhanden.</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
-      </div>
-    </section>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% endif %}
 
-    <section class="panel panel-large">
-      <div class="panel-header">
-        <h2>Payout Overview (Approved)</h2>
-        <span class="muted">aggregiert je Partner und Waehrung</span>
-      </div>
-      <div class="inline-form wrap-gap" style="margin-bottom: 12px;">
-        <a class="btn btn-secondary" href="/admin/commissions/payouts.csv">Export CSV</a>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Partner</th><th>Code</th><th>Currency</th><th>Approved Items</th><th>Approved Total</th><th>Action</th></tr></thead>
-          <tbody>
-            {% for row in payout_rows %}
-            <tr>
-              <td>{{ row.partner_name }}</td>
-              <td>{{ row.partner_code }}</td>
-              <td>{{ row.currency }}</td>
-              <td>{{ row.items_count }}</td>
-              <td>{{ fmt_money(row.approved_total) }} {{ row.currency }}</td>
-              <td>
-                <form method="post" action="/admin/commissions/payouts/close" class="inline-form">
-                  <input type="hidden" name="partner_id" value="{{ row.partner_id }}">
-                  <input type="hidden" name="currency" value="{{ row.currency }}">
-                  <button type="submit" class="btn btn-primary" onclick="return confirm('Alle approved Provisionen fuer {{ row.partner_code }} ({{ row.currency }}) als paid markieren?');">Mark as paid</button>
-                </form>
-              </td>
-            </tr>
-            {% endfor %}
-            {% if not payout_rows %}
-            <tr><td colspan="6">Keine approved Provisionen vorhanden.</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
-      </div>
-    </section>
+        {% if active_section == "payouts" %}
+        <section class="panel panel-large">
+          <div class="panel-header">
+            <h2>Payout Overview (Approved)</h2>
+            <span class="muted">aggregiert je Partner und Waehrung</span>
+          </div>
+          <div class="inline-form wrap-gap" style="margin-bottom: 12px;">
+            <a class="btn btn-secondary" href="/admin/commissions/payouts.csv">Export CSV</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Partner</th><th>Code</th><th>Currency</th><th>Approved Items</th><th>Approved Total</th><th>Action</th></tr></thead>
+              <tbody>
+                {% for row in payout_rows %}
+                <tr>
+                  <td>{{ row.partner_name }}</td>
+                  <td>{{ row.partner_code }}</td>
+                  <td>{{ row.currency }}</td>
+                  <td>{{ row.items_count }}</td>
+                  <td>{{ fmt_money(row.approved_total) }} {{ row.currency }}</td>
+                  <td>
+                    <form method="post" action="/admin/commissions/payouts/close" class="inline-form">
+                      <input type="hidden" name="partner_id" value="{{ row.partner_id }}">
+                      <input type="hidden" name="currency" value="{{ row.currency }}">
+                      <button type="submit" class="btn btn-primary" onclick="return confirm('Alle approved Provisionen fuer {{ row.partner_code }} ({{ row.currency }}) als paid markieren?');">Mark as paid</button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+                {% if not payout_rows %}
+                <tr><td colspan="6">Keine approved Provisionen vorhanden.</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% endif %}
 
-    <section class="panel panel-large">
-      <div class="panel-header">
-        <h2>Admin Audit (latest 20)</h2>
-        <span class="muted">wer hat was geaendert</span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
-          <tbody>
-            {% for row in audit_events %}
-            <tr>
-              <td>{{ fmt_dt(row.created_at_utc) }}</td>
-              <td>{{ row.admin_username }}</td>
-              <td>{{ row.action }}</td>
-              <td>{{ row.target_type }}: {{ row.target_id }}</td>
-              <td><code>{{ row.details_json }}</code></td>
-            </tr>
+        {% if active_section == "audit" %}
+        <section class="panel panel-large">
+          <div class="panel-header">
+            <h2>Admin Audit (latest 20)</h2>
+            <span class="muted">wer hat was geaendert</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
+              <tbody>
+                {% for row in audit_events %}
+                <tr>
+                  <td>{{ fmt_dt(row.created_at_utc) }}</td>
+                  <td>{{ row.admin_username }}</td>
+                  <td>{{ row.action }}</td>
+                  <td>{{ row.target_type }}: {{ row.target_id }}</td>
+                  <td><code>{{ row.details_json }}</code></td>
+                </tr>
+                {% endfor %}
+                {% if not audit_events %}
+                <tr><td colspan="5">Noch keine Audit Events vorhanden.</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% endif %}
+
+        {% if active_section == "email_templates" %}
+        <section class="panel panel-large">
+          <div class="panel-header"><h2>Email Templates</h2><span class="muted">Partner-Mails direkt im Admin anpassen</span></div>
+          {% if email_template_flash and email_template_flash.message %}
+          <div class="pill {% if email_template_flash.status == 'success' %}success-pill{% endif %}" style="margin-bottom:12px;">
+            {{ email_template_flash.message }}
+          </div>
+          {% endif %}
+          <div class="config-list">
+            {% for tpl in email_templates %}
+            <form method="post" action="/admin/config/email-templates/{{ tpl.key }}" class="config-row" style="display:block;">
+              <div style="display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap;">
+                <div>
+                  <div class="config-title">{{ tpl.label }}</div>
+                  <div class="muted" style="max-width:760px;">{{ tpl.description }}</div>
+                  <div class="muted" style="margin-top:6px;">
+                    Placeholders:
+                    {% for placeholder in tpl.placeholders %}
+                      <code>{{ "{{ " }}{{ placeholder }}{{ " }}" }}</code>{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                  </div>
+                  <div class="muted" style="margin-top:4px;">Letztes Update: {{ fmt_dt(tpl.updated_at_utc) }}</div>
+                </div>
+              </div>
+              <div style="display:grid; gap:10px; margin-top:12px;">
+                <label>
+                  <div class="muted" style="margin-bottom:4px;">Subject</div>
+                  <input type="text" name="subject_template" value="{{ tpl.subject_template }}" required>
+                </label>
+                <label>
+                  <div class="muted" style="margin-bottom:4px;">HTML Body</div>
+                  <textarea name="html_template" rows="10" style="width:100%; min-height:220px;">{{ tpl.html_template }}</textarea>
+                </label>
+              </div>
+              <div style="margin-top:12px;">
+                <button type="submit" class="btn btn-primary">Save Template</button>
+                <input type="email" name="test_recipient" placeholder="test@example.com" style="margin-left:12px; min-width:260px;">
+                <button type="submit" class="btn btn-secondary" formaction="/admin/config/email-templates/{{ tpl.key }}/test-send">Send Test</button>
+              </div>
+            </form>
             {% endfor %}
-            {% if not audit_events %}
-            <tr><td colspan="5">Noch keine Audit Events vorhanden.</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          </div>
+        </section>
+        {% endif %}
+      </main>
+    </div>
   </div>
   <script>
     function generatePassword(length) {

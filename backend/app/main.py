@@ -44,6 +44,7 @@ from app.services.impact_service import (
 )
 from app.services.entitlement_guard_service import get_tenant_features, require_tenant_feature
 from app.services.entitlement_service import is_premium_actions_enabled
+from app.services.email_template_service import ensure_default_email_templates
 from app.services.pricing_service import ensure_default_license_pricing
 from app.services.scoring_service import calculate_quick_scan_result
 from fastapi.responses import RedirectResponse
@@ -76,6 +77,7 @@ async def lifespan(app: FastAPI):
         ensure_default_issue_costs(db)
         ensure_default_impact_config(db)
         ensure_default_license_pricing(db)
+        ensure_default_email_templates(db)
 
     yield
 

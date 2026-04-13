@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.core.settings import settings
 
-REQUIRED_ALEMBIC_REVISION = "0009_partner_application_mail_status"
+REQUIRED_ALEMBIC_REVISION = "0010_admin_email_templates"
 
 
 class Base(DeclarativeBase):

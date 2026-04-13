@@ -280,3 +280,12 @@ class AdminAuditEvent(Base):
     target_id: Mapped[str] = mapped_column(String(120), index=True)
     details_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class AdminEmailTemplate(Base):
+    __tablename__ = "admin_email_templates"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    subject_template: Mapped[str] = mapped_column(String(255))
+    html_template: Mapped[str] = mapped_column(Text)
+    updated_at_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

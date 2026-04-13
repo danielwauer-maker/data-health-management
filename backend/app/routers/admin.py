@@ -2,6 +2,7 @@ import secrets
 import smtplib
 from io import StringIO
 from pathlib import Path
+from urllib.parse import quote_plus
 import csv
 from email.mime.text import MIMEText
 
@@ -31,6 +32,13 @@ from app.services.cost_service import ensure_default_issue_costs
 from app.services.pricing_service import ensure_default_license_pricing
 from app.services.billing_service import utc_now
 from app.services.admin_audit_service import log_admin_event
+from app.services.email_template_service import (
+    DEFAULT_ADMIN_EMAIL_TEMPLATES,
+    list_email_templates_for_admin,
+    render_email_template,
+    render_email_template_preview,
+    update_email_template,
+)
 from app.services.partner_service import normalize_partner_code
 from app.security.token_hash import hash_api_token
 from app.security.token import create_token
@@ -46,6 +54,64 @@ ALLOWED_LICENSE_STATUSES = {"trial", "active", "expired", "blocked"}
 ALLOWED_COMMISSION_STATUSES = {"pending", "approved", "paid", "rejected"}
 ALLOWED_PARTNER_STATUSES = {"active", "inactive"}
 ALLOWED_PARTNER_APPLICATION_STATUSES = {"new", "reviewed", "accepted", "rejected"}
+ADMIN_SECTION_META = {
+    "tenants": {
+        "label": "Tenants",
+        "href": "/admin/tenants",
+        "subtitle": "aktive BC Cloud Umgebungen",
+    },
+    "issue_costs": {
+        "label": "Issue Cost",
+        "href": "/admin/config/issue-costs",
+        "subtitle": "EUR pro betroffenem Datensatz",
+    },
+    "license_pricing": {
+        "label": "License Pricing",
+        "href": "/admin/config/license-pricing",
+        "subtitle": "Planpreise und Freemium-Konfiguration",
+    },
+    "partners": {
+        "label": "Partners",
+        "href": "/admin/partners",
+        "subtitle": "Partnerstammdaten und Zugangsdaten",
+    },
+    "partner_commissions": {
+        "label": "Recent Partner Commissions",
+        "href": "/admin/partners/commissions",
+        "subtitle": "letzte 50 Provisionen",
+    },
+    "partner_applications": {
+        "label": "Partner Applications",
+        "href": "/admin/partners/applications",
+        "subtitle": "oeffentliche Registrierungen mit Review-Workflow",
+    },
+    "payouts": {
+        "label": "Payout Overview",
+        "href": "/admin/commissions/payouts",
+        "subtitle": "aggregiert je Partner und Waehrung",
+    },
+    "audit": {
+        "label": "Admin Audit",
+        "href": "/admin/audit",
+        "subtitle": "letzte Admin-Aktionen",
+    },
+    "email_templates": {
+        "label": "Mail Templates",
+        "href": "/admin/config/email-templates",
+        "subtitle": "Partner-Mails direkt im Admin anpassen",
+    },
+}
+ADMIN_NAV_ORDER = [
+    "tenants",
+    "issue_costs",
+    "license_pricing",
+    "partners",
+    "partner_commissions",
+    "partner_applications",
+    "payouts",
+    "audit",
+    "email_templates",
+]
 
 
 def require_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
@@ -102,19 +168,30 @@ def _send_partner_access_invite_email(
     if not host or not from_email:
         return False, "SMTP not configured."
 
-    subject = "Your BCSentinel partner access is ready"
     display_name = (contact_name or "").strip() or "Partner"
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #1f2a44;">
-        <p>Hello {display_name},</p>
-        <p>your partner application has been approved.</p>
-        <p>Please set your password using this secure link:</p>
-        <p><a href="{reset_url}">{reset_url}</a></p>
-        <p>After setting your password, you can log in to the partner portal.</p>
-      </body>
-    </html>
-    """
+    with SessionLocal() as db:
+        subject, html_body = render_email_template(
+            db,
+            "partner_access_invite",
+            {
+                "contact_name": display_name,
+                "reset_url": reset_url,
+            },
+        )
+    return _send_html_email(target_email=target_email, subject=subject, html_body=html_body)
+
+
+def _send_html_email(
+    *,
+    target_email: str,
+    subject: str,
+    html_body: str,
+) -> tuple[bool, str | None]:
+    host = (settings.SMTP_HOST or "").strip()
+    from_email = (settings.SMTP_FROM_EMAIL or "").strip()
+    if not host or not from_email:
+        return False, "SMTP not configured."
+
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = subject
     msg["From"] = (
@@ -136,6 +213,13 @@ def _send_partner_access_invite_email(
         return True, None
     except Exception as exc:
         return False, str(exc)
+
+
+def _build_email_template_test_context(request: Request) -> dict[str, str]:
+    return {
+        "contact_name": "Max Mustermann",
+        "reset_url": _partner_reset_url(request, "test-token"),
+    }
 
 
 def _derive_partner_code_seed(company_name: str, contact_name: str) -> str:
@@ -246,40 +330,46 @@ def _load_partner_payout_rows(db):
     return rows
 
 
-@router.get("/admin", response_class=HTMLResponse)
-def admin_root(_: str = Depends(require_admin)):
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+def _build_admin_nav(active_section: str) -> list[dict[str, str | bool]]:
+    nav = []
+    for key in ADMIN_NAV_ORDER:
+        item = ADMIN_SECTION_META[key]
+        nav.append(
+            {
+                "key": key,
+                "label": item["label"],
+                "href": item["href"],
+                "active": key == active_section,
+            }
+        )
+    return nav
 
 
-@router.get("/admin/tenants", response_class=HTMLResponse)
-@router.get("/admin/tenants/", response_class=HTMLResponse)
-def admin_tenants(request: Request, _: str = Depends(require_admin)):
+def _load_partner_application_context(db, request: Request) -> dict:
     app_status_filter = (request.query_params.get("app_status") or "").strip().lower()
     mail_status_filter = (request.query_params.get("mail_status") or "").strip().lower()
     app_search = (request.query_params.get("app_search") or "").strip()
 
-    with SessionLocal() as db:
-        ensure_default_issue_costs(db)
-        ensure_default_license_pricing(db)
-        partners = db.scalars(select(Partner).order_by(Partner.created_at_utc.desc(), Partner.id.desc())).all()
-        app_query = select(PartnerApplication)
-        if app_status_filter:
-            app_query = app_query.where(PartnerApplication.status == app_status_filter)
-        if mail_status_filter:
-            app_query = app_query.where(PartnerApplication.mail_status == mail_status_filter)
-        if app_search:
-            needle = f"%{app_search}%"
-            app_query = app_query.where(
-                or_(
-                    PartnerApplication.company_name.ilike(needle),
-                    PartnerApplication.contact_name.ilike(needle),
-                    PartnerApplication.contact_email.ilike(needle),
-                )
+    app_query = select(PartnerApplication)
+    if app_status_filter:
+        app_query = app_query.where(PartnerApplication.status == app_status_filter)
+    if mail_status_filter:
+        app_query = app_query.where(PartnerApplication.mail_status == mail_status_filter)
+    if app_search:
+        needle = f"%{app_search}%"
+        app_query = app_query.where(
+            or_(
+                PartnerApplication.company_name.ilike(needle),
+                PartnerApplication.contact_name.ilike(needle),
+                PartnerApplication.contact_email.ilike(needle),
             )
-        partner_applications = db.scalars(
+        )
+
+    return {
+        "partner_applications": db.scalars(
             app_query.order_by(PartnerApplication.created_at_utc.desc(), PartnerApplication.id.desc()).limit(300)
-        ).all()
-        app_stats = {
+        ).all(),
+        "partner_application_stats": {
             "new_count": int(
                 db.scalar(
                     select(func.count(PartnerApplication.id)).where(PartnerApplication.status == "new")
@@ -299,41 +389,133 @@ def admin_tenants(request: Request, _: str = Depends(require_admin)):
                 or 0
             ),
             "total_count": int(db.scalar(select(func.count(PartnerApplication.id))) or 0),
-        }
-        recent_commissions = db.scalars(
-            select(PartnerCommission).order_by(PartnerCommission.created_at_utc.desc(), PartnerCommission.id.desc()).limit(50)
-        ).all()
-        payout_rows = _load_partner_payout_rows(db)
-        audit_events = db.scalars(
-            select(AdminAuditEvent)
-            .order_by(AdminAuditEvent.created_at_utc.desc(), AdminAuditEvent.id.desc())
-            .limit(20)
-        ).all()
+        },
+        "app_status_filter": app_status_filter,
+        "mail_status_filter": mail_status_filter,
+        "app_search": app_search,
+    }
+
+
+def _render_admin_page(
+    request: Request,
+    active_section: str,
+):
+    section_meta = ADMIN_SECTION_META[active_section]
+    context = {
+        "request": request,
+        "page_title": f"BCSentinel Admin · {section_meta['label']}",
+        "active_section": active_section,
+        "section_title": section_meta["label"],
+        "section_subtitle": section_meta["subtitle"],
+        "admin_nav": _build_admin_nav(active_section),
+        "fmt_dt": _fmt_dt,
+        "fmt_money": _fmt_money,
+        "email_template_flash": {
+            "status": (request.query_params.get("email_template_status") or "").strip().lower(),
+            "message": (request.query_params.get("email_template_message") or "").strip(),
+        },
+    }
+
+    with SessionLocal() as db:
+        ensure_default_issue_costs(db)
+        ensure_default_license_pricing(db)
+
+        if active_section == "tenants":
+            context["tenants"] = _load_tenant_rows(db)
+        elif active_section == "issue_costs":
+            context["issue_costs"] = db.scalars(
+                select(IssueCostConfig).order_by(IssueCostConfig.code.asc())
+            ).all()
+        elif active_section == "license_pricing":
+            context["license_prices"] = db.scalars(
+                select(LicensePricingConfig).order_by(LicensePricingConfig.plan_code.asc())
+            ).all()
+        elif active_section == "partners":
+            context["partners"] = db.scalars(
+                select(Partner).order_by(Partner.created_at_utc.desc(), Partner.id.desc())
+            ).all()
+        elif active_section == "partner_commissions":
+            context["recent_commissions"] = db.scalars(
+                select(PartnerCommission)
+                .order_by(PartnerCommission.created_at_utc.desc(), PartnerCommission.id.desc())
+                .limit(50)
+            ).all()
+        elif active_section == "partner_applications":
+            context.update(_load_partner_application_context(db, request))
+        elif active_section == "payouts":
+            context["payout_rows"] = _load_partner_payout_rows(db)
+        elif active_section == "audit":
+            context["audit_events"] = db.scalars(
+                select(AdminAuditEvent)
+                .order_by(AdminAuditEvent.created_at_utc.desc(), AdminAuditEvent.id.desc())
+                .limit(20)
+            ).all()
+        elif active_section == "email_templates":
+            context["email_templates"] = list_email_templates_for_admin(db)
+
         return TEMPLATES.TemplateResponse(
             name="admin_tenants.html",
-            context={
-                "request": request,
-                "page_title": "BCSentinel Admin",
-                "tenants": _load_tenant_rows(db),
-                "issue_costs": db.scalars(
-                    select(IssueCostConfig).order_by(IssueCostConfig.code.asc())
-                ).all(),
-                "license_prices": db.scalars(
-                    select(LicensePricingConfig).order_by(LicensePricingConfig.plan_code.asc())
-                ).all(),
-                "partners": partners,
-                "partner_applications": partner_applications,
-                "partner_application_stats": app_stats,
-                "app_status_filter": app_status_filter,
-                "mail_status_filter": mail_status_filter,
-                "app_search": app_search,
-                "recent_commissions": recent_commissions,
-                "payout_rows": payout_rows,
-                "audit_events": audit_events,
-                "fmt_dt": _fmt_dt,
-                "fmt_money": _fmt_money,
-            },
+            context=context,
         )
+
+
+@router.get("/admin", response_class=HTMLResponse)
+def admin_root(_: str = Depends(require_admin)):
+    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/admin/tenants", response_class=HTMLResponse)
+@router.get("/admin/tenants/", response_class=HTMLResponse)
+def admin_tenants(request: Request, _: str = Depends(require_admin)):
+    return _render_admin_page(request, active_section="tenants")
+
+
+@router.get("/admin/config/issue-costs", response_class=HTMLResponse)
+@router.get("/admin/config/issue-costs/", response_class=HTMLResponse)
+def admin_issue_costs(request: Request, _: str = Depends(require_admin)):
+    return _render_admin_page(request, active_section="issue_costs")
+
+
+@router.get("/admin/config/license-pricing", response_class=HTMLResponse)
+@router.get("/admin/config/license-pricing/", response_class=HTMLResponse)
+def admin_license_pricing(request: Request, _: str = Depends(require_admin)):
+    return _render_admin_page(request, active_section="license_pricing")
+
+
+@router.get("/admin/partners", response_class=HTMLResponse)
+@router.get("/admin/partners/", response_class=HTMLResponse)
+def admin_partners(request: Request, _: str = Depends(require_admin)):
+    return _render_admin_page(request, active_section="partners")
+
+
+@router.get("/admin/partners/commissions", response_class=HTMLResponse)
+@router.get("/admin/partners/commissions/", response_class=HTMLResponse)
+def admin_partner_commissions(request: Request, _: str = Depends(require_admin)):
+    return _render_admin_page(request, active_section="partner_commissions")
+
+
+@router.get("/admin/partners/applications", response_class=HTMLResponse)
+@router.get("/admin/partners/applications/", response_class=HTMLResponse)
+def admin_partner_applications(request: Request, _: str = Depends(require_admin)):
+    return _render_admin_page(request, active_section="partner_applications")
+
+
+@router.get("/admin/commissions/payouts", response_class=HTMLResponse)
+@router.get("/admin/commissions/payouts/", response_class=HTMLResponse)
+def admin_partner_payouts(request: Request, _: str = Depends(require_admin)):
+    return _render_admin_page(request, active_section="payouts")
+
+
+@router.get("/admin/audit", response_class=HTMLResponse)
+@router.get("/admin/audit/", response_class=HTMLResponse)
+def admin_audit(request: Request, _: str = Depends(require_admin)):
+    return _render_admin_page(request, active_section="audit")
+
+
+@router.get("/admin/config/email-templates", response_class=HTMLResponse)
+@router.get("/admin/config/email-templates/", response_class=HTMLResponse)
+def admin_email_templates(request: Request, _: str = Depends(require_admin)):
+    return _render_admin_page(request, active_section="email_templates")
 
 
 @router.get("/admin/tenants/{tenant_id}", response_class=HTMLResponse)
@@ -399,6 +581,10 @@ def admin_tenant_detail(tenant_id: str, request: Request, _: str = Depends(requi
             context={
                 "request": request,
                 "page_title": f"BCSentinel Admin · {tenant_id}",
+                "active_section": "tenants",
+                "section_title": "Tenant Detail",
+                "section_subtitle": f"{tenant.environment_name} · {tenant.app_version}",
+                "admin_nav": _build_admin_nav("tenants"),
                 "tenant": tenant,
                 "tenant_no": tenant_no,
                 "scan_count": int(scan_count),
@@ -527,7 +713,7 @@ def update_issue_cost(
         )
         db.commit()
 
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin/config/issue-costs", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/admin/config/license-pricing/{plan_code}")
@@ -579,7 +765,105 @@ def update_license_pricing(
         )
         db.commit()
 
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin/config/license-pricing", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/admin/config/email-templates/{template_key}")
+def update_admin_email_template(
+    template_key: str,
+    subject_template: str = Form(...),
+    html_template: str = Form(...),
+    admin_username: str = Depends(require_admin),
+):
+    normalized_key = (template_key or "").strip()
+    if normalized_key not in DEFAULT_ADMIN_EMAIL_TEMPLATES:
+        raise HTTPException(status_code=404, detail="Email template not found.")
+    if not (subject_template or "").strip():
+        raise HTTPException(status_code=400, detail="subject_template is required.")
+    if not (html_template or "").strip():
+        raise HTTPException(status_code=400, detail="html_template is required.")
+
+    with SessionLocal() as db:
+        row = update_email_template(
+            db,
+            key=normalized_key,
+            subject_template=subject_template,
+            html_template=html_template,
+        )
+        log_admin_event(
+            db,
+            admin_username=admin_username,
+            action="config.email_template.update",
+            target_type="email_template",
+            target_id=row.key,
+            details={"updated_at_utc": row.updated_at_utc.isoformat()},
+        )
+        db.commit()
+
+    return RedirectResponse(url="/admin/config/email-templates", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/admin/config/email-templates/{template_key}/test-send")
+def test_admin_email_template(
+    template_key: str,
+    request: Request,
+    test_recipient: str = Form(...),
+    subject_template: str = Form(...),
+    html_template: str = Form(...),
+    admin_username: str = Depends(require_admin),
+):
+    normalized_key = (template_key or "").strip()
+    if normalized_key not in DEFAULT_ADMIN_EMAIL_TEMPLATES:
+        raise HTTPException(status_code=404, detail="Email template not found.")
+
+    target_email = _normalize_email(test_recipient)
+    if target_email is None:
+        return RedirectResponse(
+            url="/admin/config/email-templates?email_template_status=error&email_template_message="
+            + quote_plus("Bitte eine gueltige Test-E-Mail angeben."),
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    subject, html_body = render_email_template_preview(
+        subject_template=subject_template,
+        html_template=html_template,
+        context=_build_email_template_test_context(request),
+    )
+    ok, error = _send_html_email(
+        target_email=target_email,
+        subject=subject,
+        html_body=html_body,
+    )
+
+    with SessionLocal() as db:
+        log_admin_event(
+            db,
+            admin_username=admin_username,
+            action="config.email_template.test_send",
+            target_type="email_template",
+            target_id=normalized_key,
+            details={
+                "recipient": target_email,
+                "sent": ok,
+                "error": error,
+            },
+        )
+        db.commit()
+
+    if ok:
+        message = f"Testmail fuer {normalized_key} an {target_email} versendet."
+        status_value = "success"
+    else:
+        message = error or "Testmail konnte nicht versendet werden."
+        status_value = "error"
+
+    return RedirectResponse(
+        url="/admin/config/email-templates?email_template_status="
+        + quote_plus(status_value)
+        + "&email_template_message="
+        + quote_plus(message),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.post("/admin/commissions/{commission_id}/status")
@@ -629,7 +913,7 @@ def update_commission_status(
             url=f"/admin/tenants/{redirect_tenant_id}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin/partners/commissions", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/admin/partners/create")
@@ -696,7 +980,7 @@ def create_partner(
         )
         db.commit()
 
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin/partners", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/admin/partners/{partner_id}/update")
@@ -773,7 +1057,7 @@ def update_partner(
         )
         db.commit()
 
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin/partners", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/admin/partners/{partner_id}/credentials")
@@ -820,7 +1104,7 @@ def set_partner_credentials(
         )
         db.commit()
 
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin/partners", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/admin/partners/{partner_id}/reset-link", response_class=HTMLResponse)
@@ -869,7 +1153,7 @@ def generate_partner_reset_link(
         <span id="copyState" style="margin-left: 8px; color:#2f5f2f;"></span>
       </p>
       <p style="color:#666;">Token validity follows TOKEN_EXPIRE_MINUTES from backend settings.</p>
-      <p><a href="/admin/tenants">Back to Admin</a></p>
+      <p><a href="/admin/partners">Back to Admin</a></p>
       <script>
         const copyBtn = document.getElementById("copyBtn");
         const copyState = document.getElementById("copyState");
@@ -928,7 +1212,7 @@ def delete_partner(
         db.delete(partner)
         db.commit()
 
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin/partners", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/admin/partners/applications/{application_id}/status")
@@ -1015,7 +1299,7 @@ def update_partner_application_status(
         )
         db.commit()
 
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin/partners/applications", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/admin/partners/applications.csv")
@@ -1234,4 +1518,4 @@ def close_partner_payout(
         )
         db.commit()
 
-    return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url="/admin/commissions/payouts", status_code=status.HTTP_303_SEE_OTHER)

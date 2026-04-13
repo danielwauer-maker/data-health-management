@@ -28,6 +28,7 @@ from app.security.token import create_token, verify_token
 from app.security.token_hash import hash_api_token, verify_api_token
 from app.security.tenant import enforce_tenant_match, load_authenticated_tenant, require_tenant_headers
 from app.services.billing_service import utc_now
+from app.services.email_template_service import render_email_template
 from app.services.partner_service import (
     ReferralAttributionConflictError,
     attach_partner_referral_to_tenant,
@@ -234,18 +235,12 @@ def _send_partner_reset_email(target_email: str, reset_url: str) -> bool:
         logger.warning("SMTP not configured. Partner reset email skipped for: %s", target_email)
         return False
 
-    subject = "Reset your BCSentinel partner password"
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #1f2a44;">
-        <p>Hello,</p>
-        <p>we received a request to reset your BCSentinel partner password.</p>
-        <p><a href="{reset_url}">Reset password</a></p>
-        <p>If you did not request this, you can ignore this email.</p>
-        <p>Link expires automatically.</p>
-      </body>
-    </html>
-    """
+    with SessionLocal() as db:
+        subject, html_body = render_email_template(
+            db,
+            "partner_reset_request",
+            {"reset_url": reset_url},
+        )
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = subject
     msg["From"] = (
@@ -281,17 +276,13 @@ def _send_partner_application_received_email(
         logger.warning("SMTP not configured. Partner application email skipped for: %s", target_email)
         return False, msg
 
-    subject = "We received your BCSentinel partner application"
     display_name = (contact_name or "").strip() or "Partner"
-    html_body = f"""
-    <html>
-      <body style="font-family: Arial, sans-serif; color: #1f2a44;">
-        <p>Hello {display_name},</p>
-        <p>thank you for your partner registration at BCSentinel.</p>
-        <p>We will review your application and send your portal access as soon as it is approved.</p>
-      </body>
-    </html>
-    """
+    with SessionLocal() as db:
+        subject, html_body = render_email_template(
+            db,
+            "partner_application_received",
+            {"contact_name": display_name},
+        )
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = subject
     msg["From"] = (
