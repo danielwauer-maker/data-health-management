@@ -47,6 +47,7 @@ Thumbs.db
 
 # BC build/output
 bc-extension/.alpackages/
+bc-extension/.build/
 bc-extension/.snapshots/
 bc-extension/artifacts/
 bc-extension/*.app

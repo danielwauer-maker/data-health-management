@@ -1,10 +1,10 @@
 {
   "id": "8c7f0f9c-0c1a-4a4e-9c6f-111111111111",
-  "name": "Data Health Management",
-  "publisher": "DaWaDev",
-  "version": "1.0.3.0",
-  "brief": "Analyse der Datenqualität in Business Central",
-  "description": "Ermittelt einen DataScore und erkennt Datenqualitätsprobleme.",
+  "name": "BCSentinel",
+  "publisher": "BCSentinel Analytics - Daniel Wauer",
+  "version": "1.0.2.2",
+  "brief": "Monitor and improve data quality in Microsoft Dynamics 365 Business Central.",
+  "description": "BCSentinel evaluates your Business Central data, generates a Data Health Score, and detects critical data quality issues-helping you ensure reliable data, optimize processes, and make better business decisions.",
   "target": "OnPrem",
   "runtime": "8.0",
   "platform": "19.0.34506.34941",
@@ -12,7 +12,7 @@
   "idRanges": [
     {
       "from": 53100,
-      "to": 53149
+      "to": 53199
     }
   ],
   "resourceExposurePolicy": {

@@ -139,8 +139,8 @@
     </section>
   </main>
 
+  <script src="partner-api.js"></script>
   <script>
-    const API_BASE = window.location.origin;
     const LANG_KEY = "bcsentinel-lang";
     const THEME_KEY = "bcsentinel-theme";
     const html = document.documentElement;
@@ -231,7 +231,7 @@
         return;
       }
       try {
-        const res = await fetch(API_BASE + "/api/partners/register", {
+        const res = await fetch(window.BCSentinelPartnerApi.buildUrl("/api/partners/register"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)

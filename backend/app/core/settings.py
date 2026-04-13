@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # === TOKEN ===
     TOKEN_EXPIRE_MINUTES: int = 60
+    CORS_ALLOW_ORIGINS: str | None = None
     PARTNER_RESET_URL_BASE: str | None = None
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587

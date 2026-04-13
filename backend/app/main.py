@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from app.core.settings import validate_settings
+from app.core.settings import settings, validate_settings
 from app.db import SessionLocal, ensure_schema_is_migrated, wait_for_database
 from app.models import Scan, ScanIssueRecord, Tenant
 from app.routers.admin import router as admin_router
@@ -50,6 +50,21 @@ from fastapi.responses import RedirectResponse
 
 BASE_DIR = Path(__file__).resolve().parent
 
+DEFAULT_PUBLIC_FRONTEND_ORIGINS = [
+    "https://dev.bcsentinel.com",
+    "https://www.bcsentinel.com",
+    "https://bcsentinel.com",
+]
+
+
+def _public_frontend_origins() -> list[str]:
+    configured = (settings.CORS_ALLOW_ORIGINS or "").strip()
+    if not configured:
+        return DEFAULT_PUBLIC_FRONTEND_ORIGINS
+
+    origins = [origin.strip() for origin in configured.split(",") if origin.strip()]
+    return origins or DEFAULT_PUBLIC_FRONTEND_ORIGINS
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -71,18 +86,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-PUBLIC_FRONTEND_ORIGINS = [
-    "https://dev.bcsentinel.com",
-    "https://www.bcsentinel.com",
-    "https://bcsentinel.com",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=PUBLIC_FRONTEND_ORIGINS,
+    allow_origins=_public_frontend_origins(),
     allow_credentials=False,
-    allow_methods=["GET", "OPTIONS"],
-    allow_headers=["Accept", "Content-Type"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Accept", "Authorization", "Content-Type"],
 )
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")

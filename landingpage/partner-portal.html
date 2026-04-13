@@ -300,6 +300,7 @@
     </section>
   </main>
 
+  <script src="partner-api.js"></script>
   <script>
     const tr = {
       de: {
@@ -405,7 +406,6 @@
     const TOKEN_KEY = "bcs_partner_token";
     const LANG_KEY = "bcsentinel-lang";
     const THEME_KEY = "bcsentinel-theme";
-    const API_BASE = window.location.origin;
     const html = document.documentElement;
     let currentLang = localStorage.getItem(LANG_KEY) === "en" ? "en" : "de";
 
@@ -490,9 +490,9 @@
       let commissions = [];
       try {
         const [meRes, refRes, commRes] = await Promise.all([
-          fetch(API_BASE + "/api/partners/me", { headers: authHeaders() }),
-          fetch(API_BASE + "/api/partners/me/referrals", { headers: authHeaders() }),
-          fetch(API_BASE + "/api/partners/me/commissions", { headers: authHeaders() })
+          fetch(window.BCSentinelPartnerApi.buildUrl("/api/partners/me"), { headers: authHeaders() }),
+          fetch(window.BCSentinelPartnerApi.buildUrl("/api/partners/me/referrals"), { headers: authHeaders() }),
+          fetch(window.BCSentinelPartnerApi.buildUrl("/api/partners/me/commissions"), { headers: authHeaders() })
         ]);
         if (meRes.ok) me = await meRes.json();
         if (refRes.ok) referrals = await refRes.json();
@@ -585,7 +585,7 @@
         return;
       }
       try {
-        const res = await fetch(API_BASE + "/api/partners/me/profile", {
+        const res = await fetch(window.BCSentinelPartnerApi.buildUrl("/api/partners/me/profile"), {
           method: "POST",
           headers: { ...authHeaders(), "Content-Type": "application/json" },
           body: JSON.stringify({ name, new_password: newPassword || null })

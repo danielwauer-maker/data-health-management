@@ -184,6 +184,7 @@
     </section>
   </main>
 
+  <script src="partner-api.js"></script>
   <script>
     const translations = {
       de: {
@@ -222,7 +223,6 @@
       }
     };
 
-    const API_BASE = window.location.origin;
     const TOKEN_KEY = "bcs_partner_token";
     const LANG_KEY = "bcsentinel-lang";
     const THEME_KEY = "bcsentinel-theme";
@@ -275,7 +275,7 @@
       }
 
       try {
-        const res = await fetch(API_BASE + "/api/partners/auth/login", {
+        const res = await fetch(window.BCSentinelPartnerApi.buildUrl("/api/partners/auth/login"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password })
@@ -312,7 +312,7 @@
         return;
       }
       try {
-        await fetch(API_BASE + "/api/partners/auth/reset/request", {
+        await fetch(window.BCSentinelPartnerApi.buildUrl("/api/partners/auth/reset/request"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email })

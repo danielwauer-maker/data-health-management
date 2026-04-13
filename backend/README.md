@@ -155,6 +155,17 @@ Hinweis: Fuer korrekte Tenant-Zuordnung muessen `tenant_id` und `plan_code` in d
 - `GET /api/partners/me/commissions` (Bearer)
   - liefert Provisionshistorie des Partners
 
+### Browser-Integration des Partner-Portals
+- Die Partnerseiten unter `landingpage/partner-*.html` verwenden eine kleine gemeinsame API-Basislogik in `landingpage/partner-api.js`.
+- Auf `https://bcsentinel.com` und `https://www.bcsentinel.com` wird standardmaessig `https://api.bcsentinel.com` verwendet.
+- Auf `https://dev.bcsentinel.com` wird standardmaessig `https://dev-api.bcsentinel.com` verwendet.
+- Auf anderen Hosts faellt das Partner-Frontend auf `window.location.origin` zurueck und bleibt damit mit einem Same-Origin-Reverse-Proxy kompatibel.
+- Optional kann die API-Basis explizit ueberschrieben werden:
+  - per `<meta name="bcsentinel-api-base" content="https://...">`
+  - oder per `window.__BCSENTINEL_API_BASE__`
+- Fuer Cross-Origin-Partnerzugriffe ist CORS im Backend jetzt auf `GET`, `POST`, `OPTIONS` plus `Authorization`/`Content-Type` ausgelegt.
+- Wenn Reset-Mails auf die Website-Seite `partner-reset-password.html` zeigen sollen, sollte `PARTNER_RESET_URL_BASE` explizit auf die oeffentliche Website-Basis gesetzt werden, statt sich auf `request.base_url` zu verlassen.
+
 ### Admin UI Erweiterungen (Partner Access)
 - Partner Applications Review-Workflow:
   - Status: `new`, `reviewed`, `accepted`, `rejected`
