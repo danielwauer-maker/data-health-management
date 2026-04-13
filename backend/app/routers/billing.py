@@ -139,6 +139,12 @@ def _dt_from_unix(value) -> datetime | None:
         return None
 
 
+def _stripe_to_plain_data(value):
+    if hasattr(value, "to_dict_recursive"):
+        return value.to_dict_recursive()
+    return value
+
+
 def _extract_subscription_monthly_amount(subscription_obj: dict) -> float:
     price_data = (
         ((subscription_obj.get("items", {}) or {}).get("data", [{}])[0].get("price", {}) or {})
@@ -480,10 +486,10 @@ def sync_checkout_session_status(
         )
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
-    checkout = stripe.checkout.Session.retrieve(
+    checkout = _stripe_to_plain_data(stripe.checkout.Session.retrieve(
         session_id,
         expand=["subscription", "subscription.items.data.price"],
-    )
+    ))
 
     tenant_id_from_session = str((checkout.get("metadata", {}) or {}).get("tenant_id") or "").strip()
     if tenant_id_from_session:
@@ -499,7 +505,7 @@ def sync_checkout_session_status(
         )
 
     if not isinstance(subscription_obj, dict):
-        subscription_obj = stripe.Subscription.retrieve(str(subscription_obj))
+        subscription_obj = _stripe_to_plain_data(stripe.Subscription.retrieve(str(subscription_obj)))
 
     provider_subscription_id = str(subscription_obj.get("id") or "").strip()
     if not provider_subscription_id:
@@ -551,7 +557,9 @@ async def process_billing_webhook(
             raise HTTPException(status_code=500, detail="Stripe webhook secret is not configured.")
         stripe.api_key = settings.STRIPE_SECRET_KEY
         try:
-            event = stripe.Webhook.construct_event(body_bytes, stripe_signature, webhook_secret)
+            event = _stripe_to_plain_data(
+                stripe.Webhook.construct_event(body_bytes, stripe_signature, webhook_secret)
+            )
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Invalid Stripe webhook signature: {exc}") from exc
 
