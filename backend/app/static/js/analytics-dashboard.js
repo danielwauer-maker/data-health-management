@@ -93,11 +93,13 @@ function renderGauge(score) {
 
   const safeScore = Math.max(0, Math.min(100, Number(score || 0)));
   const meta = scoreBandMeta(safeScore);
+
   const centerX = 160;
   const centerY = 174;
   const outerRadius = 124;
   const innerRadius = 88;
   const labelRadius = 103;
+
   const segments = [
     { label: 'Poor', start: 180, end: 108, className: 'critical' },
     { label: 'Fair', start: 108, end: 72, className: 'warning' },
@@ -115,23 +117,27 @@ function renderGauge(score) {
   }
 
   function arcPath(cx, cy, radius, startAngle, endAngle) {
-    const start = polarToCartesian(cx, cy, radius, endAngle);
-    const end = polarToCartesian(cx, cy, radius, startAngle);
-    const largeArcFlag = Math.abs(endAngle - startAngle) <= 180 ? '0' : '1';
-    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
+    const start = polarToCartesian(cx, cy, radius, startAngle);
+    const end = polarToCartesian(cx, cy, radius, endAngle);
+    const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
+    const sweepFlag = startAngle > endAngle ? 1 : 0;
+    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${end.x} ${end.y}`;
   }
 
   function ringSlicePath(cx, cy, outerR, innerR, startAngle, endAngle) {
     const outerStart = polarToCartesian(cx, cy, outerR, startAngle);
     const outerEnd = polarToCartesian(cx, cy, outerR, endAngle);
-    const innerStart = polarToCartesian(cx, cy, innerR, endAngle);
-    const innerEnd = polarToCartesian(cx, cy, innerR, startAngle);
-    const largeArcFlag = Math.abs(endAngle - startAngle) <= 180 ? '0' : '1';
+    const innerEnd = polarToCartesian(cx, cy, innerR, endAngle);
+    const innerStart = polarToCartesian(cx, cy, innerR, startAngle);
+    const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
+    const sweepFlagOuter = startAngle > endAngle ? 1 : 0;
+    const sweepFlagInner = sweepFlagOuter ? 0 : 1;
+
     return [
       `M ${outerStart.x} ${outerStart.y}`,
-      `A ${outerR} ${outerR} 0 ${largeArcFlag} 0 ${outerEnd.x} ${outerEnd.y}`,
-      `L ${innerStart.x} ${innerStart.y}`,
-      `A ${innerR} ${innerR} 0 ${largeArcFlag} 1 ${innerEnd.x} ${innerEnd.y}`,
+      `A ${outerR} ${outerR} 0 ${largeArcFlag} ${sweepFlagOuter} ${outerEnd.x} ${outerEnd.y}`,
+      `L ${innerEnd.x} ${innerEnd.y}`,
+      `A ${innerR} ${innerR} 0 ${largeArcFlag} ${sweepFlagInner} ${innerStart.x} ${innerStart.y}`,
       'Z',
     ].join(' ');
   }
@@ -143,6 +149,7 @@ function renderGauge(score) {
   const segmentMarkup = segments.map((segment) => {
     const textPos = labelPosition((segment.start + segment.end) / 2);
     const rotation = ((segment.start + segment.end) / 2) - 90;
+
     return `
       <g class="gauge-segment-group">
         <path d="${ringSlicePath(centerX, centerY, outerRadius, innerRadius, segment.start, segment.end)}"
@@ -190,6 +197,7 @@ function renderGauge(score) {
     </svg>
   `;
 }
+
 function renderHeroPoints(items) {
   const host = byId('hero-points');
   if (!host) return;
