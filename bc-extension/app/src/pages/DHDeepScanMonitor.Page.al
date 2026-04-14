@@ -60,12 +60,12 @@ page 53158 "DH Deep Scan Monitor"
                     MultiLine = true;
                 }
             }
-            part(KpiTiles; "DH Dashboard KPI Part")
+            /*part(KpiTiles; "DH Dashboard KPI Part")
             {
                 ApplicationArea = All;
                 Caption = 'Key Metrics';
                 SubPageLink = "Entry No." = field("Entry No.");
-            }
+            }*/
 
             group(OnlineDashboard)
             {
@@ -87,7 +87,7 @@ page 53158 "DH Deep Scan Monitor"
                 }
             }
 
-            group(ScanResults)
+            /*group(ScanResults)
             {
                 Caption = 'Scan Results';
 
@@ -114,11 +114,11 @@ page 53158 "DH Deep Scan Monitor"
                     Caption = 'Potential Saving';
                     StyleExpr = PotentialSavingStyle;
                 }
-            }
+            }*/
 
 
 
-            group(ModuleProgress)
+            /*group(ModuleProgress)
             {
                 Caption = 'Module Progress';
 
@@ -192,9 +192,9 @@ page 53158 "DH Deep Scan Monitor"
                     Visible = ShowHR;
                     StyleExpr = HRProgressStyle;
                 }
-            }
+            }*/
 
-            group(ModuleScores)
+            /*group(ModuleScores)
             {
                 Caption = 'Module Scores';
 
@@ -268,15 +268,15 @@ page 53158 "DH Deep Scan Monitor"
                     Visible = ShowHR;
                     StyleExpr = HRScoreStyle;
                 }
-            }
+            }*/
 
-            part(Findings; "DH Deep Scan Findings")
+            /*part(Findings; "DH Deep Scan Findings")
             {
                 ApplicationArea = All;
                 Caption = 'Issues';
                 UpdatePropagation = Both;
                 SubPageLink = "Deep Scan Entry No." = field("Entry No.");
-            }
+            }*/
         }
     }
 
