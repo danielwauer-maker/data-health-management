@@ -296,20 +296,24 @@ page 53100 "DH Setup"
                     Image = Start;
                     ApplicationArea = All;
 
-                    trigger OnAction()
-                    var
-                        Setup: Record "DH Setup";
-                        ApiClient: Codeunit "DH API Client";
-                        DeepScanMgt: Codeunit "DH Deep Scan Mgt.";
-                    begin
-                        EnsureSetupExists();
-                        Setup := Rec;
-                        ApiClient.EnsureReadyForScan(Setup);
+                trigger OnAction()
+                var
+                    Setup: Record "DH Setup";
+                    ApiClient: Codeunit "DH API Client";
+                    DeepScanMgt: Codeunit "DH Deep Scan Mgt.";
+                    ConfirmStartScanQst: Label 'Möchten Sie den Scan wirklich jetzt starten? Es kann zu performanten Beeinträchtigungen während des Livebetriebs kommen. Wir empfehlen den Scan nicht während der Arbeitszeit laufen zu lassen.';
+                begin
+                    EnsureSetupExists();
+                    Setup := Rec;
+                    ApiClient.EnsureReadyForScan(Setup);
 
-                        DeepScanMgt.QueueDeepScan(Setup);
-                        CurrPage.Update(false);
-                    end;
-                }
+                    if not Confirm(ConfirmStartScanQst, false) then
+                        exit;
+
+                    DeepScanMgt.QueueDeepScan(Setup);
+                    CurrPage.Update(false);
+                end;
+            }
 
                 action(ViewScanHistory)
                 {

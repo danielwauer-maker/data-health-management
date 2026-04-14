@@ -80,19 +80,30 @@ def _normalize_plan(value: Any) -> str:
 
 def _issue_group_from_code(code: str) -> str:
     code_upper = (code or "").upper()
+
     if code_upper.startswith("CUSTOMERS_"):
-        return "Customers"
+        return "CRM"
     if code_upper.startswith("VENDORS_"):
-        return "Vendors"
+        return "Purchasing"
     if code_upper.startswith("ITEMS_"):
-        return "Items"
+        return "Inventory"
     if code_upper.startswith("SALES_"):
         return "Sales"
     if code_upper.startswith("PURCHASE_"):
         return "Purchasing"
-    if "LEDGER" in code_upper or code_upper.startswith("GL_"):
+    if code_upper.startswith("GL_") or "LEDGER" in code_upper:
         return "Finance"
-    return "Other"
+    if code_upper.startswith("SERVICE_"):
+        return "Service"
+    if code_upper.startswith("JOBS_") or code_upper.startswith("JOB_"):
+        return "Jobs"
+    if code_upper.startswith("MFG_") or code_upper.startswith("MANUFACTURING_"):
+        return "Manufacturing"
+    if code_upper.startswith("HR_"):
+        return "HR"
+    if code_upper.startswith("SYSTEM_"):
+        return "System"
+    return "System"
 
 
 def _issue_recommendation(issue: ScanIssueRecord) -> str:
@@ -101,16 +112,24 @@ def _issue_recommendation(issue: ScanIssueRecord) -> str:
         return preview
 
     group = _issue_group_from_code(issue.code)
-    if group == "Customers":
-        return "Review impacted customer master data and complete mandatory fields in Business Central."
-    if group == "Vendors":
-        return "Complete vendor setup and remove blocking gaps before the next purchasing cycle."
-    if group == "Items":
-        return "Prioritize item setup issues that affect planning, costing, or inventory transactions."
+    if group == "CRM":
+        return "Review impacted customer and relationship data and complete the missing setup in Business Central."
     if group == "Purchasing":
-        return "Resolve purchasing document inconsistencies before they create follow-up workload."
+        return "Resolve purchasing and vendor-related setup gaps before they create follow-up workload."
+    if group == "Inventory":
+        return "Prioritize inventory and item issues that affect planning, costing, or stock transactions."
+    if group == "Sales":
+        return "Resolve sales-side issues that can reduce margin, delay fulfillment, or create rework."
     if group == "Finance":
         return "Investigate financial postings and open entries with missing or inconsistent setup."
+    if group == "Service":
+        return "Review service-related records and complete the missing configuration before the next service cycle."
+    if group == "Jobs":
+        return "Review project and job-related records so postings and planning remain consistent."
+    if group == "Manufacturing":
+        return "Review manufacturing-related setup and master data before it impacts planning or execution."
+    if group == "HR":
+        return "Review HR-related configuration and records to avoid downstream process gaps."
     return "Review the affected records and resolve the underlying setup issue in Business Central."
 
 
@@ -319,32 +338,42 @@ def _scan_mode_label(scan_type: str | None, fallback: str | None) -> str:
     return "Free QuickScan"
 
 
+def _build_module_counts(scan: Scan) -> dict[str, int]:
+    module_counts = {
+        "System": _safe_int(scan.total_records),
+        "Finance": _safe_int(scan.customer_ledger_entries_count)
+        + _safe_int(scan.vendor_ledger_entries_count)
+        + _safe_int(scan.gl_entries_count),
+        "Sales": _safe_int(scan.sales_headers_count) + _safe_int(scan.sales_lines_count),
+        "Purchasing": _safe_int(scan.purchase_headers_count) + _safe_int(scan.purchase_lines_count),
+        "Inventory": _safe_int(scan.items_count)
+        + _safe_int(scan.item_ledger_entries_count)
+        + _safe_int(scan.value_entries_count)
+        + _safe_int(scan.warehouse_entries_count),
+        "CRM": _safe_int(scan.customers_count),
+        "Manufacturing": 0,
+        "Service": 0,
+        "Jobs": 0,
+        "HR": 0,
+    }
+    return module_counts
+
+
 def _build_profile_cards(scan: Scan) -> list[dict[str, Any]]:
-    return [
-        {"label": "Customers", "value": _safe_int(scan.customers_count)},
-        {"label": "Vendors", "value": _safe_int(scan.vendors_count)},
-        {"label": "Items", "value": _safe_int(scan.items_count)},
-        {
-            "label": "Sales",
-            "value": _safe_int(scan.sales_headers_count) + _safe_int(scan.sales_lines_count),
-        },
-        {
-            "label": "Purchasing",
-            "value": _safe_int(scan.purchase_headers_count) + _safe_int(scan.purchase_lines_count),
-        },
-        {
-            "label": "Finance",
-            "value": _safe_int(scan.customer_ledger_entries_count)
-            + _safe_int(scan.vendor_ledger_entries_count)
-            + _safe_int(scan.gl_entries_count),
-        },
-        {
-            "label": "Inventory",
-            "value": _safe_int(scan.item_ledger_entries_count)
-            + _safe_int(scan.value_entries_count)
-            + _safe_int(scan.warehouse_entries_count),
-        },
+    module_counts = _build_module_counts(scan)
+    module_order = [
+        "System",
+        "Finance",
+        "Sales",
+        "Purchasing",
+        "Inventory",
+        "CRM",
+        "Manufacturing",
+        "Service",
+        "Jobs",
+        "HR",
     ]
+    return [{"label": label, "value": module_counts.get(label, 0)} for label in module_order]
 
 
 def _get_current_plan_price_monthly(tenant: Tenant | None, scan: Scan | None) -> float:
@@ -535,7 +564,7 @@ def _build_dashboard_payload(
 
     affected_records = sum(_safe_int(issue.affected_count) for issue in issues)
 
-    issue_groups: dict[str, int] = {}
+    issue_groups: dict[str, int] = {name: 0 for name in _build_module_counts(active_scan).keys()}
     for issue in issues:
         group = _issue_group_from_code(issue.code)
         issue_groups[group] = issue_groups.get(group, 0) + _safe_int(issue.affected_count)
@@ -633,7 +662,10 @@ def _build_dashboard_payload(
         "loss_trend": _build_trend_points(recent_scans_desc, active_scan.scan_id, "estimated_loss_eur"),
         "issue_groups": [
             {"name": name, "count": count}
-            for name, count in sorted(issue_groups.items(), key=lambda item: item[1], reverse=True)
+            for name, count in sorted(
+                issue_groups.items(),
+                key=lambda item: (-item[1], list(_build_module_counts(active_scan).keys()).index(item[0])),
+            )
         ],
         "top_findings": top_findings if is_premium else [],
         "premium_preview_findings": premium_preview_findings,

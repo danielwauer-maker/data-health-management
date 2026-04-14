@@ -1,163 +1,109 @@
 <!DOCTYPE html>
-
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Zahlung abgebrochen – BCSentinel</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment cancelled | BCSentinel</title>
+  <meta name="theme-color" content="#08111f" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem('bcsentinel-theme');
+        if (theme !== 'light' && theme !== 'dark') theme = 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
   <style>
     :root {
-      --bg: #0b1020;
-      --card: rgba(255,255,255,0.06);
-      --border: rgba(255,255,255,0.1);
-      --text: #f8fafc;
-      --muted: #cbd5e1;
-      --yellow: #f59e0b;
-      --blue: #3b82f6;
-      --shadow: 0 24px 60px rgba(0,0,0,0.35);
+      --bg:#08111f; --card:rgba(14,26,51,.82); --line:rgba(255,255,255,.1); --text:#eff4ff; --muted:#acbbd8;
+      --muted-2:#7f91b3; --orange:#ff8f3d; --yellow:#f59e0b; --shadow:0 24px 80px rgba(0,0,0,.34);
+      --header-bg:linear-gradient(180deg,rgba(6,13,24,.9),rgba(6,13,24,.5));
+      --body-bg:radial-gradient(circle at top left,rgba(74,141,255,.16),transparent 28%),radial-gradient(circle at top right,rgba(255,143,61,.14),transparent 24%),linear-gradient(180deg,#07101d 0%,#091427 42%,#07101d 100%);
+      --surface:rgba(255,255,255,.04); --brand-border:rgba(255,255,255,.08); --footer-line:rgba(255,255,255,.05);
     }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Arial, sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(circle at top, rgba(59,130,246,0.18), transparent 35%),
-        linear-gradient(135deg, #0b1020 0%, #121a2f 45%, #0b1020 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
+    html[data-theme="light"] {
+      --bg:#f4f8ff; --card:rgba(255,255,255,.94); --line:rgba(12,33,66,.1); --text:#10213d; --muted:#51627f; --muted-2:#6f7f9a;
+      --orange:#ff8f3d; --yellow:#cc8a00; --shadow:0 24px 70px rgba(21,43,82,.12);
+      --header-bg:linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,255,255,.72));
+      --body-bg:radial-gradient(circle at top left,rgba(74,141,255,.10),transparent 30%),radial-gradient(circle at top right,rgba(255,143,61,.10),transparent 24%),linear-gradient(180deg,#f8fbff 0%,#eef4fc 46%,#f7fbff 100%);
+      --surface:rgba(16,33,61,.03); --brand-border:rgba(12,33,66,.08); --footer-line:rgba(12,33,66,.08);
     }
-
-    .card {
-      max-width: 700px;
-      width: 100%;
-      padding: 36px;
-      border-radius: 20px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      text-align: center;
-    }
-
-    .icon {
-      font-size: 60px;
-      margin-bottom: 20px;
-      color: var(--yellow);
-    }
-
-    h1 {
-      margin: 0 0 10px;
-      font-size: 34px;
-    }
-
-    p {
-      color: var(--muted);
-      font-size: 16px;
-      line-height: 1.6;
-    }
-
-    .box {
-      margin-top: 25px;
-      padding: 18px;
-      border-radius: 12px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .box strong {
-      color: #fff;
-    }
-
-    .actions {
-      margin-top: 30px;
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .btn {
-      padding: 12px 18px;
-      border-radius: 10px;
-      text-decoration: none;
-      font-weight: bold;
-      transition: 0.2s;
-    }
-
-    .btn-primary {
-      background: var(--blue);
-      color: #fff;
-    }
-
-    .btn-secondary {
-      border: 1px solid #fff;
-      color: #fff;
-    }
-
-    .btn:hover {
-      opacity: 0.9;
-      transform: translateY(-1px);
-    }
-
-    .hint {
-      margin-top: 20px;
-      font-size: 13px;
-      color: #94a3b8;
-    }
-
-    @media (max-width: 600px) {
-      .actions {
-        flex-direction: column;
-      }
-
-      .btn {
-        width: 100%;
-      }
-    }
+    *{box-sizing:border-box} html,body{margin:0} body{font-family:Inter,system-ui,sans-serif;color:var(--text);background:var(--body-bg);line-height:1.6}
+    a{color:inherit;text-decoration:none}.container{width:min(calc(100% - 32px), 980px);margin:0 auto}
+    .site-header{position:sticky;top:0;z-index:10;backdrop-filter:blur(16px);background:var(--header-bg);border-bottom:1px solid var(--footer-line)}
+    .nav{min-height:78px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .brand{display:flex;align-items:center;gap:14px;min-width:0}.brand-mark{width:54px;height:54px;display:flex;align-items:center;justify-content:center}.brand-mark img{width:100%;height:auto}.brand-copy{display:flex;flex-direction:column;min-width:0}.brand-copy strong{font-size:1.04rem;font-weight:800}.brand-copy span{color:var(--muted-2);font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nav-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .theme-toggle{border:1px solid var(--brand-border);background:var(--surface);color:var(--text);padding:10px 12px;min-width:48px;min-height:42px;border-radius:999px;cursor:pointer;font:inherit;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+    .lang-switch{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:56px;min-height:44px;padding:4px;border-radius:999px;overflow:hidden;background:var(--surface);border:1px solid var(--brand-border)}
+    .lang-btn{display:none;align-items:center;justify-content:center;min-width:48px;min-height:36px;padding:0 10px;border:0;background:transparent;color:var(--muted);border-radius:999px;cursor:pointer;font-weight:700;font-size:1.15rem;line-height:1}.lang-btn:not(.active){display:inline-flex}.lang-btn.active{display:none !important}
+    .wrap{padding:42px 0 72px}.card{max-width:760px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);padding:36px;text-align:center;backdrop-filter:blur(10px)}
+    .icon{font-size:60px;margin-bottom:18px;color:var(--yellow)} h1{margin:0 0 12px;font-size:clamp(2rem,4vw,2.8rem);line-height:1.1;letter-spacing:-.03em} p{margin:0;color:var(--muted);font-size:1.02rem}
+    .box{margin-top:24px;padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--brand-border);text-align:left}.box strong{color:var(--text)}
+    .actions{margin-top:28px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border-radius:12px;font-weight:800;border:1px solid transparent}.btn-primary{background:linear-gradient(135deg,var(--orange),#ff7618);color:#fff}.btn-secondary{background:transparent;color:var(--text);border-color:var(--brand-border)}
+    .hint{margin-top:18px;font-size:13px;color:var(--muted-2)}
+    @media (max-width:760px){.brand-copy span{display:none}.card{padding:24px}.actions{flex-direction:column}.btn{width:100%}}
   </style>
-
 </head>
-
 <body>
-  <div class="card">
-    <div class="icon">⚠</div>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html">
+        <span class="brand-mark"><img src="logo-bcsentinel.png" alt="BCSentinel Logo"></span>
+        <span class="brand-copy"><strong>BCSentinel</strong><span data-i18n="brand_sub">Data Quality &amp; Business Impact for Business Central</span></span>
+      </a>
+      <div class="nav-actions">
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme">🌓</button>
+        <div class="lang-switch" aria-label="Language switcher">
+          <button class="lang-btn active" data-lang="de" type="button" aria-label="Deutsch" title="Deutsch">🇩🇪</button>
+          <button class="lang-btn" data-lang="en" type="button" aria-label="English" title="English">🇬🇧</button>
+        </div>
+      </div>
+    </div>
+  </header>
 
-```
-<h1>Zahlung abgebrochen</h1>
+  <main class="wrap">
+    <div class="container">
+      <div class="card">
+        <div class="icon">⚠</div>
+        <h1 data-i18n="title">Zahlung abgebrochen</h1>
+        <p data-i18n="lead">Deine Zahlung wurde nicht abgeschlossen – das ist aber kein Problem. Dein Account bleibt bestehen und du kannst jederzeit erneut upgraden.</p>
+        <div class="box">
+          <strong data-i18n="box_title">Warum könnte das passiert sein?</strong>
+          <p style="margin-top:10px;" data-i18n="box_text">Die Zahlung wurde abgebrochen, die Kartenprüfung ist fehlgeschlagen oder das Checkout-Fenster wurde geschlossen. Du kannst den Vorgang jederzeit erneut starten.</p>
+        </div>
+        <div class="actions">
+          <a href="/#pricing" class="btn btn-primary" data-i18n="retry_btn">Erneut versuchen</a>
+          <a href="/" class="btn btn-secondary" data-i18n="home_btn">Zur Startseite</a>
+        </div>
+        <div class="hint" data-i18n="hint">Tipp: Deine bisherigen Scans bleiben erhalten – du kannst jederzeit später upgraden.</div>
+      </div>
+    </div>
+  </main>
 
-<p>
-  Deine Zahlung wurde nicht abgeschlossen – das ist aber kein Problem.<br>
-  Dein Account bleibt aktiv und du kannst jederzeit erneut upgraden.
-</p>
-
-<div class="box">
-  <strong>Warum könnte das passiert sein?</strong><br><br>
-  - Zahlung abgebrochen<br>
-  - Kartenprüfung fehlgeschlagen<br>
-  - Checkout geschlossen<br><br>
-
-  👉 Du kannst es jederzeit erneut versuchen.
-</div>
-
-<div class="actions">
-  <a href="/#pricing" class="btn btn-primary">
-    Erneut versuchen
-  </a>
-
-  <a href="/" class="btn btn-secondary">
-    Zur Startseite
-  </a>
-</div>
-
-<div class="hint">
-  Tipp: Deine bisherigen Scans bleiben erhalten – du kannst jederzeit später upgraden.
-</div>
-```
-
-  </div>
+  <script>
+    const LANG_KEY = 'bcsentinel-lang';
+    const THEME_KEY = 'bcsentinel-theme';
+    const html = document.documentElement;
+    const tr = {
+      de: {brand_sub:'Data Quality & Business Impact für Business Central', title:'Zahlung abgebrochen', lead:'Deine Zahlung wurde nicht abgeschlossen – das ist aber kein Problem. Dein Account bleibt bestehen und du kannst jederzeit erneut upgraden.', box_title:'Warum könnte das passiert sein?', box_text:'Die Zahlung wurde abgebrochen, die Kartenprüfung ist fehlgeschlagen oder das Checkout-Fenster wurde geschlossen. Du kannst den Vorgang jederzeit erneut starten.', retry_btn:'Erneut versuchen', home_btn:'Zur Startseite', hint:'Tipp: Deine bisherigen Scans bleiben erhalten – du kannst jederzeit später upgraden.'},
+      en: {brand_sub:'Data Quality & Business Impact for Business Central', title:'Payment cancelled', lead:'Your payment was not completed — but that is no problem. Your account remains available and you can upgrade again at any time.', box_title:'Why could this have happened?', box_text:'The payment was cancelled, card verification failed, or the checkout window was closed. You can start the upgrade again whenever you want.', retry_btn:'Try again', home_btn:'Back to homepage', hint:'Tip: Your previous scans remain available — you can upgrade later at any time.'}
+    };
+    const langButtons = document.querySelectorAll('.lang-btn');
+    const themeToggle = document.getElementById('themeToggle');
+    function getLang(){ try { return localStorage.getItem(LANG_KEY)==='en' ? 'en' : 'de'; } catch(e){ return 'de'; } }
+    function applyTranslations(lang){ const selected = tr[lang] ? lang : 'de'; html.lang = selected; document.querySelectorAll('[data-i18n]').forEach((el)=>{ const key=el.getAttribute('data-i18n'); if (tr[selected][key]) el.textContent = tr[selected][key]; }); langButtons.forEach((btn)=>btn.classList.toggle('active', btn.dataset.lang===selected)); document.title = selected==='de' ? 'Zahlung abgebrochen – BCSentinel' : 'Payment cancelled – BCSentinel'; try { localStorage.setItem(LANG_KEY, selected); } catch(e){} }
+    function getTheme(){ try { const saved = localStorage.getItem(THEME_KEY); return saved === 'light' || saved === 'dark' ? saved : 'dark'; } catch(e){ return 'dark'; } }
+    function applyTheme(theme){ const selected = theme === 'light' ? 'light' : 'dark'; html.setAttribute('data-theme', selected); themeToggle.textContent = selected === 'dark' ? '☀' : '☾'; try { localStorage.setItem(THEME_KEY, selected); } catch(e){} }
+    langButtons.forEach((btn)=>btn.addEventListener('click', ()=>applyTranslations(btn.dataset.lang)));
+    themeToggle.addEventListener('click', ()=>applyTheme(getTheme()==='light' ? 'dark' : 'light'));
+    applyTheme(getTheme()); applyTranslations(getLang());
+  </script>
 </body>
 </html>

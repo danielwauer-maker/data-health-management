@@ -157,7 +157,7 @@
       border: 1px solid rgba(255,255,255,.08);
       background: rgba(255,255,255,.03);
     }
-    .issue-card { padding: 26px; }
+    .issue-card { padding: 26px; margin: 26px; }
     .issue-head {
       display: flex;
       align-items: flex-start;
@@ -278,7 +278,6 @@
       </a>
 
       <nav class="nav-links desktop-nav" aria-label="Primary navigation">
-        <a href="#summary" data-i18n="nav_summary">Overview</a>
         <a href="#formula" data-i18n="nav_formula">Formula</a>
         <a href="#top5" data-i18n="nav_top5">Top 5 Issues</a>
         <a href="#all-checks" data-i18n="nav_all">All checks</a>
@@ -298,78 +297,7 @@
   </header>
 
   <main id="top">
-    <section class="hero section">
-      <div class="container loss-hero-grid">
-        <div class="hero-copy">
-          <div class="eyebrow">
-            <span class="eyebrow-dot"></span>
-            <span data-i18n="hero_eyebrow">Estimated Loss transparent explained</span>
-          </div>
-
-          <h1 data-i18n="hero_title">Make visible where poor ERP data quietly burns money.</h1>
-
-          <p class="hero-sub lead" data-i18n="hero_sub">
-            This page shows, in business language, how BCSentinel turns concrete data issues into a realistic annual loss estimate — clear enough for management, finance, operations, and IT.
-          </p>
-
-          <div class="btn-row">
-            <a class="btn btn-primary" href="contact.html" data-i18n="hero_cta_primary">Start free ERP health scan</a>
-            <a class="btn btn-secondary" href="#top5" data-i18n="hero_cta_secondary">See top examples</a>
-          </div>
-
-          <div class="trust-row">
-            <span class="trust-item" data-i18n="hero_trust_1">No black box scoring</span>
-            <span class="trust-item" data-i18n="hero_trust_2">Realistic process-based assumptions</span>
-            <span class="trust-item" data-i18n="hero_trust_3">Management-ready explanation in euros</span>
-          </div>
-        </div>
-
-        <div class="card card-strong section-shell section-shell-soft">
-          <div class="eyebrow">
-            <span class="eyebrow-dot"></span>
-            <span data-i18n="value_eyebrow">Value preview</span>
-          </div>
-          <h2 data-i18n="value_title">A number only creates trust when customers can understand it.</h2>
-          <p class="lead-small" data-i18n="value_text">BCSentinel links each estimate to operational friction: rework, blocked transactions, delayed payments, wrong pricing, and avoidable follow-up work.</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="summary" class="section">
-      <div class="container">
-        <div class="callout card card-highlight section-shell">
-          <div class="section-head" style="margin-bottom:18px;">
-            <div class="eyebrow">
-              <span class="eyebrow-dot"></span>
-              <span data-i18n="summary_eyebrow">Management summary</span>
-            </div>
-            <h2 data-i18n="summary_title">What poor data costs — and why the number is credible.</h2>
-            <p class="lead-small" data-i18n="summary_sub">The loss estimate is based on recurring operational effort. That means the value does not rely on theoretical penalties alone, but on time, delay, coordination, and avoidable process friction.</p>
-          </div>
-
-          <div class="loss-summary-grid">
-            <div class="value-stat-box loss">
-              <span class="value-stat-label" data-i18n="value_stat_1_label">Estimated Loss</span>
-              <strong class="value-stat-value">€ 10,492</strong>
-              <a class="calc-footnote" href="#formula" data-i18n="value_stat_1_link">* see how calculated</a>
-              <p class="value-stat-sub" data-i18n="value_stat_1_sub">Estimated financial impact caused by detected data quality issues.</p>
-            </div>
-
-            <div class="value-stat-box saving">
-              <span class="value-stat-label" data-i18n="value_stat_2_label">Potential Saving</span>
-              <strong class="value-stat-value">€ 7,344</strong>
-              <p class="value-stat-sub" data-i18n="value_stat_2_sub">Realistic saving potential after resolving the most important issues first.</p>
-            </div>
-
-            <div class="value-stat-box neutral">
-              <span class="value-stat-label" data-i18n="value_stat_3_label">Calculation principle</span>
-              <strong class="value-stat-value" style="font-size:clamp(1.25rem,2.5vw,2rem); line-height:1.15;">66<br><span style="font-size:.62em; font-weight:800;">Checks</span></strong>
-              <p class="value-stat-sub" data-i18n="value_stat_3_sub">Each issue uses affected records, probability, effort, hourly rate, and yearly frequency.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+          
 
     <section id="formula" class="section">
       <div class="container">
@@ -843,12 +771,12 @@
             <div class="issue-head">
               <div>
                 <div class="issue-badges" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
-                  <span class="issue-badge hot">${t('detail_badge')}</span>
-                  <span class="issue-badge">${t('impact_badge')}</span>
+                 <span class="issue-badge hot">${t('detail_badge')}</span>
+                  <h3>${title}</h3>
                 </div>
-                <h3>${title}</h3>
+                
               </div>
-              <span class="issue-code">${t('code_label')}: ${code}</span>
+              
             </div>
 
             <div class="loss-detail-layout">
@@ -911,7 +839,7 @@
                   </div>
                   <div class="loss-short-amount">${fmt.format(item.annual)}</div>
                 </div>
-                <div class="mini-note">${t('short_example')} · ${item.code}</div>
+                
               </div>
             `).join('')}
           </div>
