@@ -197,38 +197,47 @@ function renderHeroPoints(items) {
   host.innerHTML = items.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
 }
 
-function renderProfileCards(items) {
+function renderProfileCards(moduleScores, fallbackItems) {
   const host = byId('profile-cards');
   if (!host) return;
   host.innerHTML = '';
 
-  if (!Array.isArray(items) || items.length === 0) {
-    host.innerHTML = '<div class="empty-state">No profile values available yet.</div>';
+  const scoreItems = Array.isArray(moduleScores) ? moduleScores.filter(Boolean) : [];
+  const fallback = Array.isArray(fallbackItems) ? fallbackItems.filter(Boolean) : [];
+
+  if (scoreItems.length > 0) {
+    scoreItems.forEach((item) => {
+      const score = Math.max(0, Math.min(100, Number(item?.score ?? item?.value ?? 0)));
+      const variant = item?.variant || scoreBand(score);
+      const label = item?.name || item?.label || '';
+      const badgeText = variant.charAt(0).toUpperCase() + variant.slice(1);
+
+      const card = document.createElement('div');
+      card.className = `mini-card score-card score-${variant}`;
+      card.innerHTML = `
+        <div class="mini-card-top">
+          <div class="mini-card-value">${formatNumber(score)}</div>
+          <div class="mini-score-badge score-${variant}">${escapeHtml(badgeText)}</div>
+        </div>
+        <div class="mini-card-label">${escapeHtml(label)}</div>
+      `;
+      host.appendChild(card);
+    });
     return;
   }
 
-  items.forEach((item) => {
-    const rawValue = Number(item?.score ?? item?.value ?? 0);
-    const variant = item?.variant || scoreBand(rawValue);
-    const isScoreCard = Object.prototype.hasOwnProperty.call(item || {}, 'score') || Object.prototype.hasOwnProperty.call(item || {}, 'variant');
+  if (fallback.length === 0) {
+    host.innerHTML = '<div class="empty-state">No module scores are available yet.</div>';
+    return;
+  }
 
+  fallback.forEach((item) => {
     const card = document.createElement('div');
-    card.className = `mini-card ${isScoreCard ? `score-card score-${variant}` : ''}`;
-
-    if (isScoreCard) {
-      card.innerHTML = `
-        <div class="mini-card-top">
-          <div class="mini-card-value">${formatNumber(rawValue)}</div>
-          <div class="mini-score-badge score-${variant}">${escapeHtml(variant)}</div>
-        </div>
-        <div class="mini-card-label">${escapeHtml(item?.name || item?.label)}</div>
-      `;
-    } else {
-      card.innerHTML = `
-        <div class="mini-card-value">${formatNumber(rawValue)}</div>
-        <div class="mini-card-label">${escapeHtml(item?.label)}</div>
-      `;
-    }
+    card.className = 'mini-card';
+    card.innerHTML = `
+      <div class="mini-card-value">${formatNumber(item?.value)}</div>
+      <div class="mini-card-label">${escapeHtml(item?.label)}</div>
+    `;
     host.appendChild(card);
   });
 }
@@ -543,7 +552,7 @@ async function loadDashboard(scanId = null) {
     setText('kpi-roi', formatCurrency(data?.kpis?.roi_eur));
 
     renderGauge(data?.kpis?.health_score);
-    renderProfileCards(data?.profile_cards || []);
+    renderProfileCards(data?.module_scores || [], data?.profile_cards || []);
     renderIssueGroups(data?.issue_groups || []);
     renderRecentScans(data?.recent_scans || []);
     renderRecentScansPagination(data?.recent_scans_pagination || {});

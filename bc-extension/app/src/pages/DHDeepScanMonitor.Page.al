@@ -194,7 +194,7 @@ page 53158 "DH Deep Scan Monitor"
                 }
             }*/
 
-            /*group(ModuleScores)
+            group(ModuleScores)
             {
                 Caption = 'Module Scores';
 
@@ -268,7 +268,7 @@ page 53158 "DH Deep Scan Monitor"
                     Visible = ShowHR;
                     StyleExpr = HRScoreStyle;
                 }
-            }*/
+            }
 
             /*part(Findings; "DH Deep Scan Findings")
             {
