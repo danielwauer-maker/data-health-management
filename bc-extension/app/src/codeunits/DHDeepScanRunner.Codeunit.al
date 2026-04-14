@@ -2306,6 +2306,7 @@ codeunit 53128 "DH Deep Scan Runner"
         ScanDateTime: DateTime;
         RequestText: Text;
         DataProfilingMgt: Codeunit "DH Data Profiling Mgt.";
+        ModuleScores: JsonObject;
     begin
         if DeepScanRun."Finished At" <> 0DT then
             ScanDateTime := DeepScanRun."Finished At"
@@ -2322,6 +2323,19 @@ codeunit 53128 "DH Deep Scan Runner"
         Payload.Add('issues_count', DeepScanRun."Issues Count");
         Payload.Add('premium_available', Setup."Premium Enabled");
         Payload.Add('data_profile', DataProfilingMgt.BuildDataProfile());
+
+        ModuleScores.Add('system', DeepScanRun."System Score");
+        ModuleScores.Add('finance', DeepScanRun."Finance Score");
+        ModuleScores.Add('sales', DeepScanRun."Sales Score");
+        ModuleScores.Add('purchasing', DeepScanRun."Purchasing Score");
+        ModuleScores.Add('inventory', DeepScanRun."Inventory Score");
+        ModuleScores.Add('crm', DeepScanRun."CRM Score");
+        ModuleScores.Add('manufacturing', DeepScanRun."Manufacturing Score");
+        ModuleScores.Add('service', DeepScanRun."Service Score");
+        ModuleScores.Add('jobs', DeepScanRun."Jobs Score");
+        ModuleScores.Add('hr', DeepScanRun."HR Score");
+        Payload.Add('module_scores', ModuleScores);
+
         Payload.Add('headline', DeepScanRun."Headline");
         Payload.Add('rating', DeepScanRun."Rating");
 
@@ -2331,6 +2345,7 @@ codeunit 53128 "DH Deep Scan Runner"
             repeat
                 Clear(IssueObject);
                 IssueObject.Add('code', Format(Finding."Issue Code"));
+                IssueObject.Add('category', Format(Finding.Category));
                 IssueObject.Add('title', Finding.Title);
                 IssueObject.Add('severity', LowerCase(Format(Finding.Severity)));
                 IssueObject.Add('affected_count', Finding."Affected Count");

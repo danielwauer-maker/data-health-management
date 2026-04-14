@@ -397,6 +397,85 @@ MODULE_SCORE_ORDER = [
     "HR",
 ]
 
+
+def _score_variant(score: int) -> str:
+    safe_score = max(0, min(100, _safe_int(score)))
+    if safe_score <= 60:
+        return "critical"
+    if safe_score <= 75:
+        return "warning"
+    if safe_score <= 85:
+        return "moderate"
+    if safe_score <= 95:
+        return "good"
+    return "excellent"
+
+
+def _build_module_scores_from_scan(scan: Scan) -> list[dict[str, Any]]:
+    items = [
+        ("System", _safe_int(getattr(scan, "system_score", 0))),
+        ("Finance", _safe_int(getattr(scan, "finance_score", 0))),
+        ("Sales", _safe_int(getattr(scan, "sales_score", 0))),
+        ("Purchasing", _safe_int(getattr(scan, "purchasing_score", 0))),
+        ("Inventory", _safe_int(getattr(scan, "inventory_score", 0))),
+        ("CRM", _safe_int(getattr(scan, "crm_score", 0))),
+        ("Manufacturing", _safe_int(getattr(scan, "manufacturing_score", 0))),
+        ("Service", _safe_int(getattr(scan, "service_score", 0))),
+        ("Jobs", _safe_int(getattr(scan, "jobs_score", 0))),
+        ("HR", _safe_int(getattr(scan, "hr_score", 0))),
+    ]
+    return [
+        {"name": name, "score": max(0, min(100, score)), "value": max(0, min(100, score)), "label": name, "variant": _score_variant(score)}
+        for name, score in items
+    ]
+
+
+def _has_module_scores(scan: Scan) -> bool:
+    return any(
+        _safe_int(value) > 0
+        for value in (
+            getattr(scan, "system_score", 0),
+            getattr(scan, "finance_score", 0),
+            getattr(scan, "sales_score", 0),
+            getattr(scan, "purchasing_score", 0),
+            getattr(scan, "inventory_score", 0),
+            getattr(scan, "crm_score", 0),
+            getattr(scan, "manufacturing_score", 0),
+            getattr(scan, "service_score", 0),
+            getattr(scan, "jobs_score", 0),
+            getattr(scan, "hr_score", 0),
+        )
+    )
+
+
+def _build_module_counts(scan: Scan) -> dict[str, int]:
+    return {
+        "System": _safe_int(scan.total_records),
+        "Finance": _safe_int(scan.customer_ledger_entries_count) + _safe_int(scan.vendor_ledger_entries_count) + _safe_int(scan.gl_entries_count),
+        "Sales": _safe_int(scan.sales_headers_count) + _safe_int(scan.sales_lines_count),
+        "Purchasing": _safe_int(scan.purchase_headers_count) + _safe_int(scan.purchase_lines_count),
+        "Inventory": _safe_int(scan.items_count) + _safe_int(scan.item_ledger_entries_count) + _safe_int(scan.value_entries_count) + _safe_int(scan.warehouse_entries_count),
+        "CRM": _safe_int(scan.customers_count),
+        "Manufacturing": 0,
+        "Service": 0,
+        "Jobs": 0,
+        "HR": 0,
+    }
+
+
+MODULE_SCORE_ORDER = [
+    "System",
+    "Finance",
+    "Sales",
+    "Purchasing",
+    "Inventory",
+    "CRM",
+    "Manufacturing",
+    "Service",
+    "Jobs",
+    "HR",
+]
+
 MODULE_SCORE_WEIGHTS = {
     "System": 1.00,
     "Finance": 1.15,
@@ -464,31 +543,8 @@ def _build_module_scores(issues: list[ScanIssueRecord]) -> list[dict[str, Any]]:
 
 
 def _build_profile_cards(scan: Scan) -> list[dict[str, Any]]:
-    return [
-        {"label": "Customers", "value": _safe_int(scan.customers_count)},
-        {"label": "Vendors", "value": _safe_int(scan.vendors_count)},
-        {"label": "Items", "value": _safe_int(scan.items_count)},
-        {
-            "label": "Sales",
-            "value": _safe_int(scan.sales_headers_count) + _safe_int(scan.sales_lines_count),
-        },
-        {
-            "label": "Purchasing",
-            "value": _safe_int(scan.purchase_headers_count) + _safe_int(scan.purchase_lines_count),
-        },
-        {
-            "label": "Finance",
-            "value": _safe_int(scan.customer_ledger_entries_count)
-            + _safe_int(scan.vendor_ledger_entries_count)
-            + _safe_int(scan.gl_entries_count),
-        },
-        {
-            "label": "Inventory",
-            "value": _safe_int(scan.item_ledger_entries_count)
-            + _safe_int(scan.value_entries_count)
-            + _safe_int(scan.warehouse_entries_count),
-        },
-    ]
+    module_counts = _build_module_counts(scan)
+    return [{"label": name, "value": module_counts.get(name, 0)} for name in MODULE_SCORE_ORDER]
 
 
 def _get_current_plan_price_monthly(tenant: Tenant | None, scan: Scan | None) -> float:
@@ -716,7 +772,7 @@ def _build_dashboard_payload(
             "severity": _normalize_severity(issue.severity),
             "count": _safe_int(issue.affected_count),
             "impact_eur": round(_safe_float(issue.estimated_impact_eur), 2),
-            "group": _issue_group_from_code(issue.code),
+            "group": _issue_group(issue),
             "recommendation_preview": _issue_recommendation(issue) if can_view_recommendations else "",
             "premium_only": bool(issue.premium_only),
             "open_in_bc_url": _build_open_in_bc_url(bc_issue_launch_url, issue.code),

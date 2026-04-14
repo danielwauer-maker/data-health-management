@@ -45,12 +45,26 @@ class DataProfilePayload(BaseModel):
 
 class ScanIssuePayload(BaseModel):
     code: str
+    category: Optional[str] = None
     title: str
     severity: str
     affected_count: int
     premium_only: bool = False
     recommendation_preview: Optional[str] = None
     estimated_impact_eur: float = 0.0
+
+
+class ModuleScoresPayload(BaseModel):
+    system: int = 0
+    finance: int = 0
+    sales: int = 0
+    purchasing: int = 0
+    inventory: int = 0
+    crm: int = 0
+    manufacturing: int = 0
+    service: int = 0
+    jobs: int = 0
+    hr: int = 0
 
 
 class ScanSyncPayload(BaseModel):
@@ -69,6 +83,7 @@ class ScanSyncPayload(BaseModel):
     potential_saving_eur: float = 0.0
     estimated_premium_price_monthly: float = 0.0
     roi_eur: float = 0.0
+    module_scores: ModuleScoresPayload = Field(default_factory=ModuleScoresPayload)
     issues: List[ScanIssuePayload] = Field(default_factory=list)
 
 
@@ -177,6 +192,17 @@ def sync_scan(
 
         apply_commercials_to_scan(scan, commercials)
 
+        scan.system_score = _safe_int(payload.module_scores.system)
+        scan.finance_score = _safe_int(payload.module_scores.finance)
+        scan.sales_score = _safe_int(payload.module_scores.sales)
+        scan.purchasing_score = _safe_int(payload.module_scores.purchasing)
+        scan.inventory_score = _safe_int(payload.module_scores.inventory)
+        scan.crm_score = _safe_int(payload.module_scores.crm)
+        scan.manufacturing_score = _safe_int(payload.module_scores.manufacturing)
+        scan.service_score = _safe_int(payload.module_scores.service)
+        scan.jobs_score = _safe_int(payload.module_scores.jobs)
+        scan.hr_score = _safe_int(payload.module_scores.hr)
+
         scan.customers_count = _safe_int(payload.data_profile.customers)
         scan.vendors_count = _safe_int(payload.data_profile.vendors)
         scan.items_count = _safe_int(payload.data_profile.items)
@@ -198,6 +224,7 @@ def sync_scan(
                 ScanIssueRecord(
                     scan_id=payload.scan_id,
                     code=str(issue["code"]),
+                    category=str(issue.get("category") or "System"),
                     title=str(issue["title"]),
                     severity=str(issue["severity"]),
                     affected_count=_safe_int(issue["affected_count"]),
