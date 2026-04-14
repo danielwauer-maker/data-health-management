@@ -1,2 +1,260 @@
-<!-- analytics_embed.html -->
-<div id="profile-cards" class="mini-grid"></div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=20260409-3">
+</head>
+<body class="dashboard-body">
+  <main class="page-shell">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="title-row">
+          <h1 id="page-title">BCSentinel Analytics</h1>
+          <span id="current-plan-badge" class="plan-badge is-free">Free</span>
+        </div>
+        <p id="page-subtitle" class="page-subtitle">Loading...</p>
+      </div>
+      <div class="topbar-right">
+        <nav class="topnav" aria-label="Dashboard sections">
+          <button type="button" class="topnav-link is-active" data-tab="overview">Overview</button>
+          <button type="button" class="topnav-link" data-tab="subscription">Subscription</button>
+        </nav>
+        <span id="last-updated" class="pill muted-pill">Last updated: —</span>
+      </div>
+    </header>
+
+    <section id="overview-tab" class="tab-panel is-active">
+      <section class="hero-block">
+        <div>
+          <div class="section-kicker">Business Impact</div>
+          <div id="hero-eyebrow" class="hero-eyebrow">Insight is free. Action is Premium.</div>
+          <h2 class="hero-title">
+            <span id="hero-prefix">Your data health is</span>
+            <span id="hero-highlight" class="hero-highlight">critical</span>
+            <span id="hero-suffix"></span>
+          </h2>
+        </div>
+        <ul id="hero-points" class="hero-points"></ul>
+      </section>
+
+      <section class="stats-grid">
+        <article class="hero-gauge-card panel">
+          <div class="hero-gauge-label">Data Health Score</div>
+          <div id="gauge-meter" class="gauge-wrap"></div>
+        </article>
+
+        <article class="stat-card panel">
+          <div class="stat-label">Scanned records</div>
+          <div class="stat-value" id="kpi-records">0</div>
+          <div class="stat-helper">Total volume used for pricing and scope</div>
+        </article>
+
+        <article class="stat-card panel">
+          <div class="stat-label">Affected records</div>
+          <div class="stat-value" id="kpi-affected-records">0</div>
+          <div class="stat-helper">Records with action potential</div>
+        </article>
+
+        <article class="stat-card panel accent-red">
+          <div class="stat-label">Estimated annual loss</div>
+          <div class="stat-value loss-value" id="kpi-loss">0 €</div>
+          <div class="stat-helper">Monetarisierter Impact</div>
+        </article>
+
+        <article class="stat-card panel compact-stat">
+          <div class="stat-label">Checks run</div>
+          <div class="stat-value" id="kpi-checks">0</div>
+          <div class="stat-helper">Depth of this scan</div>
+        </article>
+
+        <article class="stat-card panel compact-stat">
+          <div class="stat-label">Issues Found</div>
+          <div class="stat-value" id="kpi-issues">0</div>
+          <div class="stat-helper">Detected issue types</div>
+        </article>
+
+        <article class="stat-card panel accent-green">
+          <div class="stat-label">ROI</div>
+          <div class="stat-value roi-value" id="kpi-roi">0 €</div>
+          <div class="stat-helper">Potential minus annual cost</div>
+        </article>
+      </section>
+
+      <section class="overview-grid overview-grid-top">
+        <article class="panel" id="profile-grid">
+          <div class="panel-header">
+            <div class="panel-title-block">
+              <span class="section-kicker">Data Foundation</span>
+              <h3>Data Profile</h3>
+            </div>
+            <span class="muted">Relevant records</span>
+          </div>
+          <div class="mini-grid" id="profile-cards"></div>
+        </article>
+
+        <article class="panel" id="issue-group-panel">
+          <div class="panel-header">
+            <div class="panel-title-block">
+              <span class="section-kicker">Risk Hotspots</span>
+              <h3>Issues by area</h3>
+            </div>
+            <span class="muted">Affected counts</span>
+          </div>
+          <div id="issue-groups" class="progress-list"></div>
+        </article>
+      </section>
+
+      <section id="premium-overview-panels" class="overview-grid premium-only-grid hidden">
+        <article class="panel" id="scan-table-panel">
+          <div class="panel-header">
+            <div class="panel-title-block">
+              <span class="section-kicker">Monitoring</span>
+              <h3>Recent Scans</h3>
+            </div>
+            <span class="muted">Click a scan to load it</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Type</th><th>Score</th><th>Issues</th><th>Headline</th></tr>
+              </thead>
+              <tbody id="recent-scans-body"></tbody>
+            </table>
+          </div>
+          <div class="table-pagination" id="recent-scans-pagination">
+            <button type="button" class="pager-button" id="recent-scans-prev">Previous</button>
+            <span class="muted" id="recent-scans-page-info">Page 1 / 1</span>
+            <button type="button" class="pager-button" id="recent-scans-next">Next</button>
+          </div>
+        </article>
+
+        <div class="trend-stack">
+          <article class="panel" id="score-trend-panel">
+            <div class="panel-header">
+              <div class="panel-title-block">
+                <span class="section-kicker">Quality Trend</span>
+                <h3>Score Trend</h3>
+              </div>
+              <span class="muted">History of selected scans</span>
+            </div>
+            <div id="trend-chart" class="trend-chart"></div>
+          </article>
+
+          <article class="panel" id="loss-trend-panel">
+            <div class="panel-header">
+              <div class="panel-title-block">
+                <span class="section-kicker">Financial Trend</span>
+                <h3>Loss Trend</h3>
+              </div>
+              <span class="muted">Estimated annual impact</span>
+            </div>
+            <div id="loss-chart" class="trend-chart"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="free-unlock-panel" class="panel unlock-panel hidden">
+        <div class="unlock-header">
+          <div>
+            <h3>Premium unlocks</h3>
+            <p id="unlock-headline" class="unlock-copy">Do you want to keep losing money or start fixing the root causes?</p>
+          </div>
+          <button id="upgrade-button" type="button" class="primary-button">Upgrade to Premium</button>
+        </div>
+        <div class="unlock-grid">
+          <div class="unlock-left">
+            <p id="unlock-body" class="muted strong-copy"></p>
+            <ul id="unlock-highlights" class="unlock-highlights"></ul>
+          </div>
+          <div class="unlock-right">
+            <div class="preview-title-row">
+              <span class="preview-title">Premium preview</span>
+              <span class="muted">Record details, recommendations, actions</span>
+            </div>
+
+            <div class="pricing-breakdown-box">
+              <div class="pricing-breakdown-title">Estimated Premium pricing</div>
+              <div class="pricing-breakdown-grid">
+                <div class="pricing-breakdown-item">
+                  <div class="stat-label">Base price</div>
+                  <div id="preview-base-price" class="pricing-breakdown-value">€0.00</div>
+                </div>
+                <div class="pricing-breakdown-item">
+                  <div class="stat-label">Data volume add-on</div>
+                  <div id="preview-variable-price" class="pricing-breakdown-value">€0.00</div>
+                </div>
+                <div class="pricing-breakdown-item">
+                  <div class="stat-label">Estimated Premium / month</div>
+                  <div id="preview-final-price" class="pricing-breakdown-value">€0.00</div>
+                </div>
+                <div class="pricing-breakdown-item">
+                  <div class="stat-label">Annual fixed plan</div>
+                  <div id="preview-annual-fixed" class="pricing-breakdown-value">€0.00</div>
+                </div>
+              </div>
+              <div id="preview-monthly-note" class="pricing-note"></div>
+              <div id="preview-annual-note" class="pricing-note"></div>
+            </div>
+
+            <div id="premium-preview-findings" class="preview-cards"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="premium-findings-panel" class="panel findings-panel hidden">
+        <div class="panel-header">
+          <div class="panel-title-block">
+            <span class="section-kicker">Action Layer</span>
+            <h3>Findings</h3>
+          </div>
+          <span class="muted">Visible in Premium, actionable in Business Central</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Issue</th><th>Area</th><th>Severity</th><th>Count</th><th>Impact</th><th>Access</th></tr>
+            </thead>
+            <tbody id="findings-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section id="subscription-tab" class="tab-panel hidden">
+      <article class="panel subscription-panel">
+        <div class="panel-header">
+          <div class="panel-title-block">
+            <span class="section-kicker">Commercials</span>
+            <h3>Subscription</h3>
+          </div>
+          <span id="subscription-plan-badge" class="plan-badge">Free</span>
+        </div>
+        <div class="subscription-grid">
+          <div class="subscription-card">
+            <div class="stat-label">Current plan</div>
+            <div id="subscription-plan" class="subscription-value">Free</div>
+            <div id="subscription-note" class="stat-helper"></div>
+          </div>
+          <div class="subscription-card">
+            <div class="stat-label">Monthly price</div>
+            <div id="subscription-price" class="subscription-value">0 €</div>
+            <div class="stat-helper">Current plan price</div>
+          </div>
+          <div class="subscription-card">
+            <div class="stat-label">Annual cost</div>
+            <div id="subscription-annual" class="subscription-value">0 €</div>
+            <div class="stat-helper">12 months projection</div>
+          </div>
+        </div>
+
+        <div class="subscription-cta-row">
+          <button id="subscription-cta" type="button" class="primary-button">Upgrade to Premium</button>
+        </div>
+      </article>
+    </section>
+  </main>
+  <script src="/static/js/analytics-dashboard.js?v=20260409-3"></script>
+</body>
+</html>
