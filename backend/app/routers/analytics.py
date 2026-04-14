@@ -152,12 +152,37 @@ def _issue_group_from_code(code: str) -> str:
     return "System"
 
 
+def _normalize_issue_category(category: str | None, code: str) -> str:
+    normalized = str(category or "").strip().upper()
+    if normalized == "SYSTEM":
+        return "System"
+    if normalized == "FINANCE":
+        return "Finance"
+    if normalized == "SALES":
+        return "Sales"
+    if normalized in {"PURCHASE", "PURCHASING"}:
+        return "Purchasing"
+    if normalized in {"INVENTORY", "ITEM"}:
+        return "Inventory"
+    if normalized in {"CRM", "CUSTOMER"}:
+        return "CRM"
+    if normalized == "MANUFACTURING":
+        return "Manufacturing"
+    if normalized == "SERVICE":
+        return "Service"
+    if normalized in {"JOB", "JOBS"}:
+        return "Jobs"
+    if normalized == "HR":
+        return "HR"
+    return _issue_group_from_code(code)
+
+
 def _issue_recommendation(issue: ScanIssueRecord) -> str:
     preview = (issue.recommendation_preview or "").strip()
     if preview:
         return preview
 
-    group = _issue_group_from_code(issue.code)
+    group = _normalize_issue_category(getattr(issue, "category", None), issue.code)
     if group == "CRM":
         return "Review impacted customer and relationship data and complete the missing setup in Business Central."
     if group == "Purchasing":
@@ -425,7 +450,13 @@ def _build_module_scores_from_scan(scan: Scan) -> list[dict[str, Any]]:
         ("HR", _safe_int(getattr(scan, "hr_score", 0))),
     ]
     return [
-        {"name": name, "score": max(0, min(100, score)), "value": max(0, min(100, score)), "label": name, "variant": _score_variant(score)}
+        {
+            "name": name,
+            "score": max(0, min(100, score)),
+            "value": max(0, min(100, score)),
+            "label": name,
+            "variant": _score_variant(score),
+        }
         for name, score in items
     ]
 
@@ -475,72 +506,6 @@ MODULE_SCORE_ORDER = [
     "Jobs",
     "HR",
 ]
-
-MODULE_SCORE_WEIGHTS = {
-    "System": 1.00,
-    "Finance": 1.15,
-    "Sales": 1.00,
-    "Purchasing": 0.95,
-    "Inventory": 1.05,
-    "CRM": 0.90,
-    "Manufacturing": 1.00,
-    "Service": 0.90,
-    "Jobs": 0.90,
-    "HR": 0.85,
-}
-
-ISSUE_SEVERITY_WEIGHTS = {
-    "high": 8.0,
-    "medium": 3.5,
-    "low": 1.25,
-}
-
-
-def _score_variant(score: int) -> str:
-    safe_score = max(0, min(100, _safe_int(score)))
-    if safe_score <= 60:
-        return "critical"
-    if safe_score <= 75:
-        return "warning"
-    if safe_score <= 85:
-        return "moderate"
-    if safe_score <= 95:
-        return "good"
-    return "excellent"
-
-
-def _issue_score_penalty(issue: ScanIssueRecord) -> tuple[str, float]:
-    module = _issue_group_from_code(issue.code)
-    severity = _normalize_severity(issue.severity)
-    severity_weight = ISSUE_SEVERITY_WEIGHTS.get(severity, 1.25)
-    affected_count = max(0, _safe_int(issue.affected_count))
-    count_factor = min(4.0, math.log10(affected_count + 1) + 0.3)
-    module_weight = MODULE_SCORE_WEIGHTS.get(module, 1.0)
-    return module, severity_weight * count_factor * module_weight
-
-
-def _build_module_scores(issues: list[ScanIssueRecord]) -> list[dict[str, Any]]:
-    penalties = {module: 0.0 for module in MODULE_SCORE_ORDER}
-
-    for issue in issues:
-        module, penalty = _issue_score_penalty(issue)
-        penalties[module] = penalties.get(module, 0.0) + penalty
-
-    result: list[dict[str, Any]] = []
-    for module in MODULE_SCORE_ORDER:
-        score = max(0, min(100, round(100 - penalties.get(module, 0.0))))
-        result.append(
-            {
-                "name": module,
-                "score": score,
-                "value": score,
-                "label": module,
-                "variant": _score_variant(score),
-            }
-        )
-    return result
-
-
 
 def _build_profile_cards(scan: Scan) -> list[dict[str, Any]]:
     module_counts = _build_module_counts(scan)
@@ -707,7 +672,7 @@ def _build_dashboard_payload(
 
     active_scan = _select_active_scan(recent_scans_desc, selected_scan_id)
     issues = _load_scan_issues(active_scan.scan_id)
-    module_scores = _build_module_scores(issues)
+    module_scores = _build_module_scores_from_scan(active_scan)
     with SessionLocal() as db:
         tenant_features = get_tenant_features(db, tenant)
 
@@ -739,7 +704,7 @@ def _build_dashboard_payload(
 
     issue_groups: dict[str, int] = {name: 0 for name in MODULE_SCORE_ORDER}
     for issue in issues:
-        group = _issue_group_from_code(issue.code)
+        group = _normalize_issue_category(getattr(issue, "category", None), issue.code)
         issue_groups[group] = issue_groups.get(group, 0) + _safe_int(issue.affected_count)
 
     total_recent_scans = len(recent_scans_desc)
@@ -772,7 +737,7 @@ def _build_dashboard_payload(
             "severity": _normalize_severity(issue.severity),
             "count": _safe_int(issue.affected_count),
             "impact_eur": round(_safe_float(issue.estimated_impact_eur), 2),
-            "group": _issue_group_from_code(issue.code),
+            "group": _normalize_issue_category(getattr(issue, "category", None), issue.code),
             "recommendation_preview": _issue_recommendation(issue) if can_view_recommendations else "",
             "premium_only": bool(issue.premium_only),
             "open_in_bc_url": _build_open_in_bc_url(bc_issue_launch_url, issue.code),

@@ -384,6 +384,7 @@ def calculate_issue_impacts(db, issues: Iterable[object]) -> list[dict[str, obje
             {
                 "code": code,
                 "title": getattr(issue, "title", "") or definition.title or code,
+                "category": getattr(issue, "category", None),
                 "severity": (getattr(issue, "severity", "low") or "low").strip().lower(),
                 "affected_count": affected_count,
                 "premium_only": bool(getattr(issue, "premium_only", False)),

@@ -15,19 +15,19 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("scans") as batch_op:
-        batch_op.add_column(sa.Column("system_score", sa.Integer(), nullable=False, server_default="0"))
-        batch_op.add_column(sa.Column("finance_score", sa.Integer(), nullable=False, server_default="0"))
-        batch_op.add_column(sa.Column("sales_score", sa.Integer(), nullable=False, server_default="0"))
-        batch_op.add_column(sa.Column("purchasing_score", sa.Integer(), nullable=False, server_default="0"))
-        batch_op.add_column(sa.Column("inventory_score", sa.Integer(), nullable=False, server_default="0"))
-        batch_op.add_column(sa.Column("crm_score", sa.Integer(), nullable=False, server_default="0"))
-        batch_op.add_column(sa.Column("manufacturing_score", sa.Integer(), nullable=False, server_default="0"))
-        batch_op.add_column(sa.Column("service_score", sa.Integer(), nullable=False, server_default="0"))
-        batch_op.add_column(sa.Column("jobs_score", sa.Integer(), nullable=False, server_default="0"))
-        batch_op.add_column(sa.Column("hr_score", sa.Integer(), nullable=False, server_default="0"))
+        batch_op.add_column(sa.Column("system_score", sa.Integer(), nullable=False, server_default="100"))
+        batch_op.add_column(sa.Column("finance_score", sa.Integer(), nullable=False, server_default="100"))
+        batch_op.add_column(sa.Column("sales_score", sa.Integer(), nullable=False, server_default="100"))
+        batch_op.add_column(sa.Column("purchasing_score", sa.Integer(), nullable=False, server_default="100"))
+        batch_op.add_column(sa.Column("inventory_score", sa.Integer(), nullable=False, server_default="100"))
+        batch_op.add_column(sa.Column("crm_score", sa.Integer(), nullable=False, server_default="100"))
+        batch_op.add_column(sa.Column("manufacturing_score", sa.Integer(), nullable=False, server_default="100"))
+        batch_op.add_column(sa.Column("service_score", sa.Integer(), nullable=False, server_default="100"))
+        batch_op.add_column(sa.Column("jobs_score", sa.Integer(), nullable=False, server_default="100"))
+        batch_op.add_column(sa.Column("hr_score", sa.Integer(), nullable=False, server_default="100"))
 
     with op.batch_alter_table("scan_issues") as batch_op:
-        batch_op.add_column(sa.Column("category", sa.String(length=50), nullable=False, server_default="System"))
+        batch_op.add_column(sa.Column("category", sa.String(length=50), nullable=True))
         batch_op.create_index("ix_scan_issues_category", ["category"], unique=False)
 
 

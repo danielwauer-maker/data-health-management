@@ -55,16 +55,16 @@ class ScanIssuePayload(BaseModel):
 
 
 class ModuleScoresPayload(BaseModel):
-    system: int = 0
-    finance: int = 0
-    sales: int = 0
-    purchasing: int = 0
-    inventory: int = 0
-    crm: int = 0
-    manufacturing: int = 0
-    service: int = 0
-    jobs: int = 0
-    hr: int = 0
+    system: int = 100
+    finance: int = 100
+    sales: int = 100
+    purchasing: int = 100
+    inventory: int = 100
+    crm: int = 100
+    manufacturing: int = 100
+    service: int = 100
+    jobs: int = 100
+    hr: int = 100
 
 
 class ScanSyncPayload(BaseModel):
@@ -224,7 +224,7 @@ def sync_scan(
                 ScanIssueRecord(
                     scan_id=payload.scan_id,
                     code=str(issue["code"]),
-                    category=str(issue.get("category") or "System"),
+                    category=(str(issue.get("category")).strip() or None) if issue.get("category") is not None else None,
                     title=str(issue["title"]),
                     severity=str(issue["severity"]),
                     affected_count=_safe_int(issue["affected_count"]),
