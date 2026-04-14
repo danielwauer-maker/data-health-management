@@ -329,15 +329,20 @@ def _build_profile_cards(scan: Scan) -> list[dict[str, Any]]:
             "value": _safe_int(scan.sales_headers_count) + _safe_int(scan.sales_lines_count),
         },
         {
-            "label": "Purchase",
+            "label": "Purchasing",
             "value": _safe_int(scan.purchase_headers_count) + _safe_int(scan.purchase_lines_count),
         },
         {
-            "label": "Ledger",
+            "label": "Finance",
             "value": _safe_int(scan.customer_ledger_entries_count)
             + _safe_int(scan.vendor_ledger_entries_count)
-            + _safe_int(scan.item_ledger_entries_count)
             + _safe_int(scan.gl_entries_count),
+        },
+        {
+            "label": "Inventory",
+            "value": _safe_int(scan.item_ledger_entries_count)
+            + _safe_int(scan.value_entries_count)
+            + _safe_int(scan.warehouse_entries_count),
         },
     ]
 

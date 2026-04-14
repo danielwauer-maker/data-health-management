@@ -113,7 +113,7 @@ const translations = {
     plan_premium_3: "Empfehlungen und Priorisierung",
     plan_premium_4: "Direkte Aktionen in Business Central",
     plan_premium_5: "Klarer Upgrade-Pfad von Insight zu Execution",
-    plan_premium_cta: "Premium-Zugang freischalten",
+    plan_premium_cta: "Premium-Zugang direkt über Business Central freischalten",
     plan_premium_fit: "Ideal für Teams, die schnell umsetzen und Einsparungen realisieren wollen.",
     plan_guarantee_1: "Monatlich kündbar",
     plan_guarantee_2: "Kein schweres Setup-Projekt nötig",

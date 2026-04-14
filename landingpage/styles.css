@@ -80,22 +80,16 @@ button { font: inherit; }
 }
 
 .brand-mark {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 16px;
-  overflow: hidden;
-  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-  border: 1px solid rgba(255,255,255,.08);
-  box-shadow: 0 12px 34px rgba(0,0,0,.22);
-  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .brand-mark img {
-  width: 82%;
-  height: 82%;
-  object-fit: contain;
+  width: 100%;
+  height: auto;
 }
 
 .brand-copy {
@@ -528,7 +522,7 @@ p {
 
 .check-list,
 .feature-list {
-  margin: 22px 0 0;
+ 
   padding: 0;
   list-style: none;
   display: grid;
