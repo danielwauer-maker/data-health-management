@@ -247,14 +247,21 @@ function renderIssueGroups(items) {
   if (!host) return;
   host.innerHTML = '';
 
-  if (!Array.isArray(items) || items.length === 0) {
-    host.innerHTML = '<div class="empty-state">No grouped findings are available for this scan.</div>';
+  const normalizedItems = Array.isArray(items)
+    ? items.filter(Boolean).map((item) => ({
+        name: item?.name || item?.label || '',
+        count: Number(item?.count ?? item?.value ?? 0),
+      }))
+    : [];
+
+  if (normalizedItems.length === 0) {
+    host.innerHTML = '<div class="empty-state">No module record counts are available for this scan.</div>';
     return;
   }
 
-  const maxValue = Math.max(...items.map((item) => Number(item?.count || 0)), 1);
+  const maxValue = Math.max(...normalizedItems.map((item) => Number(item?.count || 0)), 1);
 
-  items.forEach((item) => {
+  normalizedItems.forEach((item) => {
     const width = Math.max((Number(item?.count || 0) / maxValue) * 100, 2);
     const row = document.createElement('div');
     row.className = 'progress-row';
@@ -553,7 +560,7 @@ async function loadDashboard(scanId = null) {
 
     renderGauge(data?.kpis?.health_score);
     renderProfileCards(data?.module_scores || [], data?.profile_cards || []);
-    renderIssueGroups(data?.issue_groups || []);
+    renderIssueGroups((data?.module_counts && Object.entries(data.module_counts).map(([name, count]) => ({ name, count }))) || data?.issue_groups || []);
     renderRecentScans(data?.recent_scans || []);
     renderRecentScansPagination(data?.recent_scans_pagination || {});
     renderTrend('trend-chart', data?.score_trend || []);

@@ -788,6 +788,7 @@ def _build_dashboard_payload(
         },
         "profile_cards": _build_profile_cards(active_scan),
         "module_scores": module_scores,
+        "module_counts": _build_module_counts(active_scan),
         "recent_scans": recent_scans_payload,
         "recent_scans_pagination": {
             "page": current_page,
