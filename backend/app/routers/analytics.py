@@ -772,7 +772,7 @@ def _build_dashboard_payload(
             "severity": _normalize_severity(issue.severity),
             "count": _safe_int(issue.affected_count),
             "impact_eur": round(_safe_float(issue.estimated_impact_eur), 2),
-            "group": _issue_group(issue),
+            "group": _issue_group_from_code(issue.code),
             "recommendation_preview": _issue_recommendation(issue) if can_view_recommendations else "",
             "premium_only": bool(issue.premium_only),
             "open_in_bc_url": _build_open_in_bc_url(bc_issue_launch_url, issue.code),
