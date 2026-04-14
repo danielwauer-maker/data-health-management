@@ -23,6 +23,10 @@ page 53157 "DH Vendor Issue List"
                 field("Phone No."; Rec."Phone No.") { ApplicationArea = All; }
                 field("Payment Terms Code"; Rec."Payment Terms Code") { ApplicationArea = All; }
                 field("Payment Method Code"; Rec."Payment Method Code") { ApplicationArea = All; }
+                field("Purchaser Code"; Rec."Purchaser Code") { ApplicationArea = All; }
+                field(Contact; Rec.Contact) { ApplicationArea = All; }
+                field("Home Page"; Rec."Home Page") { ApplicationArea = All; }
+                field("VAT Registration No."; Rec."VAT Registration No.") { ApplicationArea = All; }
                 field("Preferred Bank Account Code"; Rec."Preferred Bank Account Code") { ApplicationArea = All; }
                 field(Blocked; Rec.Blocked) { ApplicationArea = All; }
             }
@@ -116,12 +120,22 @@ page 53157 "DH Vendor Issue List"
                 Rec.SetRange("Payment Method Code", '');
             'VENDORS_MISSING_POSTING_GROUP':
                 Rec.SetRange("Vendor Posting Group", '');
-            'VENDORS_MISSING_GEN_BUS_POSTING':
+            'VENDORS_MISSING_GEN_BUS_POSTING',
+            'SYSTEM_VENDORS_MISSING_GEN_BUS_POSTING':
                 Rec.SetRange("Gen. Bus. Posting Group", '');
-            'VENDORS_MISSING_VAT_BUS_POSTING':
+            'VENDORS_MISSING_VAT_BUS_POSTING',
+            'SYSTEM_VENDORS_MISSING_VAT_BUS_POSTING':
                 Rec.SetRange("VAT Bus. Posting Group", '');
             'VENDORS_MISSING_BANK_ACCOUNT':
                 Rec.SetRange("Preferred Bank Account Code", '');
+            'VENDORS_MISSING_VAT_REG_NO':
+                Rec.SetRange("VAT Registration No.", '');
+            'VENDORS_MISSING_PURCHASER':
+                Rec.SetRange("Purchaser Code", '');
+            'VENDORS_MISSING_CONTACT':
+                Rec.SetRange(Contact, '');
+            'VENDORS_MISSING_HOME_PAGE':
+                Rec.SetRange("Home Page", '');
         end;
     end;
 
@@ -153,6 +167,14 @@ page 53157 "DH Vendor Issue List"
             exit('VENDORS_MISSING_GEN_BUS_POSTING');
         if Rec.GetFilter("VAT Bus. Posting Group") <> '' then
             exit('VENDORS_MISSING_VAT_BUS_POSTING');
+        if Rec.GetFilter("VAT Registration No.") <> '' then
+            exit('VENDORS_MISSING_VAT_REG_NO');
+        if Rec.GetFilter("Purchaser Code") <> '' then
+            exit('VENDORS_MISSING_PURCHASER');
+        if Rec.GetFilter(Contact) <> '' then
+            exit('VENDORS_MISSING_CONTACT');
+        if Rec.GetFilter("Home Page") <> '' then
+            exit('VENDORS_MISSING_HOME_PAGE');
         if Rec.GetFilter("Preferred Bank Account Code") <> '' then
             exit('VENDORS_MISSING_BANK_ACCOUNT');
 

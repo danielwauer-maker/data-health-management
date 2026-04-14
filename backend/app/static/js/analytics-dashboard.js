@@ -94,16 +94,16 @@ function renderGauge(score) {
   const safeScore = Math.max(0, Math.min(100, Number(score || 0)));
   const meta = scoreBandMeta(safeScore);
   const centerX = 160;
-  const centerY = 186;
+  const centerY = 174;
   const outerRadius = 124;
-  const innerRadius = 94;
-  const labelRadius = 79;
+  const innerRadius = 88;
+  const labelRadius = 103;
   const segments = [
-    { label: 'Poor', start: 180, end: 144, className: 'critical' },
-    { label: 'Fair', start: 144, end: 108, className: 'warning' },
-    { label: 'Bad', start: 108, end: 72, className: 'warning-soft' },
-    { label: 'Normal', start: 72, end: 36, className: 'moderate' },
-    { label: 'Good', start: 36, end: 0, className: 'good' },
+    { label: 'Poor', start: 180, end: 108, className: 'critical' },
+    { label: 'Fair', start: 108, end: 72, className: 'warning' },
+    { label: 'Moderate', start: 72, end: 45, className: 'moderate' },
+    { label: 'Good', start: 45, end: 18, className: 'info' },
+    { label: 'Excellent', start: 18, end: 0, className: 'excellent' },
   ];
 
   function polarToCartesian(cx, cy, radius, angleDeg) {
@@ -142,50 +142,54 @@ function renderGauge(score) {
 
   const segmentMarkup = segments.map((segment) => {
     const textPos = labelPosition((segment.start + segment.end) / 2);
+    const rotation = ((segment.start + segment.end) / 2) - 90;
     return `
       <g class="gauge-segment-group">
         <path d="${ringSlicePath(centerX, centerY, outerRadius, innerRadius, segment.start, segment.end)}"
               class="gauge-segment ${segment.className}"></path>
-        <path d="${arcPath(centerX, centerY, innerRadius - 4, segment.start - 1.5, segment.end + 1.5)}"
+        <path d="${arcPath(centerX, centerY, innerRadius - 5, segment.start - 1.5, segment.end + 1.5)}"
               class="gauge-segment-inner-outline"></path>
         <text x="${textPos.x}" y="${textPos.y}" text-anchor="middle"
               class="gauge-band-label"
-              transform="rotate(${((segment.start + segment.end) / 2) - 90} ${textPos.x} ${textPos.y})">${segment.label}</text>
+              transform="rotate(${rotation} ${textPos.x} ${textPos.y})">${segment.label}</text>
       </g>
     `;
   }).join('');
 
   const pointerAngle = 180 - (safeScore * 1.8);
-  const needleLength = 84;
-  const needleBaseHalf = 9;
   const radians = (pointerAngle - 90) * (Math.PI / 180);
+  const needleLength = 88;
+  const needleBaseHalf = 9;
   const tipX = centerX + needleLength * Math.cos(radians);
   const tipY = centerY + needleLength * Math.sin(radians);
   const baseLeftX = centerX + needleBaseHalf * Math.cos(radians + Math.PI / 2);
   const baseLeftY = centerY + needleBaseHalf * Math.sin(radians + Math.PI / 2);
   const baseRightX = centerX + needleBaseHalf * Math.cos(radians - Math.PI / 2);
   const baseRightY = centerY + needleBaseHalf * Math.sin(radians - Math.PI / 2);
-  const valueY = 258;
+  const badgeY = 244;
 
   host.innerHTML = `
-    <svg viewBox="0 0 320 290" class="gauge-svg gauge-dial gauge-tone-${meta.band}" role="img" aria-label="Data health gauge ${safeScore}">
-      <g transform="rotate(-90 ${centerX} ${centerY})">
-        <path d="${arcPath(centerX, centerY, outerRadius, 180, 0)}" class="gauge-dial-shadow"></path>
-        ${segmentMarkup}
-        <circle cx="${centerX}" cy="${centerY}" r="66" class="gauge-center-disc"></circle>
-        <path d="M ${baseLeftX} ${baseLeftY} L ${tipX} ${tipY} L ${baseRightX} ${baseRightY} Z" class="gauge-needle"></path>
-        <circle cx="${centerX}" cy="${centerY}" r="18" class="gauge-needle-cap"></circle>
-        <circle cx="${centerX}" cy="${centerY}" r="10" class="gauge-needle-cap-inner"></circle>
+    <svg viewBox="0 0 320 300" class="gauge-svg gauge-dial gauge-tone-${meta.band}" role="img" aria-label="Data health gauge ${safeScore}">
+      <defs>
+        <filter id="gaugeShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="rgba(15,35,64,0.10)"/>
+        </filter>
+      </defs>
+      <path d="M 62 156 Q 68 274 160 274 Q 252 274 258 156" class="gauge-base-shell"></path>
+      <path d="${arcPath(centerX, centerY, outerRadius, 180, 0)}" class="gauge-dial-shadow"></path>
+      ${segmentMarkup}
+      <circle cx="${centerX}" cy="${centerY}" r="64" class="gauge-center-disc"></circle>
+      <path d="M ${baseLeftX} ${baseLeftY} L ${tipX} ${tipY} L ${baseRightX} ${baseRightY} Z" class="gauge-needle"></path>
+      <circle cx="${centerX}" cy="${centerY}" r="18" class="gauge-needle-cap"></circle>
+      <circle cx="${centerX}" cy="${centerY}" r="10" class="gauge-needle-cap-inner"></circle>
+      <g transform="translate(${centerX - 44}, ${badgeY})">
+        <rect width="88" height="40" rx="10" class="gauge-value-badge ${meta.badgeClass}"></rect>
+        <text x="44" y="27" text-anchor="middle" class="gauge-value-text">${formatNumber(safeScore)}</text>
       </g>
-      <g transform="translate(${centerX - 46}, ${valueY})">
-        <rect width="92" height="40" rx="10" class="gauge-value-badge ${meta.badgeClass}"></rect>
-        <text x="46" y="27" text-anchor="middle" class="gauge-value-text">${formatNumber(safeScore)}</text>
-      </g>
-      <text x="${centerX}" y="238" text-anchor="middle" class="gauge-caption">Data Health Score</text>
+      <text x="${centerX}" y="228" text-anchor="middle" class="gauge-caption">Data Health Score</text>
     </svg>
   `;
 }
-
 function renderHeroPoints(items) {
   const host = byId('hero-points');
   if (!host) return;
@@ -281,8 +285,9 @@ function setModuleVolumeToggleState(view) {
   currentModuleVolumeView = view === 'records' ? 'records' : 'issues';
 
   document.querySelectorAll('[data-module-view]').forEach((button) => {
-    button.classList.toggle('is-active', button.dataset.moduleView === currentModuleVolumeView);
-    button.setAttribute('aria-pressed', button.dataset.moduleView === currentModuleVolumeView ? 'true' : 'false');
+    const isActive = button.dataset.moduleView === currentModuleVolumeView;
+    button.classList.toggle('is-active', isActive);
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
   });
 
   const kicker = byId('module-volume-kicker');
@@ -318,7 +323,6 @@ function renderModuleVolume(data) {
 
   renderIssueGroups(issueGroups, 'No module issue counts are available for this scan.');
 }
-
 function renderTrend(containerId, items, asCurrency = false) {
   const host = byId(containerId);
   if (!host) return;
@@ -603,7 +607,7 @@ async function loadDashboard(scanId = null) {
 
     renderGauge(data?.kpis?.health_score);
     renderProfileCards(data?.module_scores || [], data?.profile_cards || []);
-    renderIssueGroups(data?.issue_groups || []);
+    renderModuleVolume(data);
     renderRecentScans(data?.recent_scans || []);
     renderRecentScansPagination(data?.recent_scans_pagination || {});
     renderTrend('trend-chart', data?.score_trend || []);
@@ -664,9 +668,9 @@ function registerEvents() {
 
   document.querySelectorAll('[data-module-view]').forEach((button) => {
     button.addEventListener('click', () => {
-      const nextView = button.dataset.moduleView === 'records' ? 'records' : 'issues';
-      setModuleVolumeToggleState(nextView);
-      renderModuleVolume(currentDashboardState);
+      const view = button.dataset.moduleView === 'records' ? 'records' : 'issues';
+      setModuleVolumeToggleState(view);
+      renderModuleVolume(currentDashboardState || {});
     });
   });
 

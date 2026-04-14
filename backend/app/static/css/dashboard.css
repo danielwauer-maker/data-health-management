@@ -771,6 +771,26 @@ body.dashboard-body {
   color: #13294b;
 }
 
+.gauge-score-badge {
+  margin: -20px auto 0;
+  width: 80px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 20px;
+  color: white;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+}
+
+#gauge-meter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .muted {
   color: #7b8aa0;
 }
@@ -1291,3 +1311,61 @@ code {
     justify-content: flex-start;
   }
 }
+
+
+/* Gauge refresh */
+.hero-gauge-card {
+  overflow: hidden;
+}
+
+.gauge-wrap {
+  max-width: 340px;
+}
+
+.gauge-base-shell {
+  fill: #f7f7f8;
+  filter: drop-shadow(0 14px 20px rgba(15, 35, 64, 0.08));
+}
+
+.gauge-dial-shadow {
+  stroke: #e5e7eb;
+  stroke-width: 34;
+}
+
+.gauge-segment {
+  stroke: #ffffff;
+  stroke-width: 3;
+}
+
+.gauge-segment.critical { fill: #ff4b3e; }
+.gauge-segment.warning { fill: #f59e0b; }
+.gauge-segment.moderate { fill: #facc15; }
+.gauge-segment.info { fill: #84cc16; }
+.gauge-segment.excellent { fill: #22c55e; }
+
+.gauge-segment-inner-outline {
+  stroke: rgba(148, 163, 184, 0.38);
+  stroke-width: 8;
+}
+
+.gauge-center-disc {
+  fill: #fbfbfc;
+  stroke: #e9edf3;
+  stroke-width: 2;
+}
+
+.gauge-band-label {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  fill: #334155;
+}
+
+.gauge-needle {
+  fill: #111827;
+}
+
+.gauge-value-badge.critical { fill: #ef4444; }
+.gauge-value-badge.warning { fill: #f97316; }
+.gauge-value-badge.moderate { fill: #eab308; }
+.gauge-value-badge.good { fill: #3b82f6; }
+.gauge-value-badge.excellent { fill: #22c55e; }
