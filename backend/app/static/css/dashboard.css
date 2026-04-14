@@ -1244,3 +1244,50 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.segmented-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #e2eaf5;
+  border-radius: 999px;
+  background: #f8fbff;
+}
+
+.segmented-toggle-button {
+  border: 0;
+  background: transparent;
+  color: #5f6f86;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+.segmented-toggle-button:hover {
+  background: #fff3ed;
+  color: #b45a33;
+}
+
+.segmented-toggle-button.is-active {
+  background: linear-gradient(135deg, #f3ad8b, #ea7b4f);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(234, 123, 79, 0.22);
+}
+
+@media (max-width: 860px) {
+  .panel-header-actions {
+    justify-content: flex-start;
+  }
+}

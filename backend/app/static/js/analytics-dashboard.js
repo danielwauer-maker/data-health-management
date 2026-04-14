@@ -2,6 +2,7 @@ let currentSelectedScanId = null;
 let recentScansPage = 1;
 const RECENT_SCANS_PAGE_SIZE = 12;
 let currentDashboardState = null;
+let currentModuleVolumeView = 'issues';
 
 function byId(id) {
   return document.getElementById(id);
@@ -242,7 +243,7 @@ function renderProfileCards(moduleScores, fallbackItems) {
   });
 }
 
-function renderIssueGroups(items) {
+function renderIssueGroups(items, emptyMessage = 'No module data is available for this scan.') {
   const host = byId('issue-groups');
   if (!host) return;
   host.innerHTML = '';
@@ -255,7 +256,7 @@ function renderIssueGroups(items) {
     : [];
 
   if (normalizedItems.length === 0) {
-    host.innerHTML = '<div class="empty-state">No module record counts are available for this scan.</div>';
+    host.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
     return;
   }
 
@@ -274,6 +275,48 @@ function renderIssueGroups(items) {
     `;
     host.appendChild(row);
   });
+}
+
+function setModuleVolumeToggleState(view) {
+  currentModuleVolumeView = view === 'records' ? 'records' : 'issues';
+
+  document.querySelectorAll('[data-module-view]').forEach((button) => {
+    button.classList.toggle('is-active', button.dataset.moduleView === currentModuleVolumeView);
+    button.setAttribute('aria-pressed', button.dataset.moduleView === currentModuleVolumeView ? 'true' : 'false');
+  });
+
+  const kicker = byId('module-volume-kicker');
+  const title = byId('module-volume-title');
+  const subtitle = byId('module-volume-subtitle');
+
+  if (currentModuleVolumeView === 'records') {
+    if (kicker) kicker.textContent = 'Data Volume';
+    if (title) title.textContent = 'Records by BC module';
+    if (subtitle) subtitle.textContent = 'Scanned records per module';
+  } else {
+    if (kicker) kicker.textContent = 'Issue Volume';
+    if (title) title.textContent = 'Issues by BC module';
+    if (subtitle) subtitle.textContent = 'Affected findings per module';
+  }
+}
+
+function renderModuleVolume(data) {
+  const issueGroups = Array.isArray(data?.issue_groups) ? data.issue_groups : [];
+  const moduleCounts = data?.module_counts && typeof data.module_counts === 'object'
+    ? Object.entries(data.module_counts).map(([name, count]) => ({ name, count }))
+    : [];
+
+  const hasRecords = moduleCounts.some((item) => Number(item?.count || 0) > 0);
+  const preferredView = currentModuleVolumeView === 'records' && hasRecords ? 'records' : 'issues';
+
+  setModuleVolumeToggleState(preferredView);
+
+  if (preferredView === 'records') {
+    renderIssueGroups(moduleCounts, 'No module record counts are available for this scan.');
+    return;
+  }
+
+  renderIssueGroups(issueGroups, 'No module issue counts are available for this scan.');
 }
 
 function renderTrend(containerId, items, asCurrency = false) {
@@ -560,7 +603,7 @@ async function loadDashboard(scanId = null) {
 
     renderGauge(data?.kpis?.health_score);
     renderProfileCards(data?.module_scores || [], data?.profile_cards || []);
-    renderIssueGroups((data?.module_counts && Object.entries(data.module_counts).map(([name, count]) => ({ name, count }))) || data?.issue_groups || []);
+    renderIssueGroups(data?.issue_groups || []);
     renderRecentScans(data?.recent_scans || []);
     renderRecentScansPagination(data?.recent_scans_pagination || {});
     renderTrend('trend-chart', data?.score_trend || []);
@@ -617,6 +660,14 @@ function registerEvents() {
 
   document.querySelectorAll('.topnav-link').forEach((btn) => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab || 'overview'));
+  });
+
+  document.querySelectorAll('[data-module-view]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const nextView = button.dataset.moduleView === 'records' ? 'records' : 'issues';
+      setModuleVolumeToggleState(nextView);
+      renderModuleVolume(currentDashboardState);
+    });
   });
 
   const upgradeButton = byId('upgrade-button');

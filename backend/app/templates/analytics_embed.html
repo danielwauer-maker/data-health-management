@@ -97,10 +97,16 @@
         <article class="panel" id="issue-group-panel">
           <div class="panel-header">
             <div class="panel-title-block">
-              <span class="section-kicker">Data Volume</span>
-              <h3>Records by BC module</h3>
+              <span id="module-volume-kicker" class="section-kicker">Issue Volume</span>
+              <h3 id="module-volume-title">Issues by BC module</h3>
             </div>
-            <span class="muted">Scanned records per module</span>
+            <div class="panel-header-actions">
+              <span id="module-volume-subtitle" class="muted">Affected findings per module</span>
+              <div class="segmented-toggle" id="module-volume-toggle" role="tablist" aria-label="Module view toggle">
+                <button type="button" class="segmented-toggle-button is-active" data-module-view="issues">Issues</button>
+                <button type="button" class="segmented-toggle-button" data-module-view="records">Records</button>
+              </div>
+            </div>
           </div>
           <div id="issue-groups" class="progress-list"></div>
         </article>

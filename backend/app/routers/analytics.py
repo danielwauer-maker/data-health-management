@@ -576,6 +576,7 @@ def _build_fallback_payload(company: str, environment: str, scan_mode: str | Non
             "issues_count": 0,
         },
         "profile_cards": [],
+        "module_counts": {name: 0 for name in MODULE_SCORE_ORDER},
         "module_scores": [],
         "recent_scans": [],
         "recent_scans_pagination": {
@@ -787,8 +788,8 @@ def _build_dashboard_payload(
             "issues_count": _safe_int(active_scan.issues_count),
         },
         "profile_cards": _build_profile_cards(active_scan),
-        "module_scores": module_scores,
         "module_counts": _build_module_counts(active_scan),
+        "module_scores": module_scores,
         "recent_scans": recent_scans_payload,
         "recent_scans_pagination": {
             "page": current_page,
