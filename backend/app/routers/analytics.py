@@ -80,19 +80,76 @@ def _normalize_plan(value: Any) -> str:
 
 def _issue_group_from_code(code: str) -> str:
     code_upper = (code or "").upper()
-    if code_upper.startswith("CUSTOMERS_"):
-        return "Customers"
-    if code_upper.startswith("VENDORS_"):
-        return "Vendors"
-    if code_upper.startswith("ITEMS_"):
-        return "Items"
-    if code_upper.startswith("SALES_"):
-        return "Sales"
-    if code_upper.startswith("PURCHASE_"):
+
+    # CRM
+    if code_upper.startswith("CUSTOMERS_") or code_upper.startswith("CUSTOMER_"):
+        return "CRM"
+
+    # Purchasing
+    if code_upper.startswith("VENDORS_") or code_upper.startswith("VENDOR_"):
         return "Purchasing"
-    if "LEDGER" in code_upper or code_upper.startswith("GL_"):
+    if code_upper.startswith("PURCHASE_") or code_upper.startswith("PURCH_"):
+        return "Purchasing"
+
+    # Inventory
+    if code_upper.startswith("ITEMS_") or code_upper.startswith("ITEM_"):
+        return "Inventory"
+    if code_upper.startswith("INVENTORY_"):
+        return "Inventory"
+    if (
+        code_upper.startswith("WAREHOUSE_")
+        or code_upper.startswith("VALUE_ENTRY_")
+        or code_upper.startswith("VALUE_ENTRIES_")
+    ):
+        return "Inventory"
+
+    # Sales
+    if code_upper.startswith("SALES_") or code_upper.startswith("SALE_"):
+        return "Sales"
+
+    # Finance
+    if code_upper.startswith("GL_") or code_upper.startswith("G_L_") or "LEDGER" in code_upper:
         return "Finance"
-    return "Other"
+
+    # Service
+    if (
+        code_upper.startswith("SERVICE_")
+        or code_upper.startswith("SERV_")
+        or code_upper.startswith("SERVICE_ITEM_")
+    ):
+        return "Service"
+
+    # Jobs
+    if code_upper.startswith("JOB_") or code_upper.startswith("JOBS_"):
+        return "Jobs"
+
+    # HR
+    if (
+        code_upper.startswith("HR_")
+        or code_upper.startswith("EMPLOYEE_")
+        or code_upper.startswith("EMPLOYEES_")
+        or code_upper.startswith("RESOURCE_")
+    ):
+        return "HR"
+
+    # Manufacturing
+    if (
+        code_upper.startswith("MFG_")
+        or code_upper.startswith("MANUFACTURING_")
+        or code_upper.startswith("PRODUCTION_")
+        or code_upper.startswith("PROD_")
+        or code_upper.startswith("BOM_")
+        or code_upper.startswith("ROUTING_")
+        or code_upper.startswith("WORKCENTER_")
+        or code_upper.startswith("MACHINECENTER_")
+    ):
+        return "Manufacturing"
+
+    # System
+    if code_upper.startswith("SYSTEM_"):
+        return "System"
+
+    return "System"
 
 
 def _issue_recommendation(issue: ScanIssueRecord) -> str:
@@ -101,16 +158,24 @@ def _issue_recommendation(issue: ScanIssueRecord) -> str:
         return preview
 
     group = _issue_group_from_code(issue.code)
-    if group == "Customers":
-        return "Review impacted customer master data and complete mandatory fields in Business Central."
-    if group == "Vendors":
-        return "Complete vendor setup and remove blocking gaps before the next purchasing cycle."
-    if group == "Items":
-        return "Prioritize item setup issues that affect planning, costing, or inventory transactions."
+    if group == "CRM":
+        return "Review impacted customer and relationship data and complete the missing setup in Business Central."
     if group == "Purchasing":
-        return "Resolve purchasing document inconsistencies before they create follow-up workload."
+        return "Resolve purchasing and vendor-related setup gaps before they create follow-up workload."
+    if group == "Inventory":
+        return "Prioritize inventory and item issues that affect planning, costing, or stock transactions."
+    if group == "Sales":
+        return "Resolve sales-side issues that can reduce margin, delay fulfillment, or create rework."
     if group == "Finance":
         return "Investigate financial postings and open entries with missing or inconsistent setup."
+    if group == "Service":
+        return "Review service-related records and complete the missing configuration before the next service cycle."
+    if group == "Jobs":
+        return "Review project and job-related records so postings and planning remain consistent."
+    if group == "Manufacturing":
+        return "Review manufacturing-related setup and master data before it impacts planning or execution."
+    if group == "HR":
+        return "Review HR-related configuration and records to avoid downstream process gaps."
     return "Review the affected records and resolve the underlying setup issue in Business Central."
 
 
@@ -586,6 +651,7 @@ def _build_dashboard_payload(
 
     active_scan = _select_active_scan(recent_scans_desc, selected_scan_id)
     issues = _load_scan_issues(active_scan.scan_id)
+    module_scores = _build_module_scores(issues)
     with SessionLocal() as db:
         tenant_features = get_tenant_features(db, tenant)
 
@@ -615,7 +681,7 @@ def _build_dashboard_payload(
 
     affected_records = sum(_safe_int(issue.affected_count) for issue in issues)
 
-    issue_groups: dict[str, int] = {}
+    issue_groups: dict[str, int] = {name: 0 for name in MODULE_SCORE_ORDER}
     for issue in issues:
         group = _issue_group_from_code(issue.code)
         issue_groups[group] = issue_groups.get(group, 0) + _safe_int(issue.affected_count)
@@ -714,7 +780,10 @@ def _build_dashboard_payload(
         "loss_trend": _build_trend_points(recent_scans_desc, active_scan.scan_id, "estimated_loss_eur"),
         "issue_groups": [
             {"name": name, "count": count}
-            for name, count in sorted(issue_groups.items(), key=lambda item: item[1], reverse=True)
+            for name, count in sorted(
+                issue_groups.items(),
+                key=lambda item: (-item[1], MODULE_SCORE_ORDER.index(item[0]) if item[0] in MODULE_SCORE_ORDER else 999),
+            )
         ],
         "top_findings": top_findings if is_premium else [],
         "premium_preview_findings": premium_preview_findings,
