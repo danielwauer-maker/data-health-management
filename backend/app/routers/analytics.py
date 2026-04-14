@@ -81,28 +81,74 @@ def _normalize_plan(value: Any) -> str:
 def _issue_group_from_code(code: str) -> str:
     code_upper = (code or "").upper()
 
-    if code_upper.startswith("CUSTOMERS_"):
+    # CRM
+    if code_upper.startswith("CUSTOMERS_") or code_upper.startswith("CUSTOMER_"):
         return "CRM"
-    if code_upper.startswith("VENDORS_"):
+
+    # Purchasing
+    if code_upper.startswith("VENDORS_") or code_upper.startswith("VENDOR_"):
         return "Purchasing"
-    if code_upper.startswith("ITEMS_"):
+    if code_upper.startswith("PURCHASE_") or code_upper.startswith("PURCH_"):
+        return "Purchasing"
+
+    # Inventory
+    if code_upper.startswith("ITEMS_") or code_upper.startswith("ITEM_"):
         return "Inventory"
-    if code_upper.startswith("SALES_"):
+    if code_upper.startswith("INVENTORY_"):
+        return "Inventory"
+    if (
+        code_upper.startswith("WAREHOUSE_")
+        or code_upper.startswith("VALUE_ENTRY_")
+        or code_upper.startswith("VALUE_ENTRIES_")
+    ):
+        return "Inventory"
+
+    # Sales
+    if code_upper.startswith("SALES_") or code_upper.startswith("SALE_"):
         return "Sales"
-    if code_upper.startswith("PURCHASE_"):
-        return "Purchasing"
-    if code_upper.startswith("GL_") or "LEDGER" in code_upper:
+
+    # Finance
+    if code_upper.startswith("GL_") or code_upper.startswith("G_L_") or "LEDGER" in code_upper:
         return "Finance"
-    if code_upper.startswith("SERVICE_"):
+
+    # Service
+    if (
+        code_upper.startswith("SERVICE_")
+        or code_upper.startswith("SERV_")
+        or code_upper.startswith("SERVICE_ITEM_")
+    ):
         return "Service"
-    if code_upper.startswith("JOBS_") or code_upper.startswith("JOB_"):
+
+    # Jobs
+    if code_upper.startswith("JOB_") or code_upper.startswith("JOBS_"):
         return "Jobs"
-    if code_upper.startswith("MFG_") or code_upper.startswith("MANUFACTURING_"):
-        return "Manufacturing"
-    if code_upper.startswith("HR_"):
+
+    # HR
+    if (
+        code_upper.startswith("HR_")
+        or code_upper.startswith("EMPLOYEE_")
+        or code_upper.startswith("EMPLOYEES_")
+        or code_upper.startswith("RESOURCE_")
+    ):
         return "HR"
+
+    # Manufacturing
+    if (
+        code_upper.startswith("MFG_")
+        or code_upper.startswith("MANUFACTURING_")
+        or code_upper.startswith("PRODUCTION_")
+        or code_upper.startswith("PROD_")
+        or code_upper.startswith("BOM_")
+        or code_upper.startswith("ROUTING_")
+        or code_upper.startswith("WORKCENTER_")
+        or code_upper.startswith("MACHINECENTER_")
+    ):
+        return "Manufacturing"
+
+    # System
     if code_upper.startswith("SYSTEM_"):
         return "System"
+
     return "System"
 
 
