@@ -449,6 +449,7 @@ function renderFindings(items, isPremium) {
     const accessClass = isPremium ? 'premium' : 'locked';
     const accessLabel = isPremium ? 'Open in BC' : 'Premium';
     const openInBcUrl = String(item?.open_in_bc_url || '');
+    warnOnInvalidBcCompanyFormat(openInBcUrl);
     const accessMarkup = isPremium && openInBcUrl
       ? `<a href="${escapeHtml(openInBcUrl)}" class="access-chip ${accessClass}" target="_blank" rel="noopener noreferrer">${accessLabel}</a>`
       : `<span class="access-chip ${accessClass}">${accessLabel}</span>`;
@@ -463,6 +464,16 @@ function renderFindings(items, isPremium) {
       </tr>
     `;
   }).join('');
+}
+
+function warnOnInvalidBcCompanyFormat(url) {
+  const match = String(url || '').match(/[?&]company=([^&#]+)/i);
+  if (!match) return;
+
+  const companyValue = match[1];
+  if (companyValue.includes('+')) {
+    console.warn('Invalid company format detected:', companyValue);
+  }
 }
 
 function renderPremiumPreview(items) {

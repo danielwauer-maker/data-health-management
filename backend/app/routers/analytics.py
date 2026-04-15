@@ -230,7 +230,11 @@ def _replace_bc_page_url(base_url: str, page_id: int, filter_value: str | None =
     if filter_value:
         query_items.append(("filter", filter_value))
 
-    return urlunparse(parsed._replace(query=urlencode(query_items, doseq=True)))
+    return urlunparse(
+        parsed._replace(
+            query=urlencode(query_items, doseq=True, quote_via=quote),
+        )
+    )
 
 
 def _build_direct_open_in_bc_url(base_url: str, normalized_issue_code: str) -> str:
