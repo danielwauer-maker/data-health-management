@@ -45,10 +45,6 @@ def sync_tenant_license_from_subscription(tenant: Tenant, subscription: Subscrip
 
 
 def resolve_effective_license(db, tenant: Tenant) -> tuple[str, str]:
-    subscription = get_latest_subscription_for_tenant(db, tenant.tenant_id)
-    if subscription is not None:
-        sync_tenant_license_from_subscription(tenant, subscription)
-
     plan = (tenant.current_plan or "free").strip().lower()
     status = (tenant.license_status or "trial").strip().lower()
 
