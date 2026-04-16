@@ -72,13 +72,24 @@
         {% if active_section == "issue_costs" %}
         <section class="admin-grid">
           <article class="panel">
-            <div class="panel-header"><h2>Issue Costs</h2><span class="muted">EUR pro betroffenem Datensatz</span></div>
+            <div class="panel-header"><h2>Estimated Loss Configuration</h2><span class="muted">Stundensatz und Issue-Faktoren fuer Estimated Loss / Potential Savings</span></div>
+            <form method="post" action="/admin/config/issue-costs/hourly-rate" class="config-list" style="margin-bottom:16px;">
+              <div class="config-row">
+                <div class="config-title">INTERNAL_HOURLY_RATE_EUR</div>
+                <input type="text" value="Interner Stundensatz fuer alle Estimated-Loss-Berechnungen" readonly>
+                <input type="number" step="0.01" min="0" name="hourly_rate_eur" value="{{ hourly_rate_eur }}">
+                <div class="muted">EUR / Stunde</div>
+                <button type="submit" class="btn btn-primary">Save</button>
+              </div>
+            </form>
             <div class="config-list">
-              {% for row in issue_costs %}
+              {% for row in issue_impacts %}
               <form method="post" action="/admin/config/issue-costs/{{ row.code }}" class="config-row">
                 <div class="config-title">{{ row.code }}</div>
                 <input type="text" name="title" value="{{ row.title }}">
-                <input type="number" step="0.01" name="cost_per_record" value="{{ row.cost_per_record }}">
+                <input type="number" step="0.01" min="0" name="minutes_per_occurrence" value="{{ row.minutes_per_occurrence }}" title="Minuten je Vorkommnis">
+                <input type="number" step="0.0001" min="0" max="1" name="probability" value="{{ row.probability }}" title="Eintrittswahrscheinlichkeit 0-1">
+                <input type="number" step="0.01" min="0" name="frequency_per_year" value="{{ row.frequency_per_year }}" title="Haeufigkeit pro Jahr">
                 <label class="checkbox-inline"><input type="checkbox" name="is_active" {% if row.is_active %}checked{% endif %}> aktiv</label>
                 <button type="submit" class="btn btn-primary">Save</button>
               </form>

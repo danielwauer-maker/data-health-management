@@ -17,8 +17,10 @@ from app.db import SessionLocal
 from app.models import (
     AdminAuditEvent,
     BillingWebhookEvent,
+    ImpactSettingsConfig,
     Invoice,
     IssueCostConfig,
+    IssueImpactConfig,
     LicensePricingConfig,
     Partner,
     PartnerApplication,
@@ -31,6 +33,7 @@ from app.models import (
 from app.services.cost_service import ensure_default_issue_costs
 from app.services.pricing_service import ensure_default_license_pricing
 from app.services.billing_service import utc_now
+from app.services.impact_service import ensure_default_impact_config, get_hourly_rate_eur
 from app.services.admin_audit_service import log_admin_event
 from app.services.email_template_service import (
     DEFAULT_ADMIN_EMAIL_TEMPLATES,
@@ -63,7 +66,7 @@ ADMIN_SECTION_META = {
     "issue_costs": {
         "label": "Issue Cost",
         "href": "/admin/config/issue-costs",
-        "subtitle": "EUR pro betroffenem Datensatz",
+        "subtitle": "Estimated Loss & Potential Savings Konfiguration",
     },
     "license_pricing": {
         "label": "License Pricing",
@@ -418,13 +421,15 @@ def _render_admin_page(
 
     with SessionLocal() as db:
         ensure_default_issue_costs(db)
+        ensure_default_impact_config(db)
         ensure_default_license_pricing(db)
 
         if active_section == "tenants":
             context["tenants"] = _load_tenant_rows(db)
         elif active_section == "issue_costs":
-            context["issue_costs"] = db.scalars(
-                select(IssueCostConfig).order_by(IssueCostConfig.code.asc())
+            context["hourly_rate_eur"] = get_hourly_rate_eur(db)
+            context["issue_impacts"] = db.scalars(
+                select(IssueImpactConfig).order_by(IssueImpactConfig.code.asc())
             ).all()
         elif active_section == "license_pricing":
             context["license_prices"] = db.scalars(
@@ -672,41 +677,83 @@ def delete_tenant(tenant_id: str, admin_username: str = Depends(require_admin)):
     return RedirectResponse(url="/admin/tenants", status_code=status.HTTP_303_SEE_OTHER)
 
 
+@router.post("/admin/config/issue-costs/hourly-rate")
+def update_issue_cost_hourly_rate(
+    hourly_rate_eur: float = Form(...),
+    admin_username: str = Depends(require_admin),
+):
+    with SessionLocal() as db:
+        ensure_default_impact_config(db)
+
+        row = db.get(ImpactSettingsConfig, "default_hourly_rate_eur")
+        if row is None:
+            row = ImpactSettingsConfig(
+                key="default_hourly_rate_eur",
+                title="Default hourly rate (EUR)",
+            )
+            db.add(row)
+
+        before = float(row.value_number or 0.0)
+        row.value_number = max(float(hourly_rate_eur or 0.0), 0.0)
+        log_admin_event(
+            db,
+            admin_username=admin_username,
+            action="config.impact_setting.update",
+            target_type="impact_settings_config",
+            target_id=row.key,
+            details={
+                "before": {"value_number": before},
+                "after": {"value_number": float(row.value_number)},
+            },
+        )
+        db.commit()
+
+    return RedirectResponse(url="/admin/config/issue-costs", status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.post("/admin/config/issue-costs/{code}")
 def update_issue_cost(
     code: str,
     title: str = Form(...),
-    cost_per_record: float = Form(...),
+    minutes_per_occurrence: float = Form(...),
+    probability: float = Form(...),
+    frequency_per_year: float = Form(...),
     is_active: str | None = Form(default=None),
     admin_username: str = Depends(require_admin),
 ):
     with SessionLocal() as db:
-        ensure_default_issue_costs(db)
+        ensure_default_impact_config(db)
 
-        row = db.get(IssueCostConfig, code)
+        row = db.get(IssueImpactConfig, code)
         if row is None:
-            row = IssueCostConfig(code=code)
+            row = IssueImpactConfig(code=code)
             db.add(row)
 
         before = {
             "title": row.title,
-            "cost_per_record": float(row.cost_per_record or 0.0),
+            "minutes_per_occurrence": float(row.minutes_per_occurrence or 0.0),
+            "probability": float(row.probability or 0.0),
+            "frequency_per_year": float(row.frequency_per_year or 0.0),
             "is_active": bool(row.is_active),
         }
         row.title = title.strip()
-        row.cost_per_record = float(cost_per_record)
+        row.minutes_per_occurrence = max(float(minutes_per_occurrence or 0.0), 0.0)
+        row.probability = min(max(float(probability or 0.0), 0.0), 1.0)
+        row.frequency_per_year = max(float(frequency_per_year or 0.0), 0.0)
         row.is_active = is_active == "on"
         log_admin_event(
             db,
             admin_username=admin_username,
-            action="config.issue_cost.update",
-            target_type="issue_cost_config",
+            action="config.issue_impact.update",
+            target_type="issue_impact_config",
             target_id=code,
             details={
                 "before": before,
                 "after": {
                     "title": row.title,
-                    "cost_per_record": float(row.cost_per_record),
+                    "minutes_per_occurrence": float(row.minutes_per_occurrence),
+                    "probability": float(row.probability),
+                    "frequency_per_year": float(row.frequency_per_year),
                     "is_active": bool(row.is_active),
                 },
             },
