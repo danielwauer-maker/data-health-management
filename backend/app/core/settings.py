@@ -1,3 +1,5 @@
+from urllib.parse import urljoin, urlparse
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +18,7 @@ class Settings(BaseSettings):
     # === TOKEN ===
     TOKEN_EXPIRE_MINUTES: int = 60
     CORS_ALLOW_ORIGINS: str | None = None
+    APP_BASE_URL: str | None = None
     PARTNER_RESET_URL_BASE: str | None = None
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587
@@ -50,6 +53,60 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
+def _normalize_url(value: str | None) -> str | None:
+    normalized = (value or "").strip()
+    if not normalized:
+        return None
+
+    parsed = urlparse(normalized)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise RuntimeError(f"Invalid URL configured: {normalized}")
+    return normalized.rstrip("/")
+
+
+def _default_dev_app_base_url() -> str:
+    return "http://localhost:3000"
+
+
+def _resolve_base_url() -> str | None:
+    base_url = _normalize_url(settings.APP_BASE_URL)
+    if base_url:
+        return base_url
+
+    if (settings.ENV or "").strip().lower() != "prod":
+        return _default_dev_app_base_url()
+
+    return None
+
+
+def resolve_billing_url(setting_name: str) -> str:
+    explicit_mapping = {
+        "BILLING_SUCCESS_URL": settings.BILLING_SUCCESS_URL,
+        "BILLING_CANCEL_URL": settings.BILLING_CANCEL_URL,
+        "BILLING_PORTAL_RETURN_URL": settings.BILLING_PORTAL_RETURN_URL,
+    }
+    fallback_paths = {
+        "BILLING_SUCCESS_URL": "/billing/success?session_id={CHECKOUT_SESSION_ID}",
+        "BILLING_CANCEL_URL": "/billing/cancel",
+        "BILLING_PORTAL_RETURN_URL": "/billing",
+    }
+
+    if setting_name not in explicit_mapping:
+        raise RuntimeError(f"Unsupported billing URL setting: {setting_name}")
+
+    explicit_url = _normalize_url(explicit_mapping[setting_name])
+    if explicit_url:
+        return explicit_url
+
+    base_url = _resolve_base_url()
+    if base_url:
+        return urljoin(f"{base_url}/", fallback_paths[setting_name].lstrip("/"))
+
+    raise RuntimeError(
+        f"{setting_name} is required. Set {setting_name} or APP_BASE_URL."
+    )
+
+
 def validate_settings() -> None:
     missing: list[str] = []
 
@@ -69,6 +126,18 @@ def validate_settings() -> None:
         raise RuntimeError(
             f"Missing required environment variables: {', '.join(missing)}"
         )
+
+    if settings.APP_BASE_URL:
+        _normalize_url(settings.APP_BASE_URL)
+
+    for setting_name in (
+        "BILLING_SUCCESS_URL",
+        "BILLING_CANCEL_URL",
+        "BILLING_PORTAL_RETURN_URL",
+    ):
+        configured_value = getattr(settings, setting_name)
+        if configured_value:
+            _normalize_url(configured_value)
 
     insecure_secret_values = {"changeme", "change-me", "dev_only_secret_key_change_me"}
     insecure_admin_password_values = {"changeme", "changeme-now", "admin", "password"}

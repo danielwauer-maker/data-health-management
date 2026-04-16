@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,7 @@ _FALLBACK_LICENSE_PRICING: dict[str, dict[str, float | int | str | bool]] = {
         "is_active": True,
     },
 }
+logger = logging.getLogger(__name__)
 
 
 def _load_canonical_pricing_document() -> dict[str, Any]:
@@ -64,6 +66,21 @@ def _load_default_license_pricing_from_canonical() -> dict[str, dict[str, float 
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
         pass
     return dict(_FALLBACK_LICENSE_PRICING)
+
+
+def _is_valid_public_pricing_row(row: dict[str, Any]) -> bool:
+    display_name = str(row.get("display_name") or "").strip()
+    if not display_name:
+        return False
+
+    try:
+        base_price = float(row.get("base_price_monthly", 0.0))
+        included_records = int(row.get("included_records", 0))
+        step_price = float(row.get("additional_price_per_1000_records", 0.0))
+    except (TypeError, ValueError):
+        return False
+
+    return base_price >= 0 and included_records >= 0 and step_price >= 0
 
 
 # Single source for list-price defaults: config/pricing_canonical.json (see docs/product/pricing-canonical.md)
@@ -240,19 +257,39 @@ def get_public_pricing_payload(db, plan_code: str = "premium") -> dict[str, Any]
     marketing = canonical.get("marketing") or {}
 
     pricing = get_license_pricing(db, plan_code)
+    fallback = DEFAULT_LICENSE_PRICING.get(plan_code, DEFAULT_LICENSE_PRICING["premium"])
+    if not _is_valid_public_pricing_row(fallback):
+        fallback = dict(_FALLBACK_LICENSE_PRICING["premium"])
+
     if pricing is None or not pricing.is_active:
-        fallback = DEFAULT_LICENSE_PRICING.get(plan_code, DEFAULT_LICENSE_PRICING["premium"])
         base_price = float(fallback.get("base_price_monthly", 0.0))
         included_records = int(fallback.get("included_records", 0))
         step_price = float(fallback.get("additional_price_per_1000_records", 0.0))
         display_name = str(fallback.get("display_name", plan_code.title()))
         source = "canonical"
     else:
-        base_price = float(pricing.base_price_monthly or 0.0)
-        included_records = int(pricing.included_records or 0)
-        step_price = float(pricing.additional_price_per_1000_records or 0.0)
-        display_name = str(pricing.display_name or plan_code.title())
-        source = "database"
+        candidate = {
+            "display_name": pricing.display_name,
+            "base_price_monthly": pricing.base_price_monthly,
+            "included_records": pricing.included_records,
+            "additional_price_per_1000_records": pricing.additional_price_per_1000_records,
+        }
+        if _is_valid_public_pricing_row(candidate):
+            base_price = float(pricing.base_price_monthly or 0.0)
+            included_records = int(pricing.included_records or 0)
+            step_price = float(pricing.additional_price_per_1000_records or 0.0)
+            display_name = str(pricing.display_name or plan_code.title())
+            source = "database"
+        else:
+            logger.warning(
+                "Ignoring invalid database pricing override for public pricing payload.",
+                extra={"event": "public_pricing_invalid_override", "plan_code": plan_code},
+            )
+            base_price = float(fallback.get("base_price_monthly", 0.0))
+            included_records = int(fallback.get("included_records", 0))
+            step_price = float(fallback.get("additional_price_per_1000_records", 0.0))
+            display_name = str(fallback.get("display_name", plan_code.title()))
+            source = "canonical"
 
     return {
         "source": source,

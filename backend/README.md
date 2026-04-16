@@ -45,9 +45,16 @@ Erwartetes Ergebnis:
 - `STRIPE_PRICE_ID_PREMIUM_BASE_YEARLY`
 - `STRIPE_PRICE_ID_PREMIUM_PACK_MONTHLY`
 - `STRIPE_PRICE_ID_PREMIUM_PACK_YEARLY`
-- optional: `BILLING_SUCCESS_URL`
-- optional: `BILLING_CANCEL_URL`
-- optional: `BILLING_PORTAL_RETURN_URL`
+- `APP_BASE_URL` oder alle drei expliziten Billing-URLs
+- optional explizit: `BILLING_SUCCESS_URL`
+- optional explizit: `BILLING_CANCEL_URL`
+- optional explizit: `BILLING_PORTAL_RETURN_URL`
+
+### Billing URL Aufloesung
+- `BILLING_SUCCESS_URL`, `BILLING_CANCEL_URL` und `BILLING_PORTAL_RETURN_URL` werden zentral aus den ENV-Settings aufgeloest.
+- Wenn einzelne Werte fehlen, versucht das Backend sie aus `APP_BASE_URL` abzuleiten.
+- In lokalen/dev/test Umgebungen ist ohne `APP_BASE_URL` ein bewusster Fallback auf `http://localhost:3000` aktiv.
+- Fuer produktive Billing-Flows gibt es keinen stillen Domain-Default mehr. Fehlt eine sichere Aufloesung, antworten Checkout/Portal mit `503` und einer klaren Fehlermeldung.
 
 ### Listenpreis aendern (Marketing, App-Berechnung, Stripe)
 
@@ -72,6 +79,22 @@ Danach Deploy/Restart, damit Checkout die neuen IDs nutzt. Abgleich: Listenpreis
   - erstellt eine Stripe Billing Portal Session (self-service)
 - `POST /billing/webhook`
   - verarbeitet Stripe Webhooks (mit `Stripe-Signature`)
+
+## Operations / Observability
+
+- strukturierte JSON-Logs fuer Startup, Shutdown, Requests, Fehler und kritische Billing-/Scan-Ereignisse
+- `X-Request-Id` wird uebernommen oder neu erzeugt und in Responses zurueckgegeben
+- globales Error-Handling liefert konsistente Fehlerantworten ohne interne Stacktraces im API-Response
+- `/health` ist leichtgewichtig
+- `/health/ready` prueft zusaetzlich die Datenbankverbindung
+
+## Tests
+
+- Test-Suite liegt unter `backend/tests`
+- Ausfuehren mit:
+  - `pytest`
+- Details siehe:
+  - `TESTING.md`
 
 ### Stripe Event Matrix (v1)
 Unterstuetzte Events:

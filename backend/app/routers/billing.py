@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import logging
 from datetime import datetime
 from uuid import uuid4
 
@@ -9,7 +10,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.core.settings import settings
+from app.core.observability import log_event
+from app.core.settings import resolve_billing_url, settings
 from app.db import SessionLocal
 from app.models import PartnerReferral, Scan, Subscription, Tenant
 from app.security.tenant import (
@@ -30,6 +32,7 @@ from app.services.entitlement_guard_service import require_tenant_feature
 from app.services.partner_service import ensure_partner_commission_for_invoice
 
 router = APIRouter(tags=["billing"])
+logger = logging.getLogger(__name__)
 
 # Stripe event matrix (v1):
 # - checkout.session.completed      -> ignored (metadata source only, no state write)
@@ -58,8 +61,6 @@ class CheckoutSessionRequest(BaseModel):
     tenant_id: str
     plan_code: str = "premium"
     billing_interval: str = "monthly"
-    success_url: str | None = None
-    cancel_url: str | None = None
 
 
 class CheckoutSessionResponse(BaseModel):
@@ -73,7 +74,6 @@ class CheckoutSessionResponse(BaseModel):
 
 class BillingPortalRequest(BaseModel):
     tenant_id: str
-    return_url: str | None = None
 
 
 class BillingPortalResponse(BaseModel):
@@ -211,36 +211,27 @@ def _extract_subscription_monthly_amount(subscription_obj: dict) -> float:
     return unit_amount / max(1, recurring_interval_count)
 
 
-def _is_stripe_configured() -> bool:
-    return bool(
-        (settings.STRIPE_SECRET_KEY or "").strip()
-        and (settings.STRIPE_PRICE_ID_PREMIUM or "").strip()
-    )
-
-
 def _is_prod_env() -> bool:
     return (settings.ENV or "").strip().lower() == "prod"
 
 
-def _stripe_default_success_url() -> str:
-    configured = (settings.BILLING_SUCCESS_URL or "").strip()
-    if configured:
-        return configured
-    return "https://app.bcsentinel.com/billing/success?session_id={CHECKOUT_SESSION_ID}"
+def _require_stripe_secret_key() -> str:
+    secret_key = (settings.STRIPE_SECRET_KEY or "").strip()
+    if not secret_key:
+        raise HTTPException(status_code=503, detail="Stripe is not configured.")
+    return secret_key
 
 
-def _stripe_default_cancel_url() -> str:
-    configured = (settings.BILLING_CANCEL_URL or "").strip()
-    if configured:
-        return configured
-    return "https://app.bcsentinel.com/billing/cancel"
+def _resolve_checkout_success_url() -> str:
+    return resolve_billing_url("BILLING_SUCCESS_URL")
 
 
-def _stripe_default_portal_return_url() -> str:
-    configured = (settings.BILLING_PORTAL_RETURN_URL or "").strip()
-    if configured:
-        return configured
-    return "https://app.bcsentinel.com/billing"
+def _resolve_checkout_cancel_url() -> str:
+    return resolve_billing_url("BILLING_CANCEL_URL")
+
+
+def _resolve_portal_return_url() -> str:
+    return resolve_billing_url("BILLING_PORTAL_RETURN_URL")
 
 
 def _normalize_billing_interval(value: str | None) -> str:
@@ -255,14 +246,6 @@ def _normalize_checkout_plan_code(value: str | None) -> str:
     if normalized == "premium":
         return normalized
     raise HTTPException(status_code=400, detail="plan_code must be 'premium' for checkout.")
-
-
-def _is_stripe_checkout_configured() -> bool:
-    return bool(
-        (settings.STRIPE_SECRET_KEY or "").strip()
-        and (settings.STRIPE_PRICE_ID_PREMIUM_BASE_MONTHLY or "").strip()
-        and (settings.STRIPE_PRICE_ID_PREMIUM_BASE_YEARLY or "").strip()
-    )
 
 
 def _resolve_stripe_checkout_price_ids(billing_interval: str) -> tuple[str, str]:
@@ -323,6 +306,16 @@ def _process_normalized_webhook(
         payload_json=raw_payload_json,
     )
     if not created:
+        log_event(
+            logger,
+            logging.INFO,
+            "billing_webhook_duplicate",
+            "Duplicate billing webhook ignored.",
+            provider=provider,
+            event_id=event_id,
+            event_type=event_type,
+            tenant_id=tenant_id,
+        )
         return BillingWebhookResponse(status="duplicate", event_id=event_id, processed=False)
 
     tenant = db.scalar(select(Tenant).where(Tenant.tenant_id == tenant_id))
@@ -383,6 +376,17 @@ def _process_normalized_webhook(
     tenant.last_seen_at_utc = utc_now()
     db.commit()
 
+    log_event(
+        logger,
+        logging.INFO,
+        "billing_webhook_processed",
+        "Billing webhook processed.",
+        provider=provider,
+        event_id=event_id,
+        event_type=event_type,
+        tenant_id=tenant_id,
+    )
+
     return BillingWebhookResponse(status="ok", event_id=event_id, processed=True)
 
 
@@ -417,22 +421,24 @@ def create_checkout_session(
         checkout_metadata["referral_code"] = str(referral.referral_code or "").strip().lower()
         checkout_metadata["attribution_source"] = str(referral.attribution_source or "").strip().lower()
 
-    if _is_prod_env() and not _is_stripe_checkout_configured():
-        raise HTTPException(status_code=503, detail="Stripe checkout is not configured for production.")
+    try:
+        success_url = _resolve_checkout_success_url()
+        cancel_url = _resolve_checkout_cancel_url()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    if _is_stripe_checkout_configured():
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-        success_url = (payload.success_url or "").strip() or _stripe_default_success_url()
-        cancel_url = (payload.cancel_url or "").strip() or _stripe_default_cancel_url()
-        base_price_id, pack_price_id = _resolve_stripe_checkout_price_ids(billing_interval)
-        line_items = [{"price": base_price_id, "quantity": 1}]
-        if package_count > 0:
-            if not pack_price_id:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Stripe record package billing is not configured for the tenant's data volume.",
-                )
-            line_items.append({"price": pack_price_id, "quantity": package_count})
+    stripe.api_key = _require_stripe_secret_key()
+    base_price_id, pack_price_id = _resolve_stripe_checkout_price_ids(billing_interval)
+    line_items = [{"price": base_price_id, "quantity": 1}]
+    if package_count > 0:
+        if not pack_price_id:
+            raise HTTPException(
+                status_code=503,
+                detail="Stripe record package billing is not configured for the tenant's data volume.",
+            )
+        line_items.append({"price": pack_price_id, "quantity": package_count})
+
+    try:
         session = stripe.checkout.Session.create(
             mode="subscription",
             client_reference_id=payload.tenant_id,
@@ -444,24 +450,30 @@ def create_checkout_session(
                 "metadata": checkout_metadata
             },
         )
-        return CheckoutSessionResponse(
-            checkout_session_id=session.id,
-            checkout_url=session.url,
-            provider="stripe",
-            tenant_id=payload.tenant_id,
-            plan_code=normalized_plan_code,
-            billing_interval=billing_interval,
+    except Exception:
+        logger.exception(
+            "Stripe checkout session creation failed.",
+            extra={
+                "event": "billing_checkout_failed",
+                "tenant_id": payload.tenant_id,
+                "billing_interval": billing_interval,
+            },
         )
+        raise
 
-    session_id = f"chk_{uuid4().hex}"
-    checkout_url = (
-        payload.success_url
-        or f"https://billing.bcsentinel.com/checkout/{session_id}?tenant_id={payload.tenant_id}&plan={normalized_plan_code}"
+    log_event(
+        logger,
+        logging.INFO,
+        "billing_checkout_created",
+        "Stripe checkout session created.",
+        tenant_id=payload.tenant_id,
+        billing_interval=billing_interval,
+        package_count=package_count,
     )
     return CheckoutSessionResponse(
-        checkout_session_id=session_id,
-        checkout_url=checkout_url,
-        provider="pending_integration",
+        checkout_session_id=session.id,
+        checkout_url=session.url,
+        provider="stripe",
         tenant_id=payload.tenant_id,
         plan_code=normalized_plan_code,
         billing_interval=billing_interval,
@@ -484,16 +496,12 @@ def create_billing_portal_session(
     if subscription is None or not (subscription.provider_subscription_id or "").strip():
         raise HTTPException(status_code=404, detail="No active subscription found for tenant.")
 
-    if not _is_stripe_configured():
-        if _is_prod_env():
-            raise HTTPException(status_code=503, detail="Stripe billing portal is not configured for production.")
-        return BillingPortalResponse(
-            provider="pending_integration",
-            tenant_id=payload.tenant_id,
-            portal_url=(payload.return_url or _stripe_default_portal_return_url()),
-        )
+    try:
+        return_url = _resolve_portal_return_url()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    stripe.api_key = settings.STRIPE_SECRET_KEY
+    stripe.api_key = _require_stripe_secret_key()
     provider_subscription_id = (subscription.provider_subscription_id or "").strip()
     stripe_subscription = stripe.Subscription.retrieve(provider_subscription_id)
     customer_id = str(getattr(stripe_subscription, "customer", "") or "").strip()
@@ -502,7 +510,15 @@ def create_billing_portal_session(
 
     portal = stripe.billing_portal.Session.create(
         customer=customer_id,
-        return_url=(payload.return_url or "").strip() or _stripe_default_portal_return_url(),
+        return_url=return_url,
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "billing_portal_created",
+        "Stripe billing portal session created.",
+        tenant_id=payload.tenant_id,
+        provider_subscription_id=provider_subscription_id,
     )
     return BillingPortalResponse(
         provider="stripe",
@@ -552,17 +568,7 @@ def sync_checkout_session_status(
     if not (session_id or "").strip():
         raise HTTPException(status_code=400, detail="session_id is required.")
 
-    if not _is_stripe_configured():
-        if _is_prod_env():
-            raise HTTPException(status_code=503, detail="Stripe is not configured for production.")
-        status_payload = get_billing_subscription_status(tenant_auth)
-        return CheckoutSessionSyncResponse(
-            status="pending_integration",
-            checkout_session_id=session_id,
-            subscription_status=status_payload,
-        )
-
-    stripe.api_key = settings.STRIPE_SECRET_KEY
+    stripe.api_key = _require_stripe_secret_key()
     checkout = _stripe_to_plain_data(stripe.checkout.Session.retrieve(
         session_id,
         expand=["subscription", "subscription.items.data.price"],
@@ -631,16 +637,30 @@ async def process_billing_webhook(
     if stripe_signature:
         webhook_secret = (settings.STRIPE_WEBHOOK_SECRET or "").strip()
         if not webhook_secret:
-            raise HTTPException(status_code=500, detail="Stripe webhook secret is not configured.")
-        stripe.api_key = settings.STRIPE_SECRET_KEY
+            raise HTTPException(status_code=500, detail="Stripe webhook configuration is incomplete.")
         try:
             stripe_event = stripe.Webhook.construct_event(body_bytes, stripe_signature, webhook_secret)
             event = _stripe_to_plain_data(stripe_event)
-        except Exception as exc:
-            raise HTTPException(status_code=400, detail=f"Invalid Stripe webhook signature: {exc}") from exc
+        except Exception:
+            logger.exception(
+                "Stripe webhook signature verification failed.",
+                extra={
+                    "event": "billing_webhook_signature_invalid",
+                    "request_id": getattr(request.state, "request_id", None),
+                },
+            )
+            raise HTTPException(status_code=400, detail="Invalid Stripe webhook signature.") from None
 
         if not isinstance(event, dict):
-            raise HTTPException(status_code=500, detail=f"Stripe event normalization failed: {type(event)!r}")
+            log_event(
+                logger,
+                logging.ERROR,
+                "billing_webhook_invalid_payload",
+                "Stripe webhook normalization failed.",
+                request_id=getattr(request.state, "request_id", None),
+                payload_type=type(event).__name__,
+            )
+            raise HTTPException(status_code=500, detail="Invalid Stripe webhook payload.")
 
         event_type = str(event.get("type") or "").strip().lower()
         event_id = str(event.get("id") or "").strip() or f"evt_{uuid4().hex}"
@@ -649,6 +669,14 @@ async def process_billing_webhook(
 
         if event_type not in SUPPORTED_STRIPE_EVENTS:
             # Acknowledge unsupported events so Stripe stops retrying.
+            log_event(
+                logger,
+                logging.INFO,
+                "billing_webhook_ignored",
+                "Unsupported Stripe webhook ignored.",
+                stripe_event_type=event_type,
+                stripe_event_id=event_id,
+            )
             return BillingWebhookResponse(status="ignored", event_id=event_id, processed=False)
 
         subscription_data: dict | None = None
@@ -658,6 +686,14 @@ async def process_billing_webhook(
         if event_type == "checkout.session.completed":
             tenant_id = str((data_object.get("metadata", {}) or {}).get("tenant_id") or "").strip()
             if not tenant_id:
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "billing_webhook_ignored",
+                    "Checkout session webhook ignored because tenant metadata is missing.",
+                    stripe_event_type=event_type,
+                    stripe_event_id=event_id,
+                )
                 return BillingWebhookResponse(status="ignored", event_id=event_id, processed=False)
             with SessionLocal() as db:
                 return _process_normalized_webhook(
@@ -675,6 +711,14 @@ async def process_billing_webhook(
         if event_type == "checkout.session.expired":
             tenant_id = str((data_object.get("metadata", {}) or {}).get("tenant_id") or "").strip()
             if not tenant_id:
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "billing_webhook_ignored",
+                    "Checkout expired webhook ignored because tenant metadata is missing.",
+                    stripe_event_type=event_type,
+                    stripe_event_id=event_id,
+                )
                 return BillingWebhookResponse(status="ignored", event_id=event_id, processed=False)
             with SessionLocal() as db:
                 return _process_normalized_webhook(
@@ -725,6 +769,14 @@ async def process_billing_webhook(
 
         if not tenant_id:
             # acknowledge irrelevant Stripe events without failing delivery retries
+            log_event(
+                logger,
+                logging.INFO,
+                "billing_webhook_ignored",
+                "Stripe webhook ignored because tenant resolution failed.",
+                stripe_event_type=event_type,
+                stripe_event_id=event_id,
+            )
             return BillingWebhookResponse(status="ignored", event_id=event_id, processed=False)
 
         with SessionLocal() as db:
@@ -745,8 +797,15 @@ async def process_billing_webhook(
 
     try:
         payload = BillingWebhookPayload.model_validate_json(body_text)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid webhook payload: {exc}") from exc
+    except Exception:
+        logger.exception(
+            "Manual webhook payload validation failed.",
+            extra={
+                "event": "billing_webhook_manual_payload_invalid",
+                "request_id": getattr(request.state, "request_id", None),
+            },
+        )
+        raise HTTPException(status_code=400, detail="Invalid webhook payload.") from None
 
     provider = (payload.provider or "manual").strip().lower()
     event_type = (payload.event_type or "").strip().lower()

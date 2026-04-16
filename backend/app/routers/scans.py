@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -24,6 +25,7 @@ from app.services.entitlement_guard_service import get_tenant_features, require_
 from app.services.entitlement_service import is_premium_actions_enabled
 
 router = APIRouter(tags=["scans"])
+logger = logging.getLogger(__name__)
 
 
 class DataProfilePayload(BaseModel):
@@ -236,6 +238,16 @@ def sync_scan(
 
         db.commit()
 
+    logger.info(
+        "Scan sync completed.",
+        extra={
+            "event": "scan_sync_completed",
+            "tenant_id": payload.tenant_id,
+            "scan_id": payload.scan_id,
+            "scan_type": normalized_scan_type,
+        },
+    )
+
     return JSONResponse(
         content={
             "status": "ok",
@@ -277,6 +289,16 @@ def reconcile_scans(
 
         db.commit()
 
+    logger.info(
+        "Scan reconcile completed.",
+        extra={
+            "event": "scan_reconcile_completed",
+            "tenant_id": payload.tenant_id,
+            "deleted_count": len(deleted_ids),
+            "kept_count": len(keep_ids),
+        },
+    )
+
     return JSONResponse(
         content={
             "status": "ok",
@@ -307,5 +329,10 @@ def delete_scan(
         db.query(ScanIssueRecord).filter(ScanIssueRecord.scan_id == scan_id).delete()
         db.delete(scan)
         db.commit()
+
+    logger.info(
+        "Scan deleted.",
+        extra={"event": "scan_deleted", "tenant_id": tenant_id, "scan_id": scan_id},
+    )
 
     return JSONResponse(content={"status": "deleted", "scan_id": scan_id})

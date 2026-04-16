@@ -1,17 +1,28 @@
 import os
+import logging
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 
+from app.core.observability import (
+    clear_request_id,
+    configure_logging,
+    generate_request_id,
+    log_event,
+    set_request_id,
+)
 from app.core.settings import settings, validate_settings
-from app.db import SessionLocal, ensure_schema_is_migrated, wait_for_database
+from app.db import SessionLocal, engine, ensure_schema_is_migrated, wait_for_database
 from app.models import Scan, ScanIssueRecord, Tenant
 from app.routers.admin import router as admin_router
 from app.routers.analytics import router as analytics_router
@@ -50,6 +61,7 @@ from app.services.scoring_service import calculate_quick_scan_result
 from fastapi.responses import RedirectResponse
 
 BASE_DIR = Path(__file__).resolve().parent
+logger = logging.getLogger(__name__)
 
 DEFAULT_PUBLIC_FRONTEND_ORIGINS = [
     "https://dev.bcsentinel.com",
@@ -67,8 +79,21 @@ def _public_frontend_origins() -> list[str]:
     return origins or DEFAULT_PUBLIC_FRONTEND_ORIGINS
 
 
+def _summarize_validation_errors(errors: list[dict]) -> list[dict[str, object]]:
+    return [
+        {
+            "loc": list(error.get("loc") or []),
+            "type": error.get("type"),
+            "message": error.get("msg"),
+        }
+        for error in errors
+    ]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_logging()
+    log_event(logger, logging.INFO, "app_startup", "Application startup initiated.", environment=settings.ENV)
     validate_settings()
     wait_for_database()
     ensure_schema_is_migrated()
@@ -80,6 +105,7 @@ async def lifespan(app: FastAPI):
         ensure_default_email_templates(db)
 
     yield
+    log_event(logger, logging.INFO, "app_shutdown", "Application shutdown completed.", environment=settings.ENV)
 
 
 app = FastAPI(
@@ -107,6 +133,104 @@ app.include_router(scans_router)
 app.include_router(license_router)
 
 
+@app.middleware("http")
+async def add_request_context(request: Request, call_next):
+    request_id = (request.headers.get("X-Request-Id") or "").strip() or generate_request_id()
+    request.state.request_id = request_id
+    set_request_id(request_id)
+    started_at = time.perf_counter()
+
+    tenant_id = (request.headers.get("X-Tenant-Id") or "").strip() or None
+    log_event(
+        logger,
+        logging.INFO,
+        "request_started",
+        "Request started.",
+        method=request.method,
+        path=request.url.path,
+        tenant_id=tenant_id,
+        client_ip=request.client.host if request.client else None,
+    )
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        raise
+
+    duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
+    response.headers["X-Request-Id"] = request_id
+    log_event(
+        logger,
+        logging.INFO,
+        "request_completed",
+        "Request completed.",
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        duration_ms=duration_ms,
+        tenant_id=tenant_id,
+    )
+    clear_request_id()
+    return response
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", None)
+    log_event(
+        logger,
+        logging.WARNING if exc.status_code < 500 else logging.ERROR,
+        "http_exception",
+        "HTTP exception returned.",
+        method=request.method,
+        path=request.url.path,
+        status_code=exc.status_code,
+        detail=str(exc.detail),
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "request_id": request_id},
+        headers=getattr(exc, "headers", None),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", None)
+    log_event(
+        logger,
+        logging.WARNING,
+        "request_validation_error",
+        "Request validation failed.",
+        method=request.method,
+        path=request.url.path,
+        errors=_summarize_validation_errors(exc.errors()),
+    )
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "request_id": request_id},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", None)
+    logger.exception(
+        "Unhandled application error.",
+        extra={
+            "event": "unhandled_exception",
+            "method": request.method,
+            "path": request.url.path,
+            "request_id": request_id,
+        },
+    )
+    clear_request_id()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error.", "request_id": request_id},
+    )
+
+
 class TenantRegisterRequest(BaseModel):
     environment_name: str
     app_version: str
@@ -119,7 +243,14 @@ class TenantRegisterResponse(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok"}
+    return {"status": "ok", "service": "BCSentinel API", "environment": settings.ENV}
+
+
+@app.get("/health/ready")
+def health_ready() -> dict:
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return {"status": "ok", "checks": {"database": "ok"}}
 
 ENVIRONMENT = os.getenv("APP_ENV", "prod")
 
@@ -278,6 +409,17 @@ def quick_scan(
             potential_saving_eur=scan.potential_saving_eur,
             estimated_premium_price_monthly=scan.estimated_premium_price_monthly,
         )
+
+    log_event(
+        logger,
+        logging.INFO,
+        "scan_quick_completed",
+        "Quick scan completed.",
+        tenant_id=payload.tenant_id,
+        scan_id=scan_id,
+        issues_count=issues_count,
+        data_score=data_score,
+    )
 
     return QuickScanResponse(
         scan_id=scan_id,
