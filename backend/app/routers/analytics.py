@@ -453,6 +453,7 @@ def _build_module_scores_from_scan(scan: Scan) -> list[dict[str, Any]]:
         ("Jobs", _safe_int(getattr(scan, "jobs_score", 0))),
         ("HR", _safe_int(getattr(scan, "hr_score", 0))),
     ]
+    active_names = set(_active_module_names(scan))
     return [
         {
             "name": name,
@@ -462,6 +463,7 @@ def _build_module_scores_from_scan(scan: Scan) -> list[dict[str, Any]]:
             "variant": _score_variant(score),
         }
         for name, score in items
+        if name in active_names
     ]
 
 
@@ -511,9 +513,22 @@ MODULE_SCORE_ORDER = [
     "HR",
 ]
 
-def _build_profile_cards(scan: Scan) -> list[dict[str, Any]]:
+def _active_module_names(scan: Scan, issue_groups: dict[str, int] | None = None) -> list[str]:
     module_counts = _build_module_counts(scan)
-    return [{"label": name, "value": module_counts.get(name, 0)} for name in MODULE_SCORE_ORDER]
+    issues_by_module = issue_groups or {}
+    active_names: list[str] = []
+
+    for name in MODULE_SCORE_ORDER:
+        if module_counts.get(name, 0) > 0 or _safe_int(issues_by_module.get(name, 0)) > 0:
+            active_names.append(name)
+
+    return active_names
+
+
+def _build_profile_cards(scan: Scan, active_modules: list[str] | None = None) -> list[dict[str, Any]]:
+    module_counts = _build_module_counts(scan)
+    names = active_modules or MODULE_SCORE_ORDER
+    return [{"label": name, "value": module_counts.get(name, 0)} for name in names]
 
 
 def _get_current_plan_price_monthly(tenant: Tenant | None, scan: Scan | None) -> float:
@@ -677,7 +692,6 @@ def _build_dashboard_payload(
 
     active_scan = _select_active_scan(recent_scans_desc, selected_scan_id)
     issues = _load_scan_issues(active_scan.scan_id)
-    module_scores = _build_module_scores_from_scan(active_scan)
     with SessionLocal() as db:
         tenant_features = get_tenant_features(db, tenant)
 
@@ -711,6 +725,9 @@ def _build_dashboard_payload(
     for issue in issues:
         group = _normalize_issue_category(getattr(issue, "category", None), issue.code)
         issue_groups[group] = issue_groups.get(group, 0) + _safe_int(issue.affected_count)
+
+    active_modules = _active_module_names(active_scan, issue_groups)
+    module_scores = _build_module_scores_from_scan(active_scan)
 
     total_recent_scans = len(recent_scans_desc)
     page_size = max(1, recent_scans_page_size)
@@ -791,7 +808,7 @@ def _build_dashboard_payload(
             "checks_run": _safe_int(active_scan.checks_count),
             "issues_count": _safe_int(active_scan.issues_count),
         },
-        "profile_cards": _build_profile_cards(active_scan),
+        "profile_cards": _build_profile_cards(active_scan, active_modules),
         "module_counts": _build_module_counts(active_scan),
         "module_scores": module_scores,
         "recent_scans": recent_scans_payload,
@@ -808,7 +825,7 @@ def _build_dashboard_payload(
         "issue_groups": [
             {"name": name, "count": count}
             for name, count in sorted(
-                issue_groups.items(),
+                ((name, issue_groups.get(name, 0)) for name in active_modules),
                 key=lambda item: (-item[1], MODULE_SCORE_ORDER.index(item[0]) if item[0] in MODULE_SCORE_ORDER else 999),
             )
         ],

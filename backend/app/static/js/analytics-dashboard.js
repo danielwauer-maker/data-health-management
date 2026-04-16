@@ -2,7 +2,6 @@ let currentSelectedScanId = null;
 let recentScansPage = 1;
 const RECENT_SCANS_PAGE_SIZE = 12;
 let currentDashboardState = null;
-let currentModuleVolumeView = 'issues';
 
 function byId(id) {
   return document.getElementById(id);
@@ -165,45 +164,8 @@ function renderIssueGroups(items, emptyMessage = 'No module data is available fo
   });
 }
 
-function setModuleVolumeToggleState(view) {
-  currentModuleVolumeView = view === 'records' ? 'records' : 'issues';
-
-  document.querySelectorAll('[data-module-view]').forEach((button) => {
-    const isActive = button.dataset.moduleView === currentModuleVolumeView;
-    button.classList.toggle('is-active', isActive);
-    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-  });
-
-  const kicker = byId('module-volume-kicker');
-  const title = byId('module-volume-title');
-  const subtitle = byId('module-volume-subtitle');
-
-  if (currentModuleVolumeView === 'records') {
-    if (kicker) kicker.textContent = 'Data Volume';
-    if (title) title.textContent = 'Records by BC module';
-    if (subtitle) subtitle.textContent = 'Scanned records per module';
-  } else {
-    if (kicker) kicker.textContent = 'Issue Volume';
-    if (title) title.textContent = 'Issues by BC module';
-    if (subtitle) subtitle.textContent = 'Affected findings per module';
-  }
-}
-
 function renderModuleVolume(data) {
   const issueGroups = Array.isArray(data?.issue_groups) ? data.issue_groups : [];
-  const moduleCounts = data?.module_counts && typeof data.module_counts === 'object'
-    ? Object.entries(data.module_counts).map(([name, count]) => ({ name, count }))
-    : [];
-
-  const hasRecords = moduleCounts.some((item) => Number(item?.count || 0) > 0);
-  const preferredView = currentModuleVolumeView === 'records' && hasRecords ? 'records' : 'issues';
-
-  setModuleVolumeToggleState(preferredView);
-
-  if (preferredView === 'records') {
-    renderIssueGroups(moduleCounts, 'No module record counts are available for this scan.');
-    return;
-  }
 
   renderIssueGroups(issueGroups, 'No module issue counts are available for this scan.');
 }
@@ -558,14 +520,6 @@ function registerEvents() {
 
   document.querySelectorAll('.topnav-link').forEach((btn) => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab || 'overview'));
-  });
-
-  document.querySelectorAll('[data-module-view]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const view = button.dataset.moduleView === 'records' ? 'records' : 'issues';
-      setModuleVolumeToggleState(view);
-      renderModuleVolume(currentDashboardState || {});
-    });
   });
 
   const upgradeButton = byId('upgrade-button');
