@@ -50,18 +50,6 @@ function scoreBand(score) {
   return 'excellent';
 }
 
-function scoreBandMeta(score) {
-  const band = scoreBand(score);
-  const meta = {
-    critical: { gaugeLabel: 'Poor', badgeClass: 'critical', colorHex: '#f44336' },
-    warning: { gaugeLabel: 'Fair', badgeClass: 'warning', colorHex: '#fb8c00' },
-    moderate: { gaugeLabel: 'Normal', badgeClass: 'moderate', colorHex: '#facc15' },
-    good: { gaugeLabel: 'Good', badgeClass: 'good', colorHex: '#84cc16' },
-    excellent: { gaugeLabel: 'Super', badgeClass: 'excellent', colorHex: '#16a34a' },
-  };
-  return { band, ...(meta[band] || meta.critical) };
-}
-
 function renderPricingBreakdown(data) {
   const breakdown = data?.pricing_breakdown || {};
   const subscription = data?.subscription || {};
@@ -84,118 +72,6 @@ function renderPricingBreakdown(data) {
   setText("subscription-monthly-note", billingOptions.monthly_note || "");
   setText("subscription-annual-label", billingOptions.annual_label || "Annual fixed plan");
   setText("subscription-annual-note", billingOptions.annual_note || "");
-}
-
-
-function renderGauge(score) {
-  const host = byId('gauge-meter');
-  if (!host) return;
-
-  const safeScore = Math.max(0, Math.min(100, Number(score || 0)));
-  const meta = scoreBandMeta(safeScore);
-
-  const centerX = 160;
-  const centerY = 174;
-  const outerRadius = 124;
-  const innerRadius = 88;
-  const labelRadius = 103;
-
-  const segments = [
-    { label: 'Poor', start: 180, end: 108, className: 'critical' },
-    { label: 'Fair', start: 108, end: 72, className: 'warning' },
-    { label: 'Moderate', start: 72, end: 45, className: 'moderate' },
-    { label: 'Good', start: 45, end: 18, className: 'info' },
-    { label: 'Excellent', start: 18, end: 0, className: 'excellent' },
-  ];
-
-  function polarToCartesian(cx, cy, radius, angleDeg) {
-    const radians = (angleDeg - 90) * (Math.PI / 180);
-    return {
-      x: cx + radius * Math.cos(radians),
-      y: cy + radius * Math.sin(radians),
-    };
-  }
-
-  function arcPath(cx, cy, radius, startAngle, endAngle) {
-    const start = polarToCartesian(cx, cy, radius, startAngle);
-    const end = polarToCartesian(cx, cy, radius, endAngle);
-    const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
-    const sweepFlag = startAngle > endAngle ? 1 : 0;
-    return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${end.x} ${end.y}`;
-  }
-
-  function ringSlicePath(cx, cy, outerR, innerR, startAngle, endAngle) {
-    const outerStart = polarToCartesian(cx, cy, outerR, startAngle);
-    const outerEnd = polarToCartesian(cx, cy, outerR, endAngle);
-    const innerEnd = polarToCartesian(cx, cy, innerR, endAngle);
-    const innerStart = polarToCartesian(cx, cy, innerR, startAngle);
-    const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
-    const sweepFlagOuter = startAngle > endAngle ? 1 : 0;
-    const sweepFlagInner = sweepFlagOuter ? 0 : 1;
-
-    return [
-      `M ${outerStart.x} ${outerStart.y}`,
-      `A ${outerR} ${outerR} 0 ${largeArcFlag} ${sweepFlagOuter} ${outerEnd.x} ${outerEnd.y}`,
-      `L ${innerEnd.x} ${innerEnd.y}`,
-      `A ${innerR} ${innerR} 0 ${largeArcFlag} ${sweepFlagInner} ${innerStart.x} ${innerStart.y}`,
-      'Z',
-    ].join(' ');
-  }
-
-  function labelPosition(angleDeg) {
-    return polarToCartesian(centerX, centerY, labelRadius, angleDeg);
-  }
-
-  const segmentMarkup = segments.map((segment) => {
-    const textPos = labelPosition((segment.start + segment.end) / 2);
-    const rotation = ((segment.start + segment.end) / 2) - 90;
-
-    return `
-      <g class="gauge-segment-group">
-        <path d="${ringSlicePath(centerX, centerY, outerRadius, innerRadius, segment.start, segment.end)}"
-              class="gauge-segment ${segment.className}"></path>
-        <path d="${arcPath(centerX, centerY, innerRadius - 5, segment.start - 1.5, segment.end + 1.5)}"
-              class="gauge-segment-inner-outline"></path>
-        <text x="${textPos.x}" y="${textPos.y}" text-anchor="middle"
-              class="gauge-band-label"
-              transform="rotate(${rotation} ${textPos.x} ${textPos.y})">${segment.label}</text>
-      </g>
-    `;
-  }).join('');
-
-  const pointerAngle = 180 - (safeScore * 1.8);
-  const radians = (pointerAngle - 90) * (Math.PI / 180);
-  const needleLength = 88;
-  const needleBaseHalf = 9;
-  const tipX = centerX + needleLength * Math.cos(radians);
-  const tipY = centerY + needleLength * Math.sin(radians);
-  const baseLeftX = centerX + needleBaseHalf * Math.cos(radians + Math.PI / 2);
-  const baseLeftY = centerY + needleBaseHalf * Math.sin(radians + Math.PI / 2);
-  const baseRightX = centerX + needleBaseHalf * Math.cos(radians - Math.PI / 2);
-  const baseRightY = centerY + needleBaseHalf * Math.sin(radians - Math.PI / 2);
-  const badgeY = 244;
-
-  host.innerHTML = `
-    <svg viewBox="0 0 320 300" class="gauge-svg gauge-dial gauge-tone-${meta.band}" role="img" aria-label="Data health gauge ${safeScore}">
-      <defs>
-        <filter id="gaugeShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="rgba(15,35,64,0.10)"/>
-        </filter>
-      </defs>
-      <path d="M 62 156 Q 68 274 160 274 Q 252 274 258 156" class="gauge-base-shell"></path>
-      <path d="${arcPath(centerX, centerY, outerRadius, 180, 0)}" class="gauge-dial-shadow"></path>
-      ${segmentMarkup}
-      <circle cx="${centerX}" cy="${centerY}" r="64" class="gauge-center-disc"></circle>
-      <path d="M ${baseLeftX} ${baseLeftY} L ${tipX} ${tipY} L ${baseRightX} ${baseRightY} Z" class="gauge-needle"></path>
-      <circle cx="${centerX}" cy="${centerY}" r="18" class="gauge-needle-cap"></circle>
-      <circle cx="${centerX}" cy="${centerY}" r="10" class="gauge-needle-cap-inner"></circle>
-      <g transform="translate(${centerX - 44}, ${badgeY})">
-        <rect width="88" height="40" rx="10" class="gauge-value-badge ${meta.badgeClass}"></rect>
-        <text x="44" y="27" text-anchor="middle" class="gauge-value-text">${formatNumber(safeScore)}</text>
-      </g>
-      <text x="${centerX}" y="228" text-anchor="middle" class="gauge-caption">Data Health Score</text>
-    </svg>
-  `;
 }
 
 function renderHeroPoints(items) {
@@ -624,7 +500,6 @@ async function loadDashboard(scanId = null) {
     setText('kpi-loss', formatCurrency(data?.kpis?.estimated_loss_eur));
     setText('kpi-roi', formatCurrency(data?.kpis?.roi_eur));
 
-    renderGauge(data?.kpis?.health_score);
     renderProfileCards(data?.module_scores || [], data?.profile_cards || []);
     renderModuleVolume(data);
     renderRecentScans(data?.recent_scans || []);
