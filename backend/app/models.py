@@ -56,6 +56,7 @@ class Scan(Base):
     premium_available: Mapped[bool] = mapped_column(Boolean, default=False)
     summary_headline: Mapped[str] = mapped_column(String(255))
     summary_rating: Mapped[str] = mapped_column(String(30))
+    enabled_modules: Mapped[str | None] = mapped_column(Text, nullable=True)
     total_records: Mapped[int] = mapped_column(Integer, default=0)
     estimated_loss_eur: Mapped[float] = mapped_column(Float, default=0.0)
     potential_saving_eur: Mapped[float] = mapped_column(Float, default=0.0)

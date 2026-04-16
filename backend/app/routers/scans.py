@@ -86,6 +86,7 @@ class ScanSyncPayload(BaseModel):
     estimated_premium_price_monthly: float = 0.0
     roi_eur: float = 0.0
     module_scores: ModuleScoresPayload = Field(default_factory=ModuleScoresPayload)
+    enabled_modules: List[str] = Field(default_factory=list)
     issues: List[ScanIssuePayload] = Field(default_factory=list)
 
 
@@ -113,6 +114,31 @@ def _normalize_scan_type(value: str | None) -> str:
     if normalized in {"deep", "premium_deep"}:
         return "deep"
     return "quick"
+
+
+def _normalize_enabled_modules(values: List[str]) -> str:
+    canonical_order = [
+        "System",
+        "Finance",
+        "Sales",
+        "Purchasing",
+        "Inventory",
+        "CRM",
+        "Manufacturing",
+        "Service",
+        "Jobs",
+        "HR",
+    ]
+    alias_map = {name.lower(): name for name in canonical_order}
+    normalized: list[str] = []
+
+    for value in values or []:
+        key = str(value or "").strip().lower()
+        canonical = alias_map.get(key)
+        if canonical and canonical not in normalized:
+            normalized.append(canonical)
+
+    return ",".join(normalized)
 
 
 def _normalize_utc(value: datetime) -> datetime:
@@ -176,6 +202,7 @@ def sync_scan(
                 premium_available=is_premium_actions_enabled(tenant_features),
                 summary_headline=payload.headline or "",
                 summary_rating=payload.rating or "",
+                enabled_modules=_normalize_enabled_modules(payload.enabled_modules),
             )
             db.add(scan)
             db.flush()
@@ -189,6 +216,7 @@ def sync_scan(
             scan.premium_available = is_premium_actions_enabled(tenant_features)
             scan.summary_headline = payload.headline or ""
             scan.summary_rating = payload.rating or ""
+            scan.enabled_modules = _normalize_enabled_modules(payload.enabled_modules)
 
             db.query(ScanIssueRecord).filter(ScanIssueRecord.scan_id == payload.scan_id).delete()
 

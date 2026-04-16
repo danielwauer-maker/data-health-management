@@ -7,7 +7,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.core.settings import settings
 
-REQUIRED_ALEMBIC_REVISION = "0011_scan_module_scores_and_issue_category"
+REQUIRED_ALEMBIC_REVISION = "0012_scan_enabled_modules"
 logger = logging.getLogger(__name__)
 
 

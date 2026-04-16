@@ -2307,6 +2307,7 @@ codeunit 53128 "DH Deep Scan Runner"
         RequestText: Text;
         DataProfilingMgt: Codeunit "DH Data Profiling Mgt.";
         ModuleScores: JsonObject;
+        EnabledModules: JsonArray;
     begin
         if DeepScanRun."Finished At" <> 0DT then
             ScanDateTime := DeepScanRun."Finished At"
@@ -2336,6 +2337,9 @@ codeunit 53128 "DH Deep Scan Runner"
         ModuleScores.Add('hr', DeepScanRun."HR Score");
         Payload.Add('module_scores', ModuleScores);
 
+        AddEnabledModules(Setup, EnabledModules);
+        Payload.Add('enabled_modules', EnabledModules);
+
         Payload.Add('headline', DeepScanRun."Headline");
         Payload.Add('rating', DeepScanRun."Rating");
 
@@ -2357,6 +2361,30 @@ codeunit 53128 "DH Deep Scan Runner"
         Payload.Add('issues', IssuesArray);
         Payload.WriteTo(RequestText);
         exit(RequestText);
+    end;
+
+    local procedure AddEnabledModules(var Setup: Record "DH Setup"; var EnabledModules: JsonArray)
+    begin
+        if Setup."Scan System Module" then
+            EnabledModules.Add('System');
+        if Setup."Scan Finance Module" then
+            EnabledModules.Add('Finance');
+        if Setup."Scan Sales Module" then
+            EnabledModules.Add('Sales');
+        if Setup."Scan Purchasing Module" then
+            EnabledModules.Add('Purchasing');
+        if Setup."Scan Inventory Module" then
+            EnabledModules.Add('Inventory');
+        if Setup."Scan CRM Module" then
+            EnabledModules.Add('CRM');
+        if Setup."Scan Manufacturing Module" then
+            EnabledModules.Add('Manufacturing');
+        if Setup."Scan Service Module" then
+            EnabledModules.Add('Service');
+        if Setup."Scan Jobs Module" then
+            EnabledModules.Add('Jobs');
+        if Setup."Scan HR Module" then
+            EnabledModules.Add('HR');
     end;
 
     local procedure InsertFinding(DeepScanEntryNo: Integer; Category: Code[30]; IssueCode: Code[50]; Title: Text[150]; Severity: Code[20]; AffectedCount: Integer; RecommendationPreview: Text[250])

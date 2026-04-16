@@ -516,13 +516,41 @@ MODULE_SCORE_ORDER = [
     "HR",
 ]
 
+def _stored_enabled_modules(scan: Scan) -> list[str]:
+    raw_value = str(getattr(scan, "enabled_modules", "") or "").strip()
+    if not raw_value:
+        return []
+
+    enabled = []
+    for value in raw_value.split(","):
+        name = value.strip()
+        if name in MODULE_SCORE_ORDER and name not in enabled:
+            enabled.append(name)
+    return enabled
+
+
 def _active_module_names(scan: Scan, issue_groups: dict[str, int] | None = None) -> list[str]:
-    module_counts = _build_module_counts(scan)
+    stored_enabled = _stored_enabled_modules(scan)
+    if stored_enabled:
+        return stored_enabled
+
     issues_by_module = issue_groups or {}
+    module_scores = {
+        "System": _safe_int(getattr(scan, "system_score", 100)),
+        "Finance": _safe_int(getattr(scan, "finance_score", 100)),
+        "Sales": _safe_int(getattr(scan, "sales_score", 100)),
+        "Purchasing": _safe_int(getattr(scan, "purchasing_score", 100)),
+        "Inventory": _safe_int(getattr(scan, "inventory_score", 100)),
+        "CRM": _safe_int(getattr(scan, "crm_score", 100)),
+        "Manufacturing": _safe_int(getattr(scan, "manufacturing_score", 100)),
+        "Service": _safe_int(getattr(scan, "service_score", 100)),
+        "Jobs": _safe_int(getattr(scan, "jobs_score", 100)),
+        "HR": _safe_int(getattr(scan, "hr_score", 100)),
+    }
     active_names: list[str] = []
 
     for name in MODULE_SCORE_ORDER:
-        if module_counts.get(name, 0) > 0 or _safe_int(issues_by_module.get(name, 0)) > 0:
+        if _safe_int(issues_by_module.get(name, 0)) > 0 or module_scores.get(name, 100) < 100:
             active_names.append(name)
 
     return active_names
