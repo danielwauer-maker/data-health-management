@@ -134,6 +134,28 @@
       color: var(--muted);
     }
 
+    .value-stat-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      color: #9b4d4d;
+      font-size: .9rem;
+      font-weight: 700;
+      text-decoration: none;
+      text-underline-offset: 2px;
+    }
+
+    .value-stat-link:hover {
+      color: #7f3d3d;
+      text-decoration: underline;
+    }
+
+    .value-stat-link::after {
+      content: "↗";
+      font-size: .9em;
+    }
+
     .section-shell {
       padding: 30px;
       border-radius: 28px;
@@ -431,6 +453,7 @@
 <p class="value-stat-sub" data-i18n="value_stat_1_sub">
                 Estimated financial impact caused by detected data quality issues.
               </p>
+<a class="value-stat-link" data-i18n="value_stat_1_link" href="loss-examples.html">How is this calculated? See 5 examples</a>
 </div>
 <div class="value-stat-box saving">
 <span class="value-stat-label" data-i18n="value_stat_3_label">Potential Saving</span>

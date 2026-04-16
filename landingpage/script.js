@@ -169,6 +169,7 @@ const translations = {
     footer_privacy: "Datenschutz",
     footer_contact: "Kontakt",
     value_stat_1_sub: "Geschätzte finanzielle Auswirkung durch erkannte Datenqualitätsprobleme.",
+    value_stat_1_link: "Wie wird das berechnet? 5 Beispiele ansehen",
     value_stat_2_sub: "Realistisches Einsparpotenzial nach Behebung der wichtigsten Probleme.",
     value_stat_3_sub: "Jedes Issue nutzt betroffene Datensätze, Wahrscheinlichkeit, Aufwand, Stundensatz und Häufigkeit pro Jahr.",
     pricing_premium_chip: "…"
@@ -344,6 +345,7 @@ const translations = {
     footer_privacy: "Privacy",
     footer_contact: "Contact",
     value_stat_1_sub: "Estimated financial impact caused by detected data quality issues.",
+    value_stat_1_link: "How is this calculated? See 5 examples",
     value_stat_2_sub: "Realistic saving potential after resolving the most important issues first.",
     value_stat_3_sub: "Each issue uses affected records, probability, effort, hourly rate, and yearly frequency.",
     pricing_premium_chip: "…"
