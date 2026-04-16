@@ -132,6 +132,15 @@
       transform: translateY(-1px);
       box-shadow: 0 10px 24px rgba(0,0,0,.12);
     }
+    .theme-toggle-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(74,141,255,.18), rgba(255,143,61,.18));
+      font-size: .88rem;
+    }
 
     .lang-switch {
       position: relative;
@@ -253,11 +262,11 @@
       </nav>
 
       <div class="nav-actions">
-        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Designmodus umschalten">🌓</button>
         <div class="lang-switch" aria-label="Language switcher">
           <button class="lang-btn active" data-lang="de" type="button" aria-label="Switch to German" title="Deutsch">🇩🇪</button>
           <button class="lang-btn" data-lang="en" type="button" aria-label="Switch to English" title="English">🇬🇧</button>
         </div>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme"><span aria-hidden="true" class="theme-toggle-icon">☀</span></button>
       </div>
     </div>
   </header>
@@ -501,10 +510,16 @@
       if (meta) meta.setAttribute("content", theme === "light" ? "#f4f8ff" : "#08111f");
     }
 
+    function updateThemeToggle(theme) {
+      const icon = themeToggle?.querySelector(".theme-toggle-icon");
+      if (icon) icon.textContent = theme === "dark" ? "☀" : "☾";
+    }
+
     function applyTheme(theme) {
       const selected = theme === "light" ? "light" : "dark";
       html.setAttribute("data-theme", selected);
       updateThemeMeta(selected);
+      updateThemeToggle(selected);
       try { localStorage.setItem(STORAGE_THEME_KEY, selected); } catch (e) {}
     }
 
