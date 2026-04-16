@@ -440,7 +440,10 @@ def _score_variant(score: int) -> str:
     return "excellent"
 
 
-def _build_module_scores_from_scan(scan: Scan) -> list[dict[str, Any]]:
+def _build_module_scores_from_scan(
+    scan: Scan,
+    active_modules: list[str] | None = None,
+) -> list[dict[str, Any]]:
     items = [
         ("System", _safe_int(getattr(scan, "system_score", 0))),
         ("Finance", _safe_int(getattr(scan, "finance_score", 0))),
@@ -453,7 +456,7 @@ def _build_module_scores_from_scan(scan: Scan) -> list[dict[str, Any]]:
         ("Jobs", _safe_int(getattr(scan, "jobs_score", 0))),
         ("HR", _safe_int(getattr(scan, "hr_score", 0))),
     ]
-    active_names = set(_active_module_names(scan))
+    active_names = set(active_modules or _active_module_names(scan))
     return [
         {
             "name": name,
@@ -487,7 +490,7 @@ def _has_module_scores(scan: Scan) -> bool:
 
 def _build_module_counts(scan: Scan) -> dict[str, int]:
     return {
-        "System": _safe_int(scan.total_records),
+        "System": 0,
         "Finance": _safe_int(scan.customer_ledger_entries_count) + _safe_int(scan.vendor_ledger_entries_count) + _safe_int(scan.gl_entries_count),
         "Sales": _safe_int(scan.sales_headers_count) + _safe_int(scan.sales_lines_count),
         "Purchasing": _safe_int(scan.purchase_headers_count) + _safe_int(scan.purchase_lines_count),
@@ -727,7 +730,7 @@ def _build_dashboard_payload(
         issue_groups[group] = issue_groups.get(group, 0) + _safe_int(issue.affected_count)
 
     active_modules = _active_module_names(active_scan, issue_groups)
-    module_scores = _build_module_scores_from_scan(active_scan)
+    module_scores = _build_module_scores_from_scan(active_scan, active_modules)
 
     total_recent_scans = len(recent_scans_desc)
     page_size = max(1, recent_scans_page_size)
