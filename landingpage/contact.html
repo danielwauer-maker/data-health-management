@@ -34,7 +34,6 @@
       --surface-soft:rgba(255,255,255,.03);
       --surface-input:rgba(255,255,255,.04);
       --surface-toggle:rgba(255,255,255,.04);
-      --surface-toggle-active:linear-gradient(135deg,rgba(74,141,255,.22),rgba(255,143,61,.18));
       --brand-box:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
       --brand-border:rgba(255,255,255,.08);
       --footer-line:rgba(255,255,255,.05);
@@ -67,7 +66,6 @@
       --surface-soft:rgba(16,33,61,.03);
       --surface-input:rgba(16,33,61,.03);
       --surface-toggle:rgba(16,33,61,.05);
-      --surface-toggle-active:linear-gradient(135deg,rgba(74,141,255,.16),rgba(255,143,61,.14));
       --brand-box:linear-gradient(180deg,rgba(255,255,255,.95),rgba(240,245,255,.95));
       --brand-border:rgba(12,33,66,.08);
       --footer-line:rgba(12,33,66,.08);
@@ -208,7 +206,7 @@
     p{margin:0;color:var(--muted);font-size:1rem}
     .lead{max-width:860px;color:var(--text);font-size:1.08rem;margin-top:16px;opacity:.92}
     .content-wrap{padding:22px 0 84px}
-    .grid{display:grid;grid-template-columns:1.06fr .94fr;gap:20px;align-items:start}
+    .grid{display:grid;grid-template-columns:minmax(0,760px);gap:20px;justify-content:center}
     .card{
       background:var(--card);
       border:1px solid var(--line);
@@ -218,31 +216,6 @@
       padding:28px;
       transition:background .25s ease,border-color .25s ease,box-shadow .25s ease;
     }
-    .contact-points{display:grid;gap:14px;margin-top:22px}
-    .promise-grid{display:grid;gap:10px;margin-top:14px}
-    .promise-item{
-      padding:14px 16px;
-      border-radius:14px;
-      border:1px solid var(--brand-border);
-      background:var(--surface-soft);
-      color:var(--muted);
-      font-size:.92rem;
-      line-height:1.45;
-    }
-    .promise-item strong{
-      color:var(--text);
-      display:block;
-      margin-bottom:4px;
-      font-size:.95rem;
-    }
-    .point{
-      padding:18px;
-      border-radius:var(--radius-lg);
-      background:var(--surface-soft);
-      border:1px solid var(--brand-border);
-      transition:background .25s ease,border-color .25s ease;
-    }
-    .point strong{display:block;margin-bottom:6px;font-size:1rem;color:var(--text)}
     form{display:grid;gap:14px}
     .field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
     label{display:grid;gap:8px;color:var(--muted);font-size:.94rem;font-weight:600}
@@ -259,6 +232,19 @@
     }
     textarea{min-height:170px;resize:vertical}
     .mini-note{font-size:.9rem;color:var(--muted-2)}
+    .captcha-box{
+      display:grid;
+      gap:10px;
+      padding:16px 18px;
+      border-radius:16px;
+      border:1px solid var(--brand-border);
+      background:var(--surface-soft);
+    }
+    .captcha-question{
+      color:var(--text);
+      font-size:.98rem;
+      font-weight:700;
+    }
     .btn{
       display:inline-flex;
       align-items:center;
@@ -283,7 +269,7 @@
     .footer-links{display:flex;gap:18px;flex-wrap:wrap}
     .footer-links a{color:var(--muted-2);font-size:.94rem}
 
-    @media (max-width:980px){.grid{grid-template-columns:1fr}}
+    @media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
     @media (max-width:840px){.brand-copy span{display:none}}
     @media (max-width:760px){
       .nav{min-height:74px;align-items:flex-start;padding:12px 0}
@@ -313,7 +299,7 @@
       </nav>
 
       <div class="nav-actions">
-        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Designmodus umschalten">🌓</button>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Designmodus umschalten">🌙</button>
         <div class="lang-switch" aria-label="Language switcher">
           <button class="lang-btn active" data-lang="de" type="button" aria-label="Switch to German" title="Deutsch">🇩🇪</button>
           <button class="lang-btn" data-lang="en" type="button" aria-label="Switch to English" title="English">🇬🇧</button>
@@ -327,7 +313,7 @@
       <div class="container">
         <div class="eyebrow" data-i18n="eyebrow">Kontakt</div>
         <h1 data-i18n="title">Lass uns über BCSentinel sprechen.</h1>
-        <p class="lead" data-i18n="lead">Nutze das Formular für Fragen, Demo-Anfragen oder einen ersten Austausch. Die Nachricht geht direkt an unser Team.</p>
+        <p class="lead" data-i18n="lead">Nutze das Formular für Fragen, Demo-Anfragen oder einen ersten Austausch. Die Nachricht wird an support@bcsentinel.com gesendet.</p>
       </div>
     </section>
 
@@ -382,6 +368,15 @@
             </label>
 
             <label>
+              <span data-i18n="field_captcha">Spam-Schutz *</span>
+              <div class="captcha-box">
+                <div id="captchaQuestion" class="captcha-question">Bitte Rechenaufgabe lösen.</div>
+                <input type="number" id="captchaAnswer" name="captchaAnswer" inputmode="numeric" required placeholder="Ergebnis eingeben">
+                <span class="mini-note" data-i18n="captcha_note">Bitte bestätige mit der Rechenaufgabe, dass du kein Bot bist.</span>
+              </div>
+            </label>
+
+            <label>
               <span data-i18n="field_privacy">Datenschutzhinweis *</span>
               <div style="display:flex;gap:10px;align-items:flex-start;">
                 <input type="checkbox" id="privacyConsent" name="privacyConsent" required style="width:18px;height:18px;margin-top:3px;padding:0;">
@@ -393,41 +388,6 @@
             <button class="btn btn-primary" id="submitBtn" type="submit" data-i18n="submit_btn">Nachricht senden</button>
           </form>
         </section>
-
-        <aside class="card">
-          <h2 data-i18n="promise_title">Warum jetzt anfragen?</h2>
-          <div class="promise-grid">
-            <div class="promise-item">
-              <strong data-i18n="promise_1_title">Schnelle Rückmeldung</strong>
-              <span data-i18n="promise_1_text">In der Regel innerhalb von 24 Stunden.</span>
-            </div>
-            <div class="promise-item">
-              <strong data-i18n="promise_2_title">Unverbindliche Demo</strong>
-              <span data-i18n="promise_2_text">Klarer Produkt-Überblick ohne Kaufdruck.</span>
-            </div>
-            <div class="promise-item">
-              <strong data-i18n="promise_3_title">Direkter Produktaustausch</strong>
-              <span data-i18n="promise_3_text">Sprich direkt mit Menschen, die das Produkt bauen.</span>
-            </div>
-          </div>
-
-          <h2 data-i18n="side_title">Direkter Kontakt</h2>
-          <p data-i18n="side_text">Für allgemeine Anfragen, Produktfragen oder Support kannst du uns auch direkt per E-Mail kontaktieren.</p>
-
-          <div class="contact-points">
-            <div class="point">
-              <strong data-i18n="point_1_title">E-Mail</strong>
-              <p><a href="mailto:support@bcsentinel.com">support@bcsentinel.com</a></p>
-            </div>
-
-            <div class="point">
-              <strong data-i18n="point_2_title">Typische Themen</strong>
-              <p data-i18n="point_2_text">Produktdemo, Pricing, Pilotkunde, technische Rückfragen, Zusammenarbeit.</p>
-            </div>
-
-            
-          </div>
-        </aside>
       </div>
     </section>
   </main>
@@ -461,13 +421,6 @@
       eyebrow:"Kontakt",
       title:"Lass uns über BCSentinel sprechen.",
       lead:"Nutze das Formular für Fragen, Demo-Anfragen oder einen ersten Austausch. Die Nachricht wird an support@bcsentinel.com gesendet.",
-      promise_title:"Warum jetzt anfragen?",
-      promise_1_title:"Schnelle Rückmeldung",
-      promise_1_text:"In der Regel innerhalb von 24 Stunden.",
-      promise_2_title:"Unverbindliche Demo",
-      promise_2_text:"Klarer Produkt-Überblick ohne Kaufdruck.",
-      promise_3_title:"Direkter Produktaustausch",
-      promise_3_text:"Sprich direkt mit Menschen, die BCSentinel täglich weiterentwickeln.",
       form_title:"Nachricht senden",
       form_note:"Bitte fülle alle Pflichtfelder aus. Nach erfolgreichem Versand erhältst du direkt eine kurze Rückmeldung auf der Seite.",
       field_name:"Name *",
@@ -475,16 +428,12 @@
       field_company:"Unternehmen",
       field_topic:"Thema",
       field_message:"Nachricht *",
+      field_captcha:"Spam-Schutz *",
+      captcha_note:"Bitte bestätige mit der Rechenaufgabe, dass du kein Bot bist.",
+      captcha_invalid:"Bitte löse die Rechenaufgabe korrekt.",
       field_privacy:"Datenschutzhinweis *",
       privacy_text:"Ich stimme zu, dass meine Angaben zur Bearbeitung meiner Anfrage verarbeitet werden. Weitere Informationen stehen in der Datenschutzerklärung.",
       submit_btn:"Nachricht senden",
-      side_title:"Direkter Kontakt",
-      side_text:"Für allgemeine Anfragen, Produktfragen oder Support kannst du uns auch direkt per E-Mail kontaktieren.",
-      point_1_title:"E-Mail",
-      point_2_title:"Typische Themen",
-      point_2_text:"Produktdemo, Pricing, Pilotkunde, technische Rückfragen, Zusammenarbeit.",
-      point_3_title:"Spam-Schutz",
-      point_3_text:"Das Formular nutzt jetzt FormSubmit mit aktivierter reCAPTCHA-Schutzlogik, Honeypot-Feld und Blacklist-Filter.",
       status_success:"Danke! Deine Nachricht wurde erfolgreich versendet.",
       status_error:"Der Versand hat gerade nicht funktioniert. Bitte versuche es erneut oder schreibe direkt an support@bcsentinel.com.",
       status_invalid:"Bitte fülle alle Pflichtfelder korrekt aus."
@@ -496,15 +445,8 @@
       nav_contact:"Contact",
       nav_legal:"Legal notice",
       eyebrow:"Contact",
-      title:"Let’s talk about BCSentinel.",
-      lead:"Use the form for questions, demo requests, or an initial exchange. Your message goes directly to our team.",
-      promise_title:"Why reach out now?",
-      promise_1_title:"Fast response",
-      promise_1_text:"Usually within 24 hours.",
-      promise_2_title:"No-pressure demo",
-      promise_2_text:"Clear product walkthrough without sales pressure.",
-      promise_3_title:"Direct product contact",
-      promise_3_text:"Talk directly to the people building BCSentinel.",
+      title:"Let's talk about BCSentinel.",
+      lead:"Use the form for questions, demo requests, or an initial exchange. The message will be sent to support@bcsentinel.com.",
       form_title:"Send a message",
       form_note:"Please complete all required fields. After a successful submission, you will receive a short confirmation directly on the page.",
       field_name:"Name *",
@@ -512,16 +454,12 @@
       field_company:"Company",
       field_topic:"Topic",
       field_message:"Message *",
+      field_captcha:"Spam check *",
+      captcha_note:"Please solve the calculation to confirm that you are not a bot.",
+      captcha_invalid:"Please solve the calculation correctly.",
       field_privacy:"Privacy notice *",
       privacy_text:"I agree that my information may be processed for handling my request. More information can be found in the privacy policy.",
       submit_btn:"Send message",
-      side_title:"Direct contact",
-      side_text:"For general questions, product questions, or support, you can also contact us directly by email.",
-      point_1_title:"Email",
-      point_2_title:"Typical topics",
-      point_2_text:"Product demo, pricing, pilot customer, technical questions, collaboration.",
-      point_3_title:"Spam protection",
-      point_3_text:"The form now uses FormSubmit with active reCAPTCHA protection, a honeypot field, and a blacklist filter.",
       status_success:"Thank you! Your message was sent successfully.",
       status_error:"Sending failed right now. Please try again or email support@bcsentinel.com directly.",
       status_invalid:"Please complete all required fields correctly."
@@ -539,7 +477,10 @@
   const submitBtn=document.getElementById("submitBtn");
   const replyMirror=document.getElementById("replyToMirror");
   const emailInput=document.getElementById("email");
+  const captchaQuestion=document.getElementById("captchaQuestion");
+  const captchaAnswerInput=document.getElementById("captchaAnswer");
   const FORM_ENDPOINT="https://formsubmit.co/ajax/support@bcsentinel.com";
+  let captchaExpectedAnswer=null;
 
   function applyTranslations(lang){
     const selected=translations[lang]?lang:"de";
@@ -551,6 +492,7 @@
     });
     langButtons.forEach((btn)=>btn.classList.toggle("active",btn.dataset.lang===selected));
     try{localStorage.setItem(STORAGE_LANG_KEY,selected)}catch(e){}
+    renderCaptcha();
   }
 
   function getCurrentLanguage(){
@@ -592,6 +534,18 @@
     statusBox.textContent=message;
   }
 
+  function renderCaptcha(){
+    if(!captchaQuestion||!captchaAnswerInput) return;
+    const lang=getCurrentLanguage();
+    const left=Math.floor(Math.random()*8)+2;
+    const right=Math.floor(Math.random()*8)+2;
+    captchaExpectedAnswer=left+right;
+    captchaQuestion.textContent=lang==="de"
+      ? `Bitte rechne ${left} + ${right}.`
+      : `Please calculate ${left} + ${right}.`;
+    captchaAnswerInput.value="";
+  }
+
   langButtons.forEach((btn)=>btn.addEventListener("click",()=>applyTranslations(btn.dataset.lang)));
   themeToggle.addEventListener("click",toggleTheme);
   emailInput.addEventListener("input",()=>{replyMirror.value=emailInput.value});
@@ -603,6 +557,14 @@
     if(!form.checkValidity()){
       showStatus("error",translations[lang].status_invalid);
       form.reportValidity();
+      return;
+    }
+
+    if(Number(captchaAnswerInput.value)!==captchaExpectedAnswer){
+      showStatus("error",translations[lang].captcha_invalid);
+      captchaAnswerInput.focus();
+      captchaAnswerInput.select();
+      renderCaptcha();
       return;
     }
 
@@ -627,12 +589,14 @@
       if(result&&(result.success==="true"||result.success===true||result.message)){
         form.reset();
         replyMirror.value="";
+        renderCaptcha();
         showStatus("success",translations[lang].status_success);
       }else{
         throw new Error("Unexpected response");
       }
     }catch(error){
       showStatus("error",translations[lang].status_error);
+      renderCaptcha();
     }finally{
       submitBtn.disabled=false;
     }
