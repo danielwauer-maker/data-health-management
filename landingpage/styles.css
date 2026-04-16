@@ -19,10 +19,14 @@
   --radius-lg: 22px;
   --radius-md: 16px;
   --max: 1220px;
+  --anchor-offset: 108px;
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--anchor-offset);
+}
 body {
   margin: 0;
   color: var(--text);
@@ -30,6 +34,10 @@ body {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.6;
   overflow-x: hidden;
+}
+main[id],
+section[id] {
+  scroll-margin-top: var(--anchor-offset);
 }
 img { display: block; max-width: 100%; }
 a { color: inherit; text-decoration: none; }
@@ -729,6 +737,10 @@ p {
 }
 
 @media (max-width: 860px) {
+  :root {
+    --anchor-offset: 96px;
+  }
+
   .section { padding: 50px 0; }
   .desktop-nav,
   .nav-actions .lang-switch + .btn { display: none; }
@@ -738,6 +750,10 @@ p {
 }
 
 @media (max-width: 680px) {
+  :root {
+    --anchor-offset: 88px;
+  }
+
   .hero { padding-top: 30px; }
   .section { padding: 68px 0; }
   .btn-row { flex-direction: column; }
