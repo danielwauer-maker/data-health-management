@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import base64
+from types import SimpleNamespace
 
 from app.db import SessionLocal
 from app.models import ImpactSettingsConfig
-from app.services.impact_service import calculate_issue_impact
+from app.services.impact_service import calculate_issue_impact, calculate_scan_commercials
 
 
 def _admin_auth_header() -> dict[str, str]:
@@ -17,6 +18,7 @@ def test_admin_issue_cost_page_lists_estimated_loss_issue_inputs(client):
 
     assert response.status_code == 200
     assert "INTERNAL_HOURLY_RATE_EUR" in response.text
+    assert "issue-costs-panel" in response.text
     assert "CUSTOMERS_MISSING_CITY" in response.text
     assert "minutes_per_occurrence" in response.text
     assert "frequency_per_year" in response.text
@@ -57,3 +59,43 @@ def test_admin_issue_cost_updates_change_estimated_loss_inputs(client):
     assert float(hourly_rate.value_number) == 60.0
     assert after == 240.0
     assert after != before
+
+
+def test_admin_hourly_rate_changes_estimated_loss_and_potential_saving(client):
+    issue = SimpleNamespace(
+        code="CUSTOMERS_MISSING_ADDRESS",
+        title="Customers missing address",
+        category="general",
+        severity="medium",
+        affected_count=2,
+        premium_only=False,
+        recommendation_preview=None,
+    )
+
+    with SessionLocal() as db:
+        before = calculate_scan_commercials(
+            db,
+            issues=[issue],
+            total_records=1000,
+            supplied_estimated_premium_price_monthly=99.0,
+        )
+
+    hourly_response = client.post(
+        "/admin/config/issue-costs/hourly-rate",
+        headers=_admin_auth_header(),
+        data={"hourly_rate_eur": "60"},
+        follow_redirects=False,
+    )
+
+    assert hourly_response.status_code == 303
+
+    with SessionLocal() as db:
+        after = calculate_scan_commercials(
+            db,
+            issues=[issue],
+            total_records=1000,
+            supplied_estimated_premium_price_monthly=99.0,
+        )
+
+    assert after["estimated_loss_eur"] > before["estimated_loss_eur"]
+    assert after["potential_saving_eur"] > before["potential_saving_eur"]
