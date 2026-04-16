@@ -712,6 +712,8 @@
 
     const STORAGE_KEY = "bcsentinel-lang";
     const THEME_STORAGE_KEY = "bcsentinel-theme";
+    const LOSS_EXAMPLE_REFERENCE_RATE = 75;
+    let lossExampleConfig = { hourly_rate_eur: LOSS_EXAMPLE_REFERENCE_RATE, issues: {} };
     const html = document.documentElement;
     const langButtons = document.querySelectorAll('.lang-btn');
     const themeToggle = document.getElementById('themeToggle');
@@ -756,16 +758,65 @@
       return translations[currentLang][key] || key;
     }
 
+    function getConfiguredExampleMetrics(code, fallback) {
+      const configured = lossExampleConfig.issues?.[code] || {};
+      const count = Number(fallback.count || 0);
+      const probability = Number(configured.probability ?? fallback.prob ?? 0);
+      const minutes = Number(configured.minutes_per_occurrence ?? fallback.minutes ?? 0);
+      const frequency = Number(configured.frequency_per_year ?? fallback.freq ?? 0);
+      const hourlyRate = Number(lossExampleConfig.hourly_rate_eur || fallback.rate || LOSS_EXAMPLE_REFERENCE_RATE);
+      const effectiveHours = count * probability * (minutes / 60);
+      const annual = Math.round(effectiveHours * hourlyRate * frequency);
+      return {
+        count,
+        probability,
+        minutes,
+        frequency,
+        hourlyRate,
+        effectiveHours,
+        annual
+      };
+    }
+
+    function getShortExampleAnnual(fallbackAnnual) {
+      const hourlyRate = Number(lossExampleConfig.hourly_rate_eur || LOSS_EXAMPLE_REFERENCE_RATE);
+      return Math.round(Number(fallbackAnnual || 0) * (hourlyRate / LOSS_EXAMPLE_REFERENCE_RATE));
+    }
+
+    function updateFormulaNote() {
+      const note = document.querySelector('[data-i18n="formula_note"]');
+      if (!note) return;
+      const rateLabel = currencyFormat().format(Number(lossExampleConfig.hourly_rate_eur || LOSS_EXAMPLE_REFERENCE_RATE));
+      note.textContent = currentLang === 'de'
+        ? `Die Beispiele unten rechnen mit dem aktuell konfigurierten internen Stundensatz von ${rateLabel}. Die Werte sind bewusst konservativ angesetzt, damit Kunden einen belastbaren Business Case sehen und keine künstlich aufgeblähten Marketingzahlen.`
+        : `The examples below use the currently configured internal hourly rate of ${rateLabel}. The values are intentionally conservative so customers see a credible business case instead of inflated marketing numbers.`;
+    }
+
+    async function loadLossExampleConfig() {
+      try {
+        const response = await fetch('/public/loss-examples-config', {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) return;
+        const payload = await response.json();
+        lossExampleConfig = {
+          hourly_rate_eur: Number(payload?.hourly_rate_eur || LOSS_EXAMPLE_REFERENCE_RATE),
+          issues: payload?.issues || {}
+        };
+      } catch (error) {
+      }
+    }
+
     function renderTop5() {
       const order = ['SALES_LINES_ZERO_PRICE','ITEMS_NEGATIVE_INVENTORY','CUSTOMERS_MISSING_PAYMENT_TERMS','CUSTOMER_LEDGER_OVERDUE_30','VENDORS_MISSING_BANK_ACCOUNT'];
       const container = document.getElementById('top5Container');
       const fmt = currencyFormat();
       container.innerHTML = order.map(code => {
         const item = top5[code];
+        const metrics = getConfiguredExampleMetrics(code, item);
         const title = currentLang === 'de' ? item.title_de : item.title_en;
         const why = currentLang === 'de' ? item.why_de : item.why_en;
         const impacts = currentLang === 'de' ? item.impacts_de : item.impacts_en;
-        const effectiveHours = (item.count * item.prob * item.minutes / 60).toFixed(1);
         return `
           <article class="card issue-card">
             <div class="issue-head">
@@ -798,19 +849,19 @@
                 <div class="issue-side-card">
                   <span class="overline"><strong>${t('assumptions_title')}</strong></span>
                   <div class="assumption-grid" style="margin-top:14px;">
-                    <div class="assumption-box"><span>${t('assumption_count')}</span><strong>${item.count}</strong></div>
-                    <div class="assumption-box"><span>${t('assumption_prob')}</span><strong>${Math.round(item.prob * 100)}%</strong></div>
-                    <div class="assumption-box"><span>${t('assumption_minutes')}</span><strong>${item.minutes}</strong></div>
-                    <div class="assumption-box"><span>${t('assumption_rate')}</span><strong>${fmt.format(item.rate)}</strong></div>
-                    <div class="assumption-box"><span>${t('assumption_freq')}</span><strong>${item.freq}</strong></div>
-                    <div class="assumption-box"><span>${t('assumption_hours')}</span><strong>${effectiveHours} h</strong></div>
+                    <div class="assumption-box"><span>${t('assumption_count')}</span><strong>${metrics.count}</strong></div>
+                    <div class="assumption-box"><span>${t('assumption_prob')}</span><strong>${Math.round(metrics.probability * 100)}%</strong></div>
+                    <div class="assumption-box"><span>${t('assumption_minutes')}</span><strong>${metrics.minutes}</strong></div>
+                    <div class="assumption-box"><span>${t('assumption_rate')}</span><strong>${fmt.format(metrics.hourlyRate)}</strong></div>
+                    <div class="assumption-box"><span>${t('assumption_freq')}</span><strong>${metrics.frequency}</strong></div>
+                    <div class="assumption-box"><span>${t('assumption_hours')}</span><strong>${metrics.effectiveHours.toFixed(1)} h</strong></div>
                   </div>
                 </div>
 
                 <div class="issue-side-card final-card">
                   <span class="overline"><strong>${t('calc_title')}</strong></span>
-                  <span class="final-amount">${fmt.format(item.annual)}</span>
-                  <p class="final-note">${item.count} × ${Math.round(item.prob * 100)}% × ${item.minutes}/60 × ${fmt.format(item.rate)} × ${item.freq}</p>
+                  <span class="final-amount">${fmt.format(metrics.annual)}</span>
+                  <p class="final-note">${metrics.count} × ${Math.round(metrics.probability * 100)}% × ${metrics.minutes}/60 × ${fmt.format(metrics.hourlyRate)} × ${metrics.frequency}</p>
                   <p class="mini-note">${t('calc_note')}</p>
                 </div>
               </div>
@@ -823,7 +874,7 @@
       const groups = {};
       shortRows.forEach(([group, code, title_de, title_en, desc_de, desc_en, annual]) => {
         if (!groups[group]) groups[group] = [];
-        groups[group].push({ code, title_de, title_en, desc_de, desc_en, annual });
+        groups[group].push({ code, title_de, title_en, desc_de, desc_en, annual: getShortExampleAnnual(annual) });
       });
       const fmt = currencyFormat();
       document.getElementById('shortGroups').innerHTML = Object.keys(groupNames).map(group => `
@@ -857,6 +908,7 @@
       });
       langButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.lang === currentLang));
       try { localStorage.setItem(STORAGE_KEY, currentLang); } catch (e) {}
+      updateFormulaNote();
       renderTop5();
       renderShortGroups();
     }
@@ -864,8 +916,13 @@
     langButtons.forEach(btn => btn.addEventListener('click', () => applyTranslations(btn.dataset.lang)));
     if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
 
-    applyTheme(getInitialTheme());
-    applyTranslations(getInitialLanguage());
+    async function bootstrapLossExamples() {
+      await loadLossExampleConfig();
+      applyTheme(getInitialTheme());
+      applyTranslations(getInitialLanguage());
+    }
+
+    bootstrapLossExamples();
   </script>
 </body>
 </html>
