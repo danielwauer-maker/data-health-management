@@ -118,7 +118,7 @@ page 53158 "DH Deep Scan Monitor"
 
 
 
-            /*group(ModuleProgress)
+            group(ModuleProgress)
             {
                 Caption = 'Module Progress';
 
@@ -192,7 +192,7 @@ page 53158 "DH Deep Scan Monitor"
                     Visible = ShowHR;
                     StyleExpr = HRProgressStyle;
                 }
-            }*/
+            }
 
             group(ModuleScores)
             {

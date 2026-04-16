@@ -43,21 +43,36 @@
       display: none !important;
     }
 
-    .value-preview-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 420px);
-      gap: 32px;
-      align-items: center;
-    }
+      .value-preview-layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 22px;
+        align-items: start;
+      }
 
-    .value-stats-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 18px;
-      width: 100%;
-      max-width: 380px;
-      margin-left: auto;
-    }
+      .value-preview-layout .callout-copy {
+        max-width: 860px;
+        align-self: start;
+      }
+
+      .value-preview-layout .callout-copy h2 {
+        margin-bottom: 18px;
+      }
+
+      .value-preview-layout .callout-copy .lead-small {
+        max-width: 780px;
+        margin-bottom: 0;
+      }
+
+      .value-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        width: 100%;
+        max-width: none;
+        margin-left: 0;
+        align-self: start;
+      }
 
     .value-stat-box {
       position: relative;
@@ -167,16 +182,16 @@
       box-shadow: var(--shadow);
       backdrop-filter: blur(14px);
     }
-    .value-proof-box {
-      margin-top: 16px;
-      padding: 14px 16px;
-      border-radius: 16px;
-      background: rgba(74,141,255,.1);
-      border: 1px solid rgba(74,141,255,.2);
-      
-      font-size: .95rem;
-      line-height: 1.5;
-    }
+      .value-proof-box {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(74,141,255,.1);
+        border: 1px solid rgba(74,141,255,.2);
+        max-width: 780px;
+        font-size: .95rem;
+        line-height: 1.5;
+      }
     .value-proof-box strong {
       color: #fff;
     }
@@ -223,16 +238,23 @@
       font-weight: 700;
     }
 
-    @media (max-width: 980px) {
-      .value-preview-layout {
-        grid-template-columns: 1fr;
-        gap: 24px;
-      }
+      @media (max-width: 980px) {
+        .value-preview-layout {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
 
-      .value-stats-grid {
-        max-width: none;
-        margin-left: 0;
-      }
+        .value-preview-layout .callout-copy,
+        .value-preview-layout .callout-copy .lead-small,
+        .value-proof-box {
+          max-width: none;
+        }
+
+        .value-stats-grid {
+          grid-template-columns: 1fr;
+          max-width: none;
+          margin-left: 0;
+        }
 
       .section-shell {
         padding: 22px;
@@ -512,19 +534,31 @@
 <h2 data-i18n="impact_title">Bad data is not just annoying. It is expensive.</h2>
 <div class="impact-list">
 <div class="impact-item">
+<div class="impact-item-head">
+<span class="impact-icon" aria-hidden="true">€</span>
 <strong data-i18n="impact_item_1_title">Lost revenue</strong>
+</div>
 <p data-i18n="impact_item_1_text">Wrong prices and discounts reduce margin.</p>
 </div>
 <div class="impact-item">
+<div class="impact-item-head">
+<span class="impact-icon" aria-hidden="true">🛠</span>
 <strong data-i18n="impact_item_2_title">Manual rework</strong>
+</div>
 <p data-i18n="impact_item_2_text">Teams spend time fixing avoidable data errors.</p>
 </div>
 <div class="impact-item">
+<div class="impact-item-head">
+<span class="impact-icon" aria-hidden="true">⏳</span>
 <strong data-i18n="impact_item_3_title">Process delays</strong>
+</div>
 <p data-i18n="impact_item_3_text">Incomplete setups block transactions and approvals.</p>
 </div>
 <div class="impact-item">
+<div class="impact-item-head">
+<span class="impact-icon" aria-hidden="true">📉</span>
 <strong data-i18n="impact_item_4_title">Wrong decisions</strong>
+</div>
 <p data-i18n="impact_item_4_text">Low-quality data distorts reports and KPIs.</p>
 </div>
 </div>
